@@ -1,4 +1,4 @@
-# k8s_myHome Makefile (task runner)
+# home-lab-k8s Makefile (task runner)
 
 .DEFAULT_GOAL := help
 
@@ -8,7 +8,7 @@
 .PHONY: add-runner add-runners-all kubelet-certificates
 
 help:
-	@echo "k8s_myHome task runner"
+	@echo "home-lab-k8s task runner"
 	@echo ""
 	@echo "Phases:"
 	@echo "  make all                 - phase1 -> phase2 -> bootstrap -> phase5を順番に実行"

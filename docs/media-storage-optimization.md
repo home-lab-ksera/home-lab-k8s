@@ -63,8 +63,8 @@ DB schema変更・S3移動はない。
   [公開CI](https://github.com/ksera524/hitomi-pdf-batch/actions/runs/40706725328)成功。
   公開digestは `sha256:00c493e9ee33c8905b957057a678ce444325d707e3e914807cb5a2fcd47f83ec`。
 - Image Updaterのwrite-backは `6a6087f`。API/worker実imageIDとの一致を確認してからGitOpsを反映。
-- GitOps: [PR #130](https://github.com/ksera524/k8s_myHome/pull/130)、commit `9b1f046`。
-  PR全CIと[マージ後CI](https://github.com/ksera524/k8s_myHome/actions/runs/40780662204)成功。
+- GitOps: [PR #130](https://github.com/home-lab-ksera/home-lab-k8s/pull/130)、commit `9b1f046`。
+  PR全CIと[マージ後CI](https://github.com/home-lab-ksera/home-lab-k8s/actions/runs/40780662204)成功。
 - ArgoCD hitomi-pdfはSynced / Healthy、同期操作Succeeded。
 - 新worker `media-worker-667696ff4f-6cpv4` は07:32:32 JST起動、Ready、再起動0。
   実Podの/tmpはemptyDir 6GiB、MAX_ASSET_BYTES=5368709120、SPOOL_MIN_FREE_BYTES=4294967296、

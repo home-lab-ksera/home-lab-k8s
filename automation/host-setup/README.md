@@ -1,6 +1,6 @@
 # Phase 1: Host Setup
 
-Ubuntu 24.04 LTS ホストで k8s_myHome の VM / Kubernetes 構築前提を準備します。通常の実行入口は repo root の `make phase1` です。
+Ubuntu 24.04 LTS ホストで home-lab-k8s の VM / Kubernetes 構築前提を準備します。通常の実行入口は repo root の `make phase1` です。
 
 ## 実行入口
 

@@ -2,7 +2,7 @@
 
 2026-10-29 の [bootstrap 定義](../../manifests/bootstrap/applications/) から作成した一覧です。
 root は [bootstrap-root](../../manifests/bootstrap/app-of-apps.yaml) で、source は `manifests/bootstrap/applications` です。
-GitOps repository と各 runner の登録先は `home-lab-ksera` Organization 配下です。
+GitOps repository は `home-lab-ksera/home-lab-k8s`、各 runner の登録先は `home-lab-ksera` Organization です。
 
 ## 管理構造
 

@@ -13,7 +13,7 @@
 | [hitomi #24](https://github.com/ksera524/hitomi/pull/24) | 初回baseline、安定ID、RSSから消えた未完了項目、lease、原子的outbox、再送と配送状態の照合を検証 | 旧Job終了後の切替と実sourceの初回baseline件数、通知済みへの遷移 |
 | [hitomi-pdf-batch #1](https://github.com/ksera524/hitomi-pdf-batch/pull/1) | 安定した動画ID、項目単位の再試行、PUT後DB更新前の回復。DB一覧/ランダム、個別修復、既存keyを保持したimport、期限表示、署名更新と再生位置復元を検証 | 本番S3のimport件数照合、カタログAPI p95、実端末での速度比較 |
 | [home-camera #6](https://github.com/ksera524/home-camera/pull/6) | 実FFmpegのsegment継続、DB/S3停止中のspool保持、復帰後再送、二重起動防止、破損隔離を検証 | 実カメラ・PVCでの連続録画、spool監視、実機のkeyframe間隔とsegment長 |
-| [k8s_myHome #108](https://github.com/ksera524/k8s_myHome/pull/108) | 4アプリDBと共用app、CA/資格情報配布、双方のNetworkPolicy、S3ルート/CORS、切替用workload。manifest全体検証と接続予算を確認 | 公開済みimageのdigest照合とworkloadの段階的切替 |
+| [k8s_myHome #108](https://github.com/home-lab-ksera/home-lab-k8s/pull/108) | 4アプリDBと共用app、CA/資格情報配布、双方のNetworkPolicy、S3ルート/CORS、切替用workload。manifest全体検証と接続予算を確認 | 公開済みimageのdigest照合とworkloadの段階的切替 |
 
 100件超のページ送りはviewer APIテスト、署名再発行とRangeはAPIテストと実MP4 fixtureのブラウザテストで確認した。実ブラウザの試験でもS3/Slackの本番経路を再現したとは扱わない。
 カタログと通知の追加テストは隔離PostgreSQLを使い、SQLをmockせず実行している。カメラの障害試験も録画fixtureと隔離DBを使う。

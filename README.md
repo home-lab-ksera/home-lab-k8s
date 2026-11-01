@@ -1,4 +1,4 @@
-# k8s_myHome
+# home-lab-k8s
 
 ホームラボの Kubernetes を構築・運用するリポジトリです。
 Ubuntu / libvirt / Terraform で VM と kubeadm クラスタを用意し、ArgoCD が基盤・公開経路・アプリを管理します。

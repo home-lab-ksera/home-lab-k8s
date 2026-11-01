@@ -140,4 +140,4 @@ vmalertの`HarborMaintenanceStalled`はhealth=ok、state=inactive、評価エラ
 保護停止した。その後は自動復帰し、22:40 JSTのJob `harbor-maintenance-29886580`は
 全8アプリeligible、blocked=[]、削除候補0で成功した。
 この時点のsandbox使用量は **1,752,612,568 bytes / 4,294,967,296 bytes**。
-保守コード最終変更のCI [40663600027](https://github.com/ksera524/k8s_myHome/actions/runs/40663600027)も成功した。
+保守コード最終変更のCI [40663600027](https://github.com/home-lab-ksera/home-lab-k8s/actions/runs/40663600027)も成功した。

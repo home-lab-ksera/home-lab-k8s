@@ -14,7 +14,7 @@ media worker の空キュー・DB障害時の待機を最大30秒にした。
 
 3件とも対象ソースのビルド・復旧テスト・公開が成功。
 media は既存viewerのブラウザ検証も成功し、viewer image 自体の変更・再公開はない。
-GitOps の設定 commit は `2fd64e8`、その[公開CI](https://github.com/ksera524/k8s_myHome/actions/runs/40430976136)も全成功。
+GitOps の設定 commit は `2fd64e8`、その[公開CI](https://github.com/home-lab-ksera/home-lab-k8s/actions/runs/40430976136)も全成功。
 Image Updater の Git write-back は api-hub `6199ada`、hitomi `2daa769`、media `6b685c5`。
 3つの自動更新 commit の CI もすべて成功した。
 

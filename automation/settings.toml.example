@@ -1,4 +1,4 @@
-# k8s_myHome 自動化設定ファイル（サンプル）
+# home-lab-k8s 自動化設定ファイル（サンプル）
 # このファイルを automation/settings.toml としてコピーし、環境差分だけを設定します。
 # settings.toml は Git 管理外です。secret 本文はコミットしないでください。
 

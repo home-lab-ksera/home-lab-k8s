@@ -10,7 +10,7 @@ metadata:
 spec:
   project: access
   source:
-    repoURL: https://github.com/home-lab-ksera/k8s_myHome.git
+    repoURL: https://github.com/home-lab-ksera/home-lab-k8s.git
     targetRevision: HEAD
     path: manifests/access/dns/core
   destination:

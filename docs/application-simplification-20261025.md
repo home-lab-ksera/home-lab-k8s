@@ -110,4 +110,4 @@ GitOps #123で専用worker Deployment・旧camera CronJob・専用policy参照�
 
 定期取得が継続したため、mediaの最新状態はPDF/preview各ready1459/expired100、video ready368/failed4/pending1、ingest_jobs done173/failed4/retry1。失敗4件は容量上限・MP4 signature不一致・取得元429・403が各1、retry1件は取得元503。開始時のfailed3件だけを最新値として扱わない。hitomiはbaseline861/filtered13/notification_accepted9/retry3、outbox accepted9。取得失敗は個別に残し、一括retryや成功状態への書換えを行っていない。
 
-清掃のGitOps PRは[#123](https://github.com/ksera524/k8s_myHome/pull/123)、最終配備確認は本節に記録。通常のmedia importは実行しておらず、手動Jobの見本だけを上記検証済みmedia digestへ更新した。
+清掃のGitOps PRは[#123](https://github.com/home-lab-ksera/home-lab-k8s/pull/123)、最終配備確認は本節に記録。通常のmedia importは実行しておらず、手動Jobの見本だけを上記検証済みmedia digestへ更新した。

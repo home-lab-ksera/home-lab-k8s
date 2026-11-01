@@ -6,7 +6,7 @@ metadata:
 spec:
   description: コア基盤（Namespace/StorageClass/NetworkPolicy）
   sourceRepos:
-    - https://github.com/home-lab-ksera/k8s_myHome.git
+    - https://github.com/home-lab-ksera/home-lab-k8s.git
   destinations:
     - server: https://kubernetes.default.svc
       namespace: "*"
@@ -24,7 +24,7 @@ metadata:
 spec:
   description: クラスタ基盤（Networking/Ingress/Cert/Storage）
   sourceRepos:
-    - https://github.com/home-lab-ksera/k8s_myHome.git
+    - https://github.com/home-lab-ksera/home-lab-k8s.git
     - https://metallb.github.io/metallb
     - oci://ghcr.io/nginx/charts/nginx-gateway-fabric
     - https://charts.jetstack.io
@@ -57,7 +57,7 @@ metadata:
 spec:
   description: 運用基盤（ArgoCD/ESO/Harbor/RustFS/CI）
   sourceRepos:
-    - https://github.com/home-lab-ksera/k8s_myHome.git
+    - https://github.com/home-lab-ksera/home-lab-k8s.git
     - https://charts.external-secrets.io
     - https://argoproj.github.io/argo-helm
     - ghcr.io/actions/actions-runner-controller-charts
@@ -103,7 +103,7 @@ metadata:
 spec:
   description: 公開/接続系（Gateway/DNS/HTTPRoute）
   sourceRepos:
-    - https://github.com/home-lab-ksera/k8s_myHome.git
+    - https://github.com/home-lab-ksera/home-lab-k8s.git
   destinations:
     - server: https://kubernetes.default.svc
       namespace: argocd
@@ -134,7 +134,7 @@ metadata:
 spec:
   description: ユーザーアプリ
   sourceRepos:
-    - https://github.com/home-lab-ksera/k8s_myHome.git
+    - https://github.com/home-lab-ksera/home-lab-k8s.git
     - https://charts.bitnami.com/bitnami
   destinations:
     - server: https://kubernetes.default.svc
