@@ -86,7 +86,7 @@ spec:
               name: home-camera
               key: RTSP_URL
         - name: SEGMENT_SECONDS
-          value: '300'
+          value: '3600'
         - name: SPOOL_MAX_BYTES
           value: '85899345920'
         resources:
