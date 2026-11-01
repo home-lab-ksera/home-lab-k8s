@@ -41,6 +41,18 @@ spec:
           path:
             type: PathPrefix
             value: /pdfs/videos/
+        - method: GET
+          path:
+            type: PathPrefix
+            value: /home-camera-recordings/
+        - method: HEAD
+          path:
+            type: PathPrefix
+            value: /home-camera-recordings/
+        - method: OPTIONS
+          path:
+            type: PathPrefix
+            value: /home-camera-recordings/
       backendRefs:
         - group: ""
           kind: Service

@@ -35,3 +35,5 @@ kubectl -n rustfs logs job/rustfs-lifecycle
 バージョニング無効だが、将来有効化する場合は旧バージョンの保持・削除方針も別途定義する。
 
 参考: [ArgoCD Sync Phases and Waves](https://argo-cd.readthedocs.io/en/stable/user-guide/sync-waves/)
+
+viewer用CORSは `buckets.txt` の両バケットへ適用する。内部S3経路は録画バケットのGET/HEAD/OPTIONSにも対応し、api-hubが発行する署名で再生する。

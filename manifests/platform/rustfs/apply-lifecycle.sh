@@ -41,20 +41,23 @@ done < "$config_dir/buckets.txt"
 # viewer用ルールだけを更新し、他のCORSルールを維持する。
 desired_cors="$(cat "$config_dir/cors.json")"
 cors_merge="{CORSRules: [CORSRules[?ID != 'media-viewer'], \`$desired_cors\`.CORSRules][]}"
-if s3 get-bucket-cors --bucket pdfs --query "$cors_merge" --output json \
-  > "$work_dir/cors.json" 2> "$work_dir/error"; then
-  :
-elif grep -q '(NoSuchCORSConfiguration)' "$work_dir/error"; then
-  cp "$config_dir/cors.json" "$work_dir/cors.json"
-else
-  cat "$work_dir/error" >&2
-  exit 1
-fi
-s3 put-bucket-cors --bucket pdfs --cors-configuration "file://$work_dir/cors.json"
-verified="$(s3 get-bucket-cors --bucket pdfs \
-  --query "contains(CORSRules, \`$desired_cors\`.CORSRules[0])" --output text)"
-if [[ "$verified" != "True" ]]; then
-  echo "pdfs: CORSの読み戻し検証に失敗しました" >&2
-  exit 1
-fi
-echo "pdfs: viewer CORSを適用・検証しました"
+while IFS= read -r bucket || [[ -n "$bucket" ]]; do
+  [[ -n "$bucket" ]] || continue
+  if s3 get-bucket-cors --bucket "$bucket" --query "$cors_merge" --output json \
+    > "$work_dir/cors.json" 2> "$work_dir/error"; then
+    :
+  elif grep -q '(NoSuchCORSConfiguration)' "$work_dir/error"; then
+    cp "$config_dir/cors.json" "$work_dir/cors.json"
+  else
+    cat "$work_dir/error" >&2
+    exit 1
+  fi
+  s3 put-bucket-cors --bucket "$bucket" --cors-configuration "file://$work_dir/cors.json"
+  verified="$(s3 get-bucket-cors --bucket "$bucket" \
+    --query "contains(CORSRules, \`$desired_cors\`.CORSRules[0])" --output text)"
+  if [[ "$verified" != "True" ]]; then
+    echo "$bucket: CORSの読み戻し検証に失敗しました" >&2
+    exit 1
+  fi
+  echo "$bucket: viewer CORSを適用・検証しました"
+done < "$config_dir/buckets.txt"
