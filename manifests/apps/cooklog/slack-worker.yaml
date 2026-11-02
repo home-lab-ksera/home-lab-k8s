@@ -19,8 +19,7 @@ metadata:
   labels:
     app: cooklog-slack
 spec:
-  # Secret設定と初回イメージ公開後、Gitで1へ変更して起動する。
-  replicas: 0
+  replicas: 1
   strategy:
     type: Recreate
   selector:
@@ -42,7 +41,7 @@ spec:
         - name: harbor-registry
       containers:
         - name: worker
-          image: harbor.qroksera.com/sandbox/cooklog-slack:latest
+          image: harbor.qroksera.com/sandbox/cooklog-slack:build-41377045067-1-18f5cb710207d22aa5cf5bd13eff7c018aae16ea
           imagePullPolicy: Always
           envFrom:
             - secretRef:
