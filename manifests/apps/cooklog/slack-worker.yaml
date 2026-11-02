@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: cooklog-slack-queue
+  namespace: sandbox
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs-external
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cooklog-slack
+  namespace: sandbox
+  labels:
+    app: cooklog-slack
+spec:
+  # Secret設定と初回イメージ公開後、Gitで1へ変更して起動する。
+  replicas: 0
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: cooklog-slack
+  template:
+    metadata:
+      labels:
+        app: cooklog-slack
+    spec:
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 180
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      imagePullSecrets:
+        - name: harbor-registry
+      containers:
+        - name: worker
+          image: harbor.qroksera.com/sandbox/cooklog-slack:latest
+          imagePullPolicy: Always
+          envFrom:
+            - secretRef:
+                name: cooklog-slack
+          env:
+            - name: SLACK_CHANNEL_ID
+              value: "C0CDULTS7FX"
+            - name: GITHUB_REPOSITORY
+              value: home-lab-ksera/cookLog
+            - name: GITHUB_BRANCH
+              value: main
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 128Mi
+              ephemeral-storage: 256Mi
+            limits:
+              memory: 512Mi
+              ephemeral-storage: 2Gi
+          volumeMounts:
+            - name: queue
+              mountPath: /data/queue
+      volumes:
+        - name: queue
+          persistentVolumeClaim:
+            claimName: cooklog-slack-queue
