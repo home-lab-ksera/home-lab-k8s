@@ -54,10 +54,15 @@ Nature のクラウド障害時の代替操作が目的です。保存済み信�
    ```
 
    push で表示された digest を `manifests/apps/nature-remo/kustomization.yaml` の `images` に
-   `digest: sha256:...` として追加してください。更新時も新しい固定 tag/digest を Git で反映します。
-   本アプリは既存 Image Updater の対象には追加していません。
+   `digest: sha256:...` として追加してください。
+   本アプリも Harbor 保守と Image Updater の対象です。初回正常稼働後、保守 Job が `deploy` と
+   `retain-current` を作成し、以降は `deploy` の digest を Git に書き戻します。
+   更新時はテスト済みイメージを `latest` にも push すると、保守 Job の確認後に配布されます。
+   アプリの GitHub Actions はテストとビルドのみで、Harbor への自動 push は行いません。
 
 5. Tailscale Operator が稼働し、MagicDNS と HTTPS が有効であることを確認します。
+   Tailnet の `tagOwners` に `"tag:k8s": ["tag:k8s-operator"]` が必要です。
+   2026-11-05 に既存ポリシーの他の設定を保持して追加しました。
    [Tailscale の公式 Ingress 説明](https://tailscale.com/docs/kubernetes-operator/ingress)を参照してください。
    利用者の ACL/grants を `nature-remo` の TCP 443 に許可します。
    アプリにログイン画面はなく、許可した利用者は信号の登録・削除・送信ができます。

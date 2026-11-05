@@ -5,7 +5,7 @@ Application の namespace と source は [一覧](diagrams/app-of-apps-sync-wave
 現在のユーザーアプリは api-hub、blog、cooklog、hitomi、hitomi-pdf、hitomi-upload-viewer、home-camera、rsshub、nature-remo。
 すべて `sandbox` に配置します。Selenium は独立アプリではなく、hitomi の収集 Job 内でのみ起動します。
 起動待ち・終了・切替手順は [Selenium の非常駐化](hitomi-selenium-sidecar.md) を参照してください。
-Nature Remo は [ローカル操作アプリの手順](nature-remo.md) に従って固定 digest を Git 反映します。Image Updater の対象には含めません。
+Nature Remo の初回配布と手動ビルドは [ローカル操作アプリの手順](nature-remo.md) を参照してください。
 
 ## 新規追加
 
@@ -31,7 +31,7 @@ default branch HEADとの一致を確認した版だけ `latest` へ昇格しま
 PR イベントでは build までです。ARC runner に Docker daemon、sudo、kubectl は不要です。
 
 [Image Updater](../manifests/platform/ci-cd/image-updater/sandbox-images.yaml) が約2分間隔で
-許可した8アプリの `deploy` の digest を検知し、このリポジトリの `main` にある各
+許可した9アプリの `deploy` の digest を検知し、このリポジトリの `main` にある各
 `manifests/apps/<app>/kustomization.yaml` に書き戻します。ArgoCD Application の revision は `HEAD` のままです。
 Harbor への接続は内部 URL、マニフェスト内のイメージ名は従来の `harbor.qroksera.com/sandbox/...` を使います。
 5分間隔のHarbor保守Jobが直前の配布成功を確認して`latest`を`deploy`へ進めます。

@@ -67,6 +67,13 @@ spec:
           manifestTargets:
             kustomize:
               name: harbor.qroksera.com/sandbox/home-camera
+    - namePattern: nature-remo
+      images:
+        - alias: app
+          imageName: harbor.qroksera.com/sandbox/nature-remo:deploy
+          manifestTargets:
+            kustomize:
+              name: harbor.qroksera.com/sandbox/nature-remo
     - namePattern: rsshub
       images:
         - alias: app

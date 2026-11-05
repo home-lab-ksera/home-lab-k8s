@@ -11,6 +11,7 @@
     "hitomi-pdf-batch": {"application": "hitomi-pdf"},
     "hitomi-upload-viewer": {"application": "hitomi-upload-viewer"},
     "home-camera": {"application": "home-camera"},
+    "nature-remo": {"application": "nature-remo"},
     "rsshub-private": {"application": "rsshub"},
     "slack.rs": {"archive": true}
   }
