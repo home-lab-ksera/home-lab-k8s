@@ -1,0 +1,105 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: nature-remo-data
+  namespace: sandbox
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  accessModes:
+    - ReadWriteOnce
+  storageClassName: nfs-external
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nature-remo
+  namespace: sandbox
+spec:
+  replicas: 1
+  # JSON ファイルを単一プロセスで管理するため、更新時も同時稼働させない。
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: nature-remo
+  template:
+    metadata:
+      labels:
+        app: nature-remo
+    spec:
+      automountServiceAccountToken: false
+      imagePullSecrets:
+        - name: harbor-registry
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: nature-remo
+          image: harbor.qroksera.com/sandbox/nature-remo:build-975d107
+          ports:
+            - name: http
+              containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: nature-remo-config
+          env:
+            - name: DATA_DIR
+              value: /data
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 300m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 15
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: http
+            periodSeconds: 2
+            failureThreshold: 30
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: nature-remo-data
+      terminationGracePeriodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: nature-remo
+  namespace: sandbox
+spec:
+  selector:
+    app: nature-remo
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

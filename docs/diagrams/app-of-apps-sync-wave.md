@@ -1,6 +1,6 @@
 # Application と Sync Wave
 
-2026-10-29 の [bootstrap 定義](../../manifests/bootstrap/applications/) から作成した一覧です。
+2026-11-04 の [bootstrap 定義](../../manifests/bootstrap/applications/) から作成した一覧です。
 root は [bootstrap-root](../../manifests/bootstrap/app-of-apps.yaml) で、source は `manifests/bootstrap/applications` です。
 GitOps repository は `home-lab-ksera/home-lab-k8s`、各 runner の登録先は `home-lab-ksera` Organization です。
 
@@ -74,7 +74,16 @@ wave は root が作成・更新する Application の annotation です。別 A
 | 14 | [dns-core](../../manifests/bootstrap/applications/access/dns-core.yaml) | `access` | [manifests/access/dns/core](../../manifests/access/dns/core) | `kube-system` |
 | 14 | [dns-tailscale](../../manifests/bootstrap/applications/access/dns-tailscale.yaml) | `access` | [manifests/access/dns/tailscale](../../manifests/access/dns/tailscale) | `tailscale` |
 
-root 配下は **47 Application**。`argocd-projects` / `argocd-core` のみ automated prune が false、他は true です。
+Nature Remo の追加定義:
+
+| Wave | Application（定義） | Project | Source | Destination namespace |
+|---|---|---|---|---|
+| 12 | [nature-remo](../../manifests/bootstrap/applications/user-apps/nature-remo-app.yaml) | `apps` | [manifests/apps/nature-remo](../../manifests/apps/nature-remo) | `sandbox` |
+| 13 | [nature-remo-access](../../manifests/bootstrap/applications/access/nature-remo-access.yaml) | `access` | [manifests/access/nature-remo](../../manifests/access/nature-remo) | `sandbox` |
+
+設定・初回公開は [Nature Remo](../nature-remo.md) を参照してください。
+
+root 配下は **48 Application**。`argocd-projects` / `argocd-core` のみ automated prune が false、他は true です。
 ローカル Git source は `HEAD`、外部 chart は固定 revision です。
 
 ## ARC が追加する Application

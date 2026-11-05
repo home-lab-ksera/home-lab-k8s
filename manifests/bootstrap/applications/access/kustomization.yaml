@@ -14,3 +14,4 @@ resources:
   - dns-core.yaml
   - dns-tailscale.yaml
   - rsshub-access.yaml
+  - nature-remo-access.yaml

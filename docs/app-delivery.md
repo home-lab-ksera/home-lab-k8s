@@ -2,9 +2,10 @@
 
 アプリ実体は [apps/](../manifests/apps/)、公開経路は [access/](../manifests/access/) に置きます。
 Application の namespace と source は [一覧](diagrams/app-of-apps-sync-wave.md) が参照先です。
-現在のユーザーアプリは api-hub、blog、cooklog、hitomi、hitomi-pdf、hitomi-upload-viewer、home-camera、rsshub。
+現在のユーザーアプリは api-hub、blog、cooklog、hitomi、hitomi-pdf、hitomi-upload-viewer、home-camera、rsshub、nature-remo。
 すべて `sandbox` に配置します。Selenium は独立アプリではなく、hitomi の収集 Job 内でのみ起動します。
 起動待ち・終了・切替手順は [Selenium の非常駐化](hitomi-selenium-sidecar.md) を参照してください。
+Nature Remo は [ローカル操作アプリの手順](nature-remo.md) に従って固定 digest を Git 反映します。Image Updater の対象には含めません。
 
 ## 新規追加
 

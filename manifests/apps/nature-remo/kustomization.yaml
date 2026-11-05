@@ -1,0 +1,15 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - manifest.yaml
+configMapGenerator:
+  - name: nature-remo-config
+    namespace: sandbox
+    literals:
+      # Nature Remo mini 1 / MAC 50:02:91:f5:8c:35。ルーターで DHCP 予約を設定する。
+      # 変更すると Deployment が再作成される。
+      - 'REMO_DEVICES=[{"id":"living","name":"Nature Remo mini","url":"http://192.168.10.2"}]'
+images:
+  - name: harbor.qroksera.com/sandbox/nature-remo
+    newTag: build-975d107
+    digest: sha256:b71f26b293df62138671419ff1fede1ef089fbe56112cf317229ecc7a30b6eaa

@@ -1,0 +1,49 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: nature-remo
+  namespace: sandbox
+spec:
+  ingressClassName: tailscale
+  tls:
+    - hosts:
+        - nature-remo
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: nature-remo
+                port:
+                  number: 80
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: nature-remo
+  namespace: sandbox
+spec:
+  podSelector:
+    matchLabels:
+      app: nature-remo
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: tailscale
+      ports:
+        - protocol: TCP
+          port: 8080
+  # Nature Remo mini 1 の Local API。DNS は core の allow-dns が許可。
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 192.168.10.2/32
+      ports:
+        - protocol: TCP
+          port: 80

@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: nature-remo
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/sync-wave: "12"
+spec:
+  project: apps
+  source:
+    repoURL: https://github.com/home-lab-ksera/home-lab-k8s.git
+    targetRevision: HEAD
+    path: manifests/apps/nature-remo
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: sandbox
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

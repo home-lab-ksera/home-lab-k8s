@@ -9,4 +9,5 @@ resources:
   - hitomi-pdf-app.yaml
   - hitomi-upload-viewer-app.yaml
   - home-camera-app.yaml
+  - nature-remo-app.yaml
   - rsshub-app.yaml
