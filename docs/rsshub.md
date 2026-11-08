@@ -10,7 +10,7 @@
 | image | `harbor.qroksera.com/sandbox/rsshub-private:latest`、Always pull |
 | URL | `https://rsshub.internal.qroksera.com` |
 | Runner | `harbor-publish-runners`、Application `harbor-publish-runner` |
-| アプリ repo | `home-lab-ksera/RSSHub-private`（共通 runner group の許可対象） |
+| アプリ repo | `home-lab-ksera/RSSHub-private`（GitHub-hosted runner + Tailscale OIDC） |
 
 ## 実行環境
 

@@ -1,188 +1,124 @@
 #!/usr/bin/env bash
-
-# GitHub Actions Runner Controller (ARC) - 共通 runner 用 workflow 生成
-
+# GitHub-hosted runner + Tailscale OIDC 用 workflow と private repo Secrets の準備。
+# bash -x / GH_DEBUG でも資格情報をログへ出さない。
+set +x
 set -euo pipefail
+unset GH_DEBUG DEBUG
 
-# 共通ライブラリを読み込み
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-SCRIPTS_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # shellcheck source=/dev/null
-source "$SCRIPTS_ROOT/common-logging.sh"
+source "$SCRIPT_DIR/../common-logging.sh"
 
-# repo ごとの ScaleSet は作らず、共通 runner 用の workflow だけを生成する。
-if [[ $# -eq 4 ]]; then
-    WORKFLOW_STRATEGY="$4"
-    log_warning "旧形式の min/max は使用しません。共通上限は runners-appset.yaml で管理します。"
-elif [[ $# -ge 1 && $# -le 2 ]]; then
-    WORKFLOW_STRATEGY="${2:-latest}"
-else
-    log_error "使用方法: $0 <repository-name> [latest]"
+usage() {
+    cat <<'USAGE'
+使用方法: add-runner.sh <repo|owner/repo> [latest] [--force] [--non-interactive]
+GitHub から公開範囲・既定ブランチを取得し、workflow を生成します。
+private repo は4つの Secrets を登録します（同名の既存値は更新）。
+  TS_OAUTH_CLIENT_ID / TS_AUDIENCE / HARBOR_USERNAME / HARBOR_PASSWORD
+値は環境変数、未指定なら端末で非表示入力します。引数には渡さないでください。
+--non-interactive: 入力待ちをせず、必要な値が不足していたら失敗します。
+--force: 生成先の既存 workflow を上書きします。
+所有者: GITHUB_USERNAME（既定 home-lab-ksera）、出力先: WORKFLOW_DIR（既定 .github/workflows）
+USAGE
+}
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+    usage
+    exit 0
+fi
+if [[ $# -eq 0 ]]; then usage >&2; exit 1; fi
+REPOSITORY="$1"
+shift
+FORCE=false
+NON_INTERACTIVE=false
+POSITIONAL=()
+for arg in "$@"; do
+    case "$arg" in
+        --force) FORCE=true ;;
+        --non-interactive) NON_INTERACTIVE=true ;;
+        --*) log_error "不明なオプション: $arg"; exit 1 ;;
+        *) POSITIONAL+=("$arg") ;;
+    esac
+done
+case ${#POSITIONAL[@]} in
+    0) STRATEGY=latest ;;
+    1) STRATEGY="${POSITIONAL[0]}" ;;
+    3)
+        [[ "${POSITIONAL[0]}" =~ ^[0-9]+$ && "${POSITIONAL[1]}" =~ ^[0-9]+$ ]] || exit 1
+        STRATEGY="${POSITIONAL[2]}"
+        log_warning "旧 min/max は使用しません。GitHub-hosted runner を使用します。"
+        ;;
+    *) usage >&2; exit 1 ;;
+esac
+[[ "$STRATEGY" == latest ]] || { log_error "strategy は latest のみ指定可能です"; exit 1; }
+if [[ "$REPOSITORY" != */* ]]; then
+    REPOSITORY="${GITHUB_USERNAME:-home-lab-ksera}/$REPOSITORY"
+fi
+[[ "$REPOSITORY" =~ ^[A-Za-z0-9][A-Za-z0-9-]*/[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || {
+    log_error "リポジトリ名が不正です"; exit 1;
+}
+command -v gh >/dev/null || { log_error "GitHub CLI (gh) が必要です。gh auth login で認証してください"; exit 1; }
+command -v python3 >/dev/null || { log_error "python3 が必要です"; exit 1; }
+# API 失敗時に public と見なしたり、既定ブランチを推測したりしない。
+METADATA="$(gh api "repos/$REPOSITORY")"
+CONFIG="$(printf '%s' "$METADATA" | python3 -c '
+import json, re, sys
+repo = json.load(sys.stdin)
+name, branch, private = repo["name"], repo["default_branch"], repo["private"]
+if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", name):
+    sys.exit("Unsupported repository name")
+if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._/-]*", branch):
+    sys.exit("Unsupported default branch name")
+if type(private) is not bool:
+    sys.exit("Invalid repository visibility")
+print(name, branch, str(private).lower())
+')"
+read -r REPOSITORY_NAME DEFAULT_BRANCH PRIVATE <<< "$CONFIG"
+WORKFLOW_DIR="${WORKFLOW_DIR:-.github/workflows}"
+WORKFLOW_FILE="$WORKFLOW_DIR/build-and-push-$REPOSITORY_NAME.yml"
+if [[ -e "$WORKFLOW_FILE" && "$FORCE" != true ]]; then
+    log_error "既存 workflow は変更しません: $WORKFLOW_FILE（上書きする場合は --force）"
     exit 1
 fi
-REPOSITORY_NAME="$1"
-if [[ ! "$REPOSITORY_NAME" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]]; then
-    log_error "リポジトリ名が不正です: $REPOSITORY_NAME"
-    exit 1
-fi
-if [[ "$WORKFLOW_STRATEGY" != "latest" ]]; then
-    log_error "strategy は latest のみ指定可能です: $WORKFLOW_STRATEGY"
-    exit 1
-fi
-IMAGE_NAME="$(echo "${REPOSITORY_NAME}" | tr '[:upper:]' '[:lower:]')"
-PROJECT_ROOT="$(cd "$SCRIPTS_ROOT/../.." && pwd)"
-APPSET_FILE="$PROJECT_ROOT/manifests/platform/ci-cd/github-actions/runners-appset.yaml"
-# GitOps 定義を読み取り専用で参照する。workflow 生成で同時実行数を変更しない。
-RUNNER_CONFIG=$(python3 - "$APPSET_FILE" <<'CONFIG_PY'
+mkdir -p "$WORKFLOW_DIR"
+TEMP_WORKFLOW="$(mktemp "$WORKFLOW_DIR/.harbor-oidc.XXXXXX")"
+trap 'rm -f "$TEMP_WORKFLOW"' EXIT
+python3 - "$SCRIPT_DIR/harbor-oidc.yml.tmpl" "$TEMP_WORKFLOW" "$REPOSITORY_NAME" "$DEFAULT_BRANCH" <<'PY'
 from pathlib import Path
 import sys
-import yaml
+template, output, repo, branch = sys.argv[1:]
+text = Path(template).read_text()
+for key, value in {"REPOSITORY": repo, "IMAGE": repo.lower(), "BRANCH": branch}.items():
+    text = text.replace("@@" + key + "@@", value)
+Path(output).write_text(text)
+PY
 
-doc = yaml.safe_load(Path(sys.argv[1]).read_text())
-elements = doc["spec"]["generators"][0]["list"]["elements"]
-if len(elements) != 1 or "githubRepo" in elements[0]:
-    raise SystemExit("Organization 共通 runner を1つ定義してください")
-entry = elements[0]
-print(entry["runnerName"], entry["githubOwner"], entry["minRunners"], entry["maxRunners"])
-CONFIG_PY
-)
-read -r RUNNER_NAME GITHUB_USERNAME MIN_RUNNERS MAX_RUNNERS <<< "$RUNNER_CONFIG"
-log_status "共通 runner: $RUNNER_NAME（全 repo 合計 min=$MIN_RUNNERS / max=$MAX_RUNNERS）"
+if [[ "$PRIVATE" == true ]]; then
+    SECRET_NAMES=(TS_OAUTH_CLIENT_ID TS_AUDIENCE HARBOR_USERNAME HARBOR_PASSWORD)
+    # 4つすべてを揃えてから書き込みを始める。入力値はファイルや引数に残さない。
+    for name in "${SECRET_NAMES[@]}"; do
+        if [[ -z "${!name:-}" ]]; then
+            if [[ "$NON_INTERACTIVE" == true || ! -t 0 ]]; then
+                log_error "$REPOSITORY: $name が未指定です。環境変数で渡すか端末から実行してください。"
+                exit 1
+            fi
+            read -r -s -p "$REPOSITORY / $name: " "${name?}"
+            printf '\n' >&2
+            [[ -n "${!name}" ]] || { log_error "$name は空にできません"; exit 1; }
+        fi
+    done
+    for name in "${SECRET_NAMES[@]}"; do
+        if ! printf '%s' "${!name}" | gh secret set "$name" --repo "$REPOSITORY"; then
+            log_error "$name の登録に失敗しました。先に登録済みの値は残ります。修正後に再実行してください。"
+            exit 1
+        fi
+        log_status "$REPOSITORY: $name を登録しました"
+    done
+else
+    log_status "public repo: Organization Secrets の4項目を利用します。対象 repo への公開設定を確認してください。"
+fi
 
-# GitHub Actions workflow作成
-log_status "=== GitHub Actions workflow作成 ==="
-
-WORKFLOW_DIR=".github/workflows"
-WORKFLOW_FILE="$WORKFLOW_DIR/build-and-push-$REPOSITORY_NAME.yml"
-
-mkdir -p "$WORKFLOW_DIR"
-log_debug "Workflowディレクトリ作成: $WORKFLOW_DIR"
-
-cat > "$WORKFLOW_FILE" << WORKFLOW_EOF
-# GitHub Actions workflow for $REPOSITORY_NAME
-# Auto-generated by add-runner.sh (公式ARC対応版) - latest運用
-
-name: Build and Push to Harbor - $REPOSITORY_NAME
-
-on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
-
-concurrency:
-  group: build-push-\${{ github.workflow }}-\${{ github.ref }}
-  cancel-in-progress: false
-
-permissions:
-  contents: read
-  pull-requests: read
-
-jobs:
-  build-image:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
-
-    - name: Build Docker image
-      run: |
-        echo "=== Build image on GitHub-hosted runner ==="
-        docker build -t $IMAGE_NAME:ci .
-
-    - name: Export Docker image tar
-      run: |
-        docker save $IMAGE_NAME:ci | gzip > /tmp/$REPOSITORY_NAME-image.tar.gz
-
-    - name: Upload image artifact
-      uses: actions/upload-artifact@v7
-      with:
-        name: $REPOSITORY_NAME-image
-        path: /tmp/$REPOSITORY_NAME-image.tar.gz
-        retention-days: 1
-
-  push-image:
-    if: github.event_name == 'push'
-    needs: build-image
-    runs-on: $RUNNER_NAME
-    concurrency:
-      group: harbor-publish-\${{ github.repository }}
-      cancel-in-progress: false
-
-    steps:
-    - name: Download image artifact
-      uses: actions/download-artifact@v8
-      with:
-        name: $REPOSITORY_NAME-image
-        path: /tmp
-
-    - name: Install crane (verified release)
-      shell: bash
-      run: |
-        set -euo pipefail
-        case "\$(uname -m)" in
-          x86_64) ARCH=x86_64; SHA256=0ab7a1d6932a213aed964ce97666c3077fe691c8606413674a8b3e0b9ec4cda0 ;;
-          aarch64) ARCH=arm64; SHA256=898c0cff975f898a33e8c4580bdafb0e7c02c7faa33374e946762f97c4ab7110 ;;
-          *) echo "Unsupported architecture" >&2; exit 1 ;;
-        esac
-        mkdir -p "\$RUNNER_TEMP/crane-bin"
-        curl --fail --silent --show-error --location \\
-          "https://github.com/google/go-containerregistry/releases/download/v0.22.1/go-containerregistry_Linux_\$ARCH.tar.gz" \\
-          -o "\$RUNNER_TEMP/crane.tar.gz"
-        echo "\$SHA256  \$RUNNER_TEMP/crane.tar.gz" | sha256sum --check
-        tar -xzf "\$RUNNER_TEMP/crane.tar.gz" -C "\$RUNNER_TEMP/crane-bin" crane
-
-    - name: Push versioned image without Docker
-      shell: bash
-      run: |
-        set -euo pipefail
-        umask 077
-        export DOCKER_CONFIG="\$RUNNER_TEMP/harbor-auth"
-        mkdir -p "\$DOCKER_CONFIG"
-        CRANE="\$RUNNER_TEMP/crane-bin/crane"
-        HARBOR_URL=\$(cat /etc/harbor-auth/HARBOR_URL)
-        HARBOR_PROJECT=\$(cat /etc/harbor-auth/HARBOR_PROJECT)
-        HARBOR_USERNAME=\$(cat /etc/harbor-auth/HARBOR_USERNAME)
-        "\$CRANE" auth login "\$HARBOR_URL" --username "\$HARBOR_USERNAME" \\
-          --password-stdin < /etc/harbor-auth/HARBOR_PASSWORD
-        gunzip -c /tmp/$REPOSITORY_NAME-image.tar.gz > "\$RUNNER_TEMP/image.tar"
-        VERSION="build-\$GITHUB_RUN_ID-\$GITHUB_RUN_ATTEMPT-\$GITHUB_SHA"
-        "\$CRANE" push "\$RUNNER_TEMP/image.tar" "\$HARBOR_URL/\$HARBOR_PROJECT/$IMAGE_NAME:\$VERSION"
-
-    - name: Check publication is still the default branch head
-      id: publication
-      uses: actions/github-script@v7
-      with:
-        result-encoding: string
-        script: |
-          const {data: repo} = await github.rest.repos.get(context.repo);
-          if (context.ref !== \`refs/heads/\${repo.default_branch}\`) return false;
-          const {data: head} = await github.rest.repos.getCommit({...context.repo, ref: repo.default_branch});
-          return head.sha === context.sha;
-
-    - name: Promote current build to latest
-      if: \${{ steps.publication.outputs.result == 'true' }}
-      shell: bash
-      run: |
-        set -euo pipefail
-        export DOCKER_CONFIG="\$RUNNER_TEMP/harbor-auth"
-        HARBOR_URL=\$(cat /etc/harbor-auth/HARBOR_URL)
-        HARBOR_PROJECT=\$(cat /etc/harbor-auth/HARBOR_PROJECT)
-        VERSION="build-\$GITHUB_RUN_ID-\$GITHUB_RUN_ATTEMPT-\$GITHUB_SHA"
-        "\$RUNNER_TEMP/crane-bin/crane" tag "\$HARBOR_URL/\$HARBOR_PROJECT/$IMAGE_NAME:\$VERSION" latest
-
-    - name: Cleanup
-      if: always()
-      shell: bash
-      run: |
-        rm -rf "\$RUNNER_TEMP/harbor-auth" "\$RUNNER_TEMP/crane-bin"
-        rm -f "\$RUNNER_TEMP/crane.tar.gz" "\$RUNNER_TEMP/image.tar" /tmp/$REPOSITORY_NAME-image.tar.gz
-WORKFLOW_EOF
-
+mv -f "$TEMP_WORKFLOW" "$WORKFLOW_FILE"
 log_status "workflow を作成しました: $WORKFLOW_FILE"
-log_status "対象 repo: https://github.com/$GITHUB_USERNAME/$REPOSITORY_NAME"
-log_status "GitHub の runner group に対象 repo を許可し、workflow をアプリリポジトリへ反映してください。"
+log_status "対象: $REPOSITORY / 既定ブランチ: $DEFAULT_BRANCH / private: $PRIVATE"
+log_status "Tailscale の信頼条件で refs/heads/$DEFAULT_BRANCH の push を許可してください。"
+log_status "workflow を対象 repo へ反映してください。runner group / ScaleSet の追加は不要です。"

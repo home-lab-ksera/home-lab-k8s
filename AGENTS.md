@@ -31,7 +31,7 @@
 - 初期設定: `cp automation/settings.toml.example automation/settings.toml`
 - 全体/個別: `make all`, `make phase1`, `make phase2`, `make bootstrap`, `make phase5`。
 - 保守: `make recover`, `make upgrade-safe`, `make containerd-safe`
-- 共通 Runner の正本は `manifests/platform/ci-cd/github-actions/runners-appset.yaml`（Organization scope、min=0/max=2）。`make add-runner REPO=<name>`（一括は `make add-runners-all`）は共通 runner を使う workflow のみ生成する。生成 workflow は git 非追跡でアプリリポジトリへ反映し、GitHub の runner group に対象 repo を許可する。repo ごとの ScaleSet を再追加しない。
+- `make add-runner REPO=<name>`（一括は `make add-runners-all`）は GitHub-hosted runner + Tailscale OIDC の workflow を生成する。GitHub API で公開範囲・既定ブランチを取得し、private repo は4つの repository Secrets を非表示入力または環境変数から登録する。生成 workflow は git 非追跡でアプリリポジトリへ反映する。新規 repo 用の ScaleSet / runner group 設定は不要。既存 ARC 定義はこの生成処理では変更しない。
 - `make all` と `make phase1` は `sudo` 前提。`make all` は `phase1 -> phase2 -> bootstrap -> phase5` の順に実行する。実行ログは `automation/run.log`。
 
 ## 検証

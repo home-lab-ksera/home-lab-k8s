@@ -41,55 +41,6 @@ class RunnerDeliveryTests(unittest.TestCase):
                     for subject in doc.get('subjects', []):
                         self.assertNotEqual(subject.get('name'), 'github-actions-runner', str(path))
 
-    def test_generation_preserves_runner_security_and_produces_daemonless_workflow(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            script_dir = root / 'automation/scripts/github-actions'
-            script_dir.mkdir(parents=True)
-            for name in ('github-actions/add-runner.sh', 'common-logging.sh'):
-                shutil.copy(ROOT / 'automation/scripts' / name, root / 'automation/scripts' / name)
-            (root / 'automation/settings.toml').write_text('[github]\nusername = "example"\n')
-            target = root / ARC.relative_to(ROOT)
-            target.mkdir(parents=True)
-            shutil.copy(ARC / 'runners-appset.yaml', target)
-            before = (target / 'runners-appset.yaml').read_bytes()
-            for args in (['Test.Repo'], ['Test.Repo', '0', '9', 'latest']):
-                subprocess.run(['bash', str(script_dir / 'add-runner.sh'), *args],
-                               cwd=root, check=True, capture_output=True, text=True)
-            result = yaml.safe_load((target / 'runners-appset.yaml').read_text())
-            self.assertEqual((target / 'runners-appset.yaml').read_bytes(), before)
-            entries = result['spec']['generators'][0]['list']['elements']
-            self.assertEqual(len(entries), 1)
-            self.assertNotIn('githubRepo', entries[0])
-            self.assertEqual(int(entries[0]['maxRunners']), 2)
-            workflow = root / '.github/workflows/build-and-push-Test.Repo.yml'
-            text = workflow.read_text()
-            data = yaml.safe_load(text)
-            push = data['jobs']['push-image']
-            self.assertEqual(push['runs-on'], entries[0]['runnerName'])
-            self.assertEqual(push['if'], "github.event_name == 'push'")
-            self.assertEqual(push['needs'], 'build-image')
-            steps = '\n'.join(step.get('run', '') for step in push['steps'])
-            for forbidden in ('kubectl', 'sudo', 'docker load', 'docker push', 'rollout restart'):
-                self.assertNotIn(forbidden, steps)
-            self.assertIn('test.repo:$VERSION', steps)
-            self.assertIn('build-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$GITHUB_SHA', steps)
-            self.assertIn('head.sha === context.sha', next(s['with']['script'] for s in push['steps'] if s.get('id') == 'publication'))
-            self.assertEqual(next(s['if'] for s in push['steps'] if s['name'] == 'Promote current build to latest'),
-                             "${{ steps.publication.outputs.result == 'true' }}")
-            self.assertEqual(push['concurrency']['group'], 'harbor-publish-${{ github.repository }}')
-            self.assertIn('--password-stdin < /etc/harbor-auth/HARBOR_PASSWORD', steps)
-            self.assertIn('sha256sum --check', steps)
-            for step in push['steps']:
-                if 'run' in step:
-                    subprocess.run(['bash', '-n'], input=step['run'], text=True, check=True)
-            lint_config = root / 'actionlint.yaml'
-            lint_config.write_text('self-hosted-runner:\n  labels: [harbor-publish-runners]\n')
-            lint = subprocess.run(['actionlint', '-shellcheck=', '-pyflakes=',
-                                   '-config-file', str(lint_config), str(workflow)],
-                                  capture_output=True, text=True)
-            self.assertEqual(lint.returncode, 0, lint.stdout + lint.stderr)
-
     def test_digest_reaches_all_deployment_and_cronjob_templates(self):
         config = yaml.safe_load(UPDATER.read_text())
         self.assertEqual(config['spec']['commonUpdateSettings']['updateStrategy'], 'digest')

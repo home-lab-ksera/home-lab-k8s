@@ -22,13 +22,13 @@ Nature Remo の初回配布と手動ビルドは [ローカル操作アプリの
 
 ## sandbox 配布
 
-[Runner 生成スクリプト](../automation/scripts/github-actions/add-runner.sh) は `STRATEGY=latest` のみを受け付けます。
-GitHub-hosted runner で build → artifact → 共通 ARC runner `harbor-publish-runners` で `crane push` → Harbor の `latest` を更新します。
-Organization `home-lab-ksera` の単一 ScaleSet（min=0/max=2）に集約し、公開処理は全 repo 合計で最大2並列、listener は1つです。
-全7repoの公開workflowは `build-<run-id>-<attempt>-<commit-sha>` タグを付け、
-default branch HEADとの一致を確認した版だけ `latest` へ昇格します。push jobはrepo単位で直列化します。
-新しいrepoには生成workflowをそのrepoへ反映してください。
-PR イベントでは build までです。ARC runner に Docker daemon、sudo、kubectl は不要です。
+[workflow 生成スクリプト](../automation/scripts/github-actions/add-runner.sh) は `STRATEGY=latest` のみを受け付けます。
+同じ GitHub-hosted runner で build → Tailscale OIDC 接続 → Harbor へ Docker push を行います。
+Docker イメージの artifact 転送、ARC runner、Kubernetes Secret のマウントは不要です。
+`build-<run-id>-<attempt>-<commit-sha>` タグを公開し、default branch HEAD と一致する版だけ `latest` へ昇格します。
+両タグの image config digest がローカルのビルド結果と一致することも検証します。公開処理は repo / ref 単位で直列化します。
+PR・手動実行は build までで、公開は生成時に取得した既定ブランチへの push に限定します。
+アプリ固有のテストは Tailscale 接続より前に追加し、別 job のテストは build job の `needs` に指定してください。
 
 [Image Updater](../manifests/platform/ci-cd/image-updater/sandbox-images.yaml) が約2分間隔で
 許可した9アプリの `deploy` の digest を検知し、このリポジトリの `main` にある各
@@ -52,84 +52,83 @@ Git に digest が残るため、履歴から配布イメージを特定でき�
 
 ## 既存 CI からの移行
 
-このリポジトリの変更だけでは、外部のアプリリポジトリの workflow は更新されません。
-旧 workflow の `docker load/push`、`kubectl get secret`、`rollout restart` は新 Runner で実行できません。
-次の順で切り替えます。
+生成した workflow を各アプリリポジトリへ反映します。独自のテスト、Dockerfile、複数イメージ構成は維持してください。
+既存 workflow と重複して同じイメージを公開しないように統合します。
+旧 ARC / runner group 設定は生成処理から変更しません。
 
-1. Harbor に `sandbox` project の pull / push 専用 Robot Account を作成し、CI に管理者権限を渡さないようにします。
-   Image Updater には別の pull-only Robot Account を作成します。
-2. このリポジトリ専用の書き込み可能 Deploy Key を作成します。
-   `main` への bot の書き込みをリポジトリの保護ルールで許可する必要があります。
-   PR 必須ルールで直接 push が拒否される場合、この自動配布方式は開始できません。
-3. Pulumi ESC の既存ストアに下表のキーを登録します。平文を Git に保存しません。
-4. アプリ CI の push を一時停止し、実行中ジョブの終了を待ちます。
-   `make add-runners-all` または個別の生成コマンドで作成した workflow を各アプリリポジトリへ反映します。
-   独自の build / テストがある場合は維持し、push job を置き換えます。
-5. このリポジトリを反映し、ExternalSecret の Ready、旧 Role / RoleBinding の prune、Runner のテンプレート変更、
-   `image-updater` の同期を確認します。既存 Pod のトークンは変更で消えないため、旧 Runner Pod が残っていないことも確認します。
-6. CI を再開し、1アプリの push → digest の Git commit → ArgoCD 同期 → imageID を確認します。
-   CronJob は次回 Job の image / imageID を確認します。
+CI には Harbor の `sandbox` project の pull / push 専用 Robot Account を使います。
+Image Updater の pull-only Robot Account と、このリポジトリへの書き込み用 Deploy Key は従来どおり別管理です。
+`harbor.image_updater_username` / `harbor.image_updater_password` /
+`image_updater.git_ssh_private_key` は Pulumi ESC → ExternalSecret 経由で同期します。
+CI の資格情報は GitHub Secrets に登録します。値を Git に保存しません。
 
-| ESC キー | 用途 |
-|---|---|
-| `harbor.ci_username` / `harbor.ci_password` | Runner の sandbox pull / push Robot Account |
-| `harbor.image_updater_username` / `harbor.image_updater_password` | Image Updater の sandbox pull-only Robot Account |
-| `image_updater.git_ssh_private_key` | このリポジトリへの Git 書き込み用 Deploy Key の秘密鍵 |
+反映後は CI の push・digest 検証・latest 更新と、その後の Harbor 保守 Job による deploy 昇格、
+Image Updater の Git 書き戻し、ArgoCD 同期、実際の imageID を確認します。
+CronJob は次回 Job の image / imageID を確認します。
 
-資格情報が未登録なら ExternalSecret は Ready になりません。admin 認証へのフォールバックはしません。
-新 Runner は専用の `harbor-ci-auth` をマウントします。移行前の admin 入り `harbor-auth` が残っていても利用しません。
-旧 Secret の参照がなくなったことを確認し、残存していれば移行後に削除します。
-共通 sandbox Robot Account には同 project 内のイメージを push できる権限が残ります。
-アプリ間のレジストリ権限も厳密に分離する場合は、Harbor project と Robot Account をアプリ別に分離します。
-Git 資格情報もファイル単位の権限制限ではないため、Runner には渡しません。
-専用 Deploy Key は ArgoCD の `apps` project 用 repository credential として登録し、Image Updater が利用します。
-`method: git` と `insecure: false` により、ArgoCD の既知ホスト情報で SSH host key を検証します。
-この版の `git:secret:...` は SSH host key 検証を無効にするため使用しません。
+## 新規 repo の workflow と Secrets を準備する
 
-確認例（Secret の値を表示しない）:
+作成済みの GitHub repo が対象です。必要なツールは Bash、Python 3、認証済みの GitHub CLI (`gh auth login`) です。
+スクリプトが GitHub API から public / private と既定ブランチを取得します。main / master を推測しません。
+API の読み取りと、private repo では Actions Secrets の書き込み権限が必要です。
 
 ```bash
-kubectl -n arc-systems get externalsecret harbor-auth-secret
-kubectl -n argocd get externalsecret image-updater-git image-updater-harbor
-kubectl auth can-i patch deployments -n sandbox --as=system:serviceaccount:arc-systems:github-actions-runner
-kubectl auth can-i get secrets -n arc-systems --as=system:serviceaccount:arc-systems:github-actions-runner
-kubectl -n arc-systems get autoscalingrunnersets,pods
-kubectl -n argocd get imageupdater sandbox-images -o yaml
-kubectl -n argocd logs -l app.kubernetes.io/name=argocd-image-updater --tail=100
-```
-
-権限確認は両方 `no` が期待値です。新 Runner Pod には特権コンテナ、Docker socket、API トークンのマウントがないことも確認します。
-
-## 共通 Runner を使う repo を追加する
-
-PyYAML を含む toolchain で実行します。登録先と Runner 名は共通の GitOps 定義から読み取ります。
-
-```bash
-mise exec -- bash
 make add-runner REPO=my-app
+# 別の所有者を指定する場合
+make add-runner REPO=owner/my-app
 # settings.toml の arc_repositories から一括生成する場合
 make add-runners-all
 ```
 
-生成処理は workflow のみを出力し、[runners-appset.yaml](../manifests/platform/ci-cd/github-actions/runners-appset.yaml) は変更しません。
-新しい repo は `home-lab-ksera` に作成し、Organization の runner group `harbor-publish` の Selected repositories に追加します。
-公開 repo を含むため同 group の public repository 利用を許可し、公開ジョブの PR 除外条件を維持します。
-同時実行数を変える場合は共通 ScaleSet の `maxRunners` を Git で変更します。旧 CLI/settings の repo 別 min/max は使用しません。
+個別生成の既定所有者は `home-lab-ksera` です。`GITHUB_USERNAME` 環境変数で変更できます。
+Make 経由の一括生成は `settings.toml` の `github.username` を読み込みます。
+旧 min/max 引数と `arc_repositories` の min/max は互換用に受け付けますが使用しません。
 
-ARC の PAT は Resource owner を `home-lab-ksera` とし、Organization permissions の `Self-hosted runners: Read and write` と
-公式 ARC 認証手順の `Administration: Read` を設定します。Pulumi ESC の `github` キーから ExternalSecret で同期します。
-**Make 経由の workflow 出力先は `automation/scripts/github-actions/.github/workflows/build-and-push-<repo>.yml`** です。
-Make がスクリプトのディレクトリへ移動し、スクリプトが相対パスで出力するためです。
-生成物は Git 非追跡なので、内容を確認してアプリリポジトリの `.github/workflows/` に配置します。
+- public: 既存の Organization Secrets を利用します。対象 repo が Secrets の公開範囲に含まれることを確認してください。
+- private: 以下の4項目を環境変数から受け取り、未指定の項目は端末で非表示入力します。
+  4項目が揃ってから `gh secret set` の標準入力で登録します。同名の repository Secrets は更新されます。
 
-生成後は、アーティファクトの名前とファイル形式（gzip 圧縮した `docker save`）、Runner 名、Harbor の push 先を確認します。
-イメージ名はリポジトリ名を小文字化します。`crane` はバージョンと SHA256 を固定し、一般ユーザーで取得・実行します。
-Docker コンテナ action、job container、services、sudo を必要とする処理は GitHub-hosted runner 側へ置きます。
+| Secret | 値 |
+|---|---|
+| `TS_OAUTH_CLIENT_ID` | Tailscale trust credential の Client ID |
+| `TS_AUDIENCE` | 同 credential の Audience |
+| `HARBOR_USERNAME` | Harbor Robot Account のユーザー名 |
+| `HARBOR_PASSWORD` | Harbor Robot Account のパスワード |
+
+端末以外から実行する場合は、4項目を環境変数で注入してください。
+秘密値をコマンド引数や Make 変数に直接書かず、Secret Manager や非表示入力から export します。
+一括生成も同じ環境変数を各 private repo に使用できます。
+repo ごとに資格情報を分ける場合は個別に実行してください。
+
+```bash
+# 4項目が環境変数に設定済みの場合
+make add-runner REPO=my-private-app RUNNER_ARGS=--non-interactive
+# 既存の生成ファイルを意図して上書きする場合
+make add-runner REPO=my-app RUNNER_ARGS=--force
+```
+
+非対話実行で必要な値が不足していれば、Secrets を書き込む前に失敗します。
+途中の登録で API エラーになった場合は生成ファイルを更新せずに終了しますが、先に登録済みの Secrets は残ります。
+原因を修正して同じ値で再実行してください。
+
+**Make 経由の出力先は `automation/scripts/github-actions/.github/workflows/build-and-push-<repo>.yml`** です。
+生成物は Git 非追跡です。内容を確認してアプリリポジトリの `.github/workflows/` に配置し、commit / push してください。
+`WORKFLOW_DIR` 環境変数で出力ディレクトリを変更できます。既存ファイルは `--force` 指定時のみ上書きします。
+イメージ名はリポジトリ名を小文字化し、ルートの Dockerfile からビルドします。
+
+Tailscale 側では次の前提が必要です。
+
+- GitHub issuer の trust credential が対象 Organization / repo と `push`、対象の既定ブランチを許可していること。
+  現在の共有 credential は `ref: refs/heads/ma*` で main / master を許可しています。
+  このパターンは maintenance など他の ma 始まりのブランチも許可します。
+- credential に auth key 作成スコープと `tag:ci-harbor` が設定されていること。
+- subnet route `192.168.122.0/24` が承認済みで、
+  `tag:ci-harbor` → `192.168.122.100:443` が許可されていること。
+
+生成 workflow は `harbor.internal.qroksera.com` を上記 IP に解決し、TLS 証明書を検証して接続します。
+Tailscale Action は SHA を固定し、終了時に一時端末をログアウトします。Docker 認証ファイルも終了時に削除します。
+runner group / ScaleSet の追加は不要です。
 
 新規アプリを自動更新するには [sandbox-images.yaml](../manifests/platform/ci-cd/image-updater/sandbox-images.yaml) に
 Application 名とイメージを登録し、対象 Kustomization に `images` エントリを追加します。
-Runner 追加だけでは自動配布対象にしません。
-
-[Runner ServiceAccount](../manifests/platform/ci-cd/github-actions/github-actions-rbac.yaml) に API 権限はありません。
-Harbor 認証は Secret volume として読み取り専用で渡し、ServiceAccount トークンはマウントしません。
-controller の手動 Helm 導入は不要です。
+workflow 生成だけでは自動配布対象にしません。

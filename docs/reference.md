@@ -103,7 +103,7 @@ bootstrap Kustomization の登録を確認します。policy check は重複所�
 | ライブ確認 | `make phase5`。kubeconfig 更新あり、CI / VERIFY_SKIP_SSH 時は全体スキップ |
 | 再起動後 | `make recover`。[運用](operations.md) |
 | ノード更新 | `make upgrade-safe` / `make containerd-safe`。[更新](upgrade.md) |
-| Runner | `make add-runner` / `make add-runners-all`。[配布](app-delivery.md) |
+| Tailscale OIDC CI | `make add-runner` / `make add-runners-all`。[配布](app-delivery.md) |
 | 図 | `make diagrams` は cluster-diagram.png の生成スクリプト。下記の文書図とは別 |
 | root / child | [app-of-apps.yaml](../manifests/bootstrap/app-of-apps.yaml)、[一覧と図](diagrams/app-of-apps-sync-wave.md) |
 | ローカル設定 | [settings.toml.example](../automation/settings.toml.example) |

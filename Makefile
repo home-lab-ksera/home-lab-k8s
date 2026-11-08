@@ -23,7 +23,7 @@ help:
 	@echo "  make diagrams                   - クラスタ全体構成図を生成 (cluster-diagram.png)"
 	@echo ""
 	@echo "Runners:"
-	@echo "  make add-runner REPO=<name> - 共通Runner用workflow生成"
+	@echo "  make add-runner REPO=<name> - Tailscale OIDC workflow生成（privateはSecrets登録）"
 	@echo "  make add-runners-all            - settings.tomlからworkflow一括生成"
 
 all:
@@ -86,8 +86,8 @@ add-runner:
 		echo "REPO変数が必要です (例: make add-runner REPO=my-project)"; \
 		exit 1; \
 	fi
-	@if [ -n "$(MIN)$(MAX)" ]; then echo "MIN/MAXは使用しません。共通上限は runners-appset.yaml で管理します。"; fi
-	@cd automation/scripts/github-actions && ./add-runner.sh "$(REPO)" "$(or $(STRATEGY),latest)"
+	@if [ -n "$(MIN)$(MAX)" ]; then echo "MIN/MAXは使用しません。GitHub-hosted runner を使用します。"; fi
+	@cd automation/scripts/github-actions && ./add-runner.sh "$(REPO)" "$(or $(STRATEGY),latest)" $(RUNNER_ARGS)
 
 add-runners-all:
-	@bash -c 'source automation/scripts/settings-loader.sh load 2>/dev/null || true; cd automation/scripts/github-actions && ./add-runners-bulk.sh'
+	@bash -c 'source automation/scripts/settings-loader.sh load 2>/dev/null || true; cd automation/scripts/github-actions && ./add-runners-bulk.sh $(RUNNER_ARGS)'

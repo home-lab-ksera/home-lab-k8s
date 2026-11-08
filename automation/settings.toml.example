@@ -44,13 +44,13 @@ project = "k8s"
 environment = "secret"
 
 [github]
-# Runner の登録先となる GitHub 所有者名（ユーザーまたは Organization）
-# Runner の正本は runners-appset.yaml。workflow 生成も同じ定義を参照します。
+# 一括 workflow 生成先の GitHub 所有者名（ユーザーまたは Organization）
+# 個別生成は GITHUB_USERNAME または REPO=owner/repo で指定できます。
 username = "home-lab-ksera"
 
 # make add-runners-all で一括追加するリポジトリ
 # 形式: ["repo", min, max, "description", "latest"]
-# min/max は旧形式との互換用で、共通 runner の上限には影響しません。
+# min/max は旧形式との互換用で、使用しません。GitHub-hosted runner + Tailscale OIDC で公開します。
 # arc_repositories = [
 #   ["blog", 0, 1, "blogアプリ", "latest"],
 #   ["cooklog", 0, 1, "cooklogアプリ", "latest"],
