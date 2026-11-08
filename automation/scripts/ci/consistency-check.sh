@@ -40,7 +40,14 @@ else
 fi
 
 if [[ "$python_ready" -eq 1 ]]; then
-  if "$ROOT_DIR/automation/scripts/ci/contract-check.py"; then
+  contract_args=()
+  if [[ -n "${CONTRACT_BASE_REF:-}" ]]; then
+    contract_args+=(--base-ref "$CONTRACT_BASE_REF")
+  fi
+  if [[ -n "${CONTRACT_REPORT_PATH:-}" ]]; then
+    contract_args+=(--report "$CONTRACT_REPORT_PATH")
+  fi
+  if "$ROOT_DIR/automation/scripts/ci/contract-check.py" "${contract_args[@]}"; then
     check_ok "contract と access manifests の整合性を確認しました"
   else
     check_ng "contract と access manifests の整合性チェックに失敗しました"

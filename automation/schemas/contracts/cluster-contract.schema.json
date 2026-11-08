@@ -1,0 +1,376 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "apiVersion": {
+      "enum": [
+        "contracts.k8s-myhome.local/v1alpha2"
+      ]
+    },
+    "kind": {
+      "enum": [
+        "ClusterContract"
+      ]
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "enum": [
+            "home-lab"
+          ]
+        }
+      },
+      "required": [
+        "name"
+      ]
+    },
+    "spec": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "global": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "domain": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "external": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "internal": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "external",
+                "internal"
+              ]
+            }
+          },
+          "required": [
+            "domain"
+          ]
+        },
+        "network": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "host": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "cidr": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "cidr"
+              ]
+            },
+            "nodes": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "controlPlane": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "workers": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "required": [
+                "controlPlane",
+                "workers"
+              ]
+            },
+            "podCIDR": {
+              "type": "string",
+              "minLength": 1
+            },
+            "serviceCIDR": {
+              "type": "string",
+              "minLength": 1
+            },
+            "metallb": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "range": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "range"
+              ]
+            },
+            "serviceIPs": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "gateway": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "tailscaleSplitDNS": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "gateway",
+                "tailscaleSplitDNS"
+              ]
+            }
+          },
+          "required": [
+            "host",
+            "nodes",
+            "podCIDR",
+            "serviceCIDR",
+            "metallb",
+            "serviceIPs"
+          ]
+        },
+        "storage": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "nfs": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "server": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "path": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "server",
+                "path"
+              ]
+            },
+            "classes": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "external": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "local": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              },
+              "required": [
+                "external",
+                "local"
+              ]
+            }
+          },
+          "required": [
+            "nfs",
+            "classes"
+          ]
+        },
+        "apps": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "apiHub": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "service": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "namespace": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "name": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "type": {
+                      "enum": [
+                        "ClusterIP"
+                      ]
+                    },
+                    "ports": {
+                      "type": "array",
+                      "items": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 65535
+                      }
+                    }
+                  },
+                  "required": [
+                    "namespace",
+                    "name",
+                    "type",
+                    "ports"
+                  ]
+                }
+              },
+              "required": [
+                "service"
+              ]
+            }
+          },
+          "required": [
+            "apiHub"
+          ]
+        },
+        "security": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "exceptions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "identity": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "group": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "namespace": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "group",
+                      "kind",
+                      "namespace",
+                      "name"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "fields": {
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "identity",
+                  "reason",
+                  "fields"
+                ]
+              }
+            },
+            "operatorResources": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                  "identity": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "group": {
+                        "type": "string"
+                      },
+                      "kind": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "namespace": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "group",
+                      "kind",
+                      "namespace",
+                      "name"
+                    ]
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "fields": {
+                    "type": "object"
+                  },
+                  "runtimeChecks": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "minLength": 1
+                    }
+                  }
+                },
+                "required": [
+                  "identity",
+                  "reason",
+                  "fields",
+                  "runtimeChecks"
+                ]
+              }
+            }
+          },
+          "required": [
+            "exceptions",
+            "operatorResources"
+          ]
+        }
+      },
+      "required": [
+        "global",
+        "network",
+        "storage",
+        "apps",
+        "security"
+      ]
+    }
+  },
+  "required": [
+    "apiVersion",
+    "kind",
+    "metadata",
+    "spec"
+  ],
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

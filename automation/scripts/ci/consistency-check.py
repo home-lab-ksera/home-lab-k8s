@@ -17,19 +17,6 @@ EXPECTED_CORE_RESOURCES = {
     "storage-classes/local-ssd-storage-class.yaml",
 }
 
-EXPECTED_SURFACES = {
-    "argocd-external",
-    "argocd-internal",
-    "harbor-external",
-    "harbor-internal",
-    "rustfs-console",
-    "blog-external",
-    "cooklog-internal",
-    "api-hub-internal",
-    "hitomi-upload-viewer-internal",
-    "observability-internal",
-}
-
 EXPECTED_EXTERNAL_SECRET_DOMAINS = {
     "stores",
     "argocd",
@@ -119,64 +106,6 @@ def check_harbor_node_mutations(issues: list[str]) -> None:
         fail(issues, f"{rel(path)}: harbor 既定 kustomization に node-mutations を含めません")
 
 
-def check_contracts(issues: list[str]) -> None:
-    cluster_path = MANIFESTS / "contracts/home-lab/cluster-contract.yaml"
-    access_path = MANIFESTS / "contracts/home-lab/access-surfaces.yaml"
-    if not cluster_path.exists() or not access_path.exists():
-        fail(issues, "home-lab contract ファイルが不足しています")
-        return
-
-    cluster = load_yaml(cluster_path) or {}
-    spec = cluster.get("spec", {}) or {}
-    if spec.get("global", {}).get("domain", {}).get("external") != "qroksera.com":
-        fail(issues, f"{rel(cluster_path)}: spec.global.domain.external が qroksera.com ではありません")
-    if spec.get("global", {}).get("domain", {}).get("internal") != "internal.qroksera.com":
-        fail(issues, f"{rel(cluster_path)}: spec.global.domain.internal が internal.qroksera.com ではありません")
-    if spec.get("network", {}).get("serviceIPs", {}).get("gateway") != "192.168.122.100":
-        fail(issues, f"{rel(cluster_path)}: spec.network.serviceIPs.gateway が 192.168.122.100 ではありません")
-    if spec.get("network", {}).get("serviceIPs", {}).get("tailscaleSplitDNS") != "192.168.122.101":
-        fail(issues, f"{rel(cluster_path)}: spec.network.serviceIPs.tailscaleSplitDNS が 192.168.122.101 ではありません")
-    if spec.get("storage", {}).get("classes", {}).get("external") != "nfs-external":
-        fail(issues, f"{rel(cluster_path)}: spec.storage.classes.external が nfs-external ではありません")
-
-    access = load_yaml(access_path) or {}
-    surfaces = set((access.get("spec", {}) or {}).get("surfaces", {}).keys())
-    missing_surfaces = EXPECTED_SURFACES - surfaces
-    if missing_surfaces:
-        fail(issues, f"{rel(access_path)}: access surface が不足しています: {sorted(missing_surfaces)}")
-
-
-def check_access_annotations(issues: list[str]) -> None:
-    annotated_surfaces: set[str] = set()
-    for path in yaml_files(MANIFESTS / "access"):
-        for doc in load_docs(path):
-            metadata = doc.get("metadata", {}) or {}
-            annotations = metadata.get("annotations", {}) or {}
-            surface = annotations.get("contracts.k8s-myhome.local/access-surface")
-            if surface:
-                annotated_surfaces.add(str(surface))
-
-    missing = EXPECTED_SURFACES - annotated_surfaces
-    if missing:
-        fail(issues, f"manifests/access: contract surface annotation が不足しています: {sorted(missing)}")
-
-    coredns = MANIFESTS / "access/dns/core/coredns-configmap.yaml"
-    tailscale = MANIFESTS / "access/dns/tailscale/manifest.yaml"
-
-    docs = load_docs(coredns) if coredns.exists() else []
-    annotations = (docs[0].get("metadata", {}).get("annotations", {}) if docs else {}) or {}
-    if annotations.get("contracts.k8s-myhome.local/service-ip") != "network.serviceIPs.gateway":
-        fail(issues, f"{rel(coredns)}: service-ip annotation が network.serviceIPs.gateway ではありません")
-
-    tailscale_service_ip_annotations = {
-        (doc.get("metadata", {}).get("annotations", {}) or {}).get("contracts.k8s-myhome.local/service-ip")
-        for doc in load_docs(tailscale) if tailscale.exists()
-    }
-    if "network.serviceIPs.tailscaleSplitDNS" not in tailscale_service_ip_annotations:
-        fail(issues, f"{rel(tailscale)}: service-ip annotation が network.serviceIPs.tailscaleSplitDNS ではありません")
-
-
-
 def check_external_secrets(issues: list[str]) -> None:
     base = MANIFESTS / "platform/secrets/external-secrets"
     for domain in EXPECTED_EXTERNAL_SECRET_DOMAINS:
@@ -209,8 +138,6 @@ def main() -> int:
     check_bootstrap_target_revisions(issues)
     check_core_kustomization(issues)
     check_harbor_node_mutations(issues)
-    check_contracts(issues)
-    check_access_annotations(issues)
     check_external_secrets(issues)
 
     if issues:

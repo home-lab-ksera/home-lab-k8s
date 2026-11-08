@@ -5,6 +5,7 @@ metadata:
   namespace: sandbox
   annotations:
     tailscale.com/tags: tag:k8s
+    contracts.k8s-myhome.local/access-surface: nature-remo-tailnet
 spec:
   ingressClassName: tailscale
   tls:

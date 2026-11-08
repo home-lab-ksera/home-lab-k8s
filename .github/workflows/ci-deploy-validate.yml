@@ -50,16 +50,31 @@ jobs:
     timeout-minutes: 30
     env:
       CI: "true"
+      CONTRACT_BASE_REF: ${{ github.event.pull_request.base.sha || '' }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Install validation toolchain
         uses: ./.github/actions/setup-toolchain
 
       - name: Validate deployment assets
+        env:
+          CONTRACT_REPORT_PATH: ${{ runner.temp }}/contract-review.json
         run: mise exec -- automation/scripts/ci/validate.sh
+
+      - name: Upload public contract validation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contract-review
+          path: ${{ runner.temp }}/contract-review.json
+          if-no-files-found: ignore
+          retention-days: 7
 
   postgresql-runtime:
     runs-on: ubuntu-latest

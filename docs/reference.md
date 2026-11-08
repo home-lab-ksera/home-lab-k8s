@@ -22,6 +22,34 @@ shellcheck、yamllint、GitOps 参照・登録、policy、PostgreSQL 版整合�
 kubeconform は PGO 同梱 CRD・標準 schema・CRD catalog を利用し、schema 不足はスキップします。
 外部 Helm Application の同期そのもの、admission、Secret の実値、URL 疎通、データ復元は保証しません。
 
+## 公開台帳の検証とレポート
+
+`contract-check.py` はJSON Schema、重複YAMLキー、配備対象の参照、公開経路の許可を検証します。
+ローカルKustomize、固定版の外部Helm、明示的なdirectory.include、multi-source、
+現在のApplicationSet list generatorに対応します。未対応の形式は失敗させます。
+収集とrenderの共通処理は `contract_inventory.py`、照合は `contract_rules.py` です。
+
+```bash
+mise exec -- python3 -m unittest discover -s automation/tests/ci -p test_contracts.py -v
+mise exec -- python3 automation/scripts/ci/contract-check.py --report /tmp/contract-review.json
+# 比較元にはfetch済みの完全なcommit SHAを指定
+mise exec -- python3 automation/scripts/ci/contract-check.py --base-ref "$(git rev-parse origin/main)"
+```
+
+PRのvalidate jobは比較元SHAを渡し、公開台帳・転送profile・検証器の変更を `[REVIEW]` として出力します。
+レポートにはsource一覧・リソース件数・検証エラー・実行時確認項目だけを保存し、Secretやrender本文は保存しません。
+artifactの保持は7日です。基盤の例外や台帳を変更した場合、一致検査に通るだけでは公開拡大のレビューが済んだことになりません。
+
+Helmは固定toolchainとKubernetes 1.34.0の互換性条件でオフラインrenderします。
+この値は実クラスタから取得した版ではありません。実際のAPI discoveryやadmissionによる差分、
+operatorが後から生成する資産は静的renderでは再現しません。
+NGINX Gateway、PGO、ARC、Tailscaleの関連CRは台帳の `operatorResources` と照合し、
+生成後のService種別・port・ownerReference、PodのhostNetwork/hostPortを確認します。
+任意の新規operatorが生成する全リソースの安全性まで保証する検証ではありません。
+
+2026-11-08の読み取り確認時点では、GitHubのmainブランチ保護とrulesetは未設定です。
+CI失敗によるマージ禁止はまだ強制されていません。required checkとレビュー設定はGitHub側で別に設定する必要があります。
+
 ## ローカルtoolchainのセットアップ
 
 mise 2026.10.8 以降を用意し、Ubuntu/Debian では次を実行します。

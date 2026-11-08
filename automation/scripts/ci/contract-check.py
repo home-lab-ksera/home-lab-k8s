@@ -1,151 +1,82 @@
 #!/usr/bin/env python3
-
+"""公開台帳、配備対象、公開拡大の差分を検証する。実クラスタに接続しない。"""
 from __future__ import annotations
 
-import sys
+import argparse
+import json
 from pathlib import Path
+import re
+import subprocess
+import sys
 
-import yaml
-
+from contract_inventory import InventoryError, collect, documents
+from contract_rules import check, load_contracts
 
 ROOT = Path(__file__).resolve().parents[3]
-ACCESS_CONTRACT = ROOT / "manifests/contracts/home-lab/access-surfaces.yaml"
-CLUSTER_CONTRACT = ROOT / "manifests/contracts/home-lab/cluster-contract.yaml"
-ACCESS_DIR = ROOT / "manifests/access"
 
 
-def load_yaml(path: Path):
-    with path.open(encoding="utf-8") as f:
-        return yaml.safe_load(f)
+def changes_since(root, revision, cluster, access):
+    if not re.fullmatch(r'[0-9a-f]{40,64}', revision):
+        raise InventoryError('base revision must be a full commit SHA')
+    changes = []
+    for name, current in [('cluster-contract', cluster), ('access-surfaces', access)]:
+        result = subprocess.run(['git', 'show', f'{revision}:manifests/contracts/home-lab/{name}.yaml'],
+                                cwd=root, capture_output=True, text=True, timeout=20)
+        if result.returncode:
+            raise InventoryError('base contract unavailable; fetch the PR base commit')
+        previous = documents(result.stdout)[0]
+        if previous.get('apiVersion') != current['apiVersion']:
+            changes.append(f'{name}: contract schema migration; review complete policy')
+        if name == 'access-surfaces':
+            before = previous.get('spec', {}).get('surfaces', {})
+            after = current['spec']['surfaces']
+            for sid in sorted(before.keys() | after.keys()):
+                if before.get(sid) != after.get(sid):
+                    changes.append(f'access surface changed: {sid}')
+            for field in ('profiles', 'policies'):
+                if previous.get('spec', {}).get(field) != current['spec'].get(field):
+                    changes.append(f'{field} changed: review forwarding/TLS/reference permissions')
+        elif previous.get('spec') != current['spec']:
+            changes.append('cluster permissions changed: review Service/operator/host access and exceptions')
+    result = subprocess.run(['git', 'diff', '--name-only', revision, '--', 'automation/scripts/ci',
+                             'automation/schemas/contracts', '.github'], cwd=root, capture_output=True,
+                            text=True, timeout=20, check=True)
+    if result.stdout.strip():
+        changes.append('validation or workflow files changed: review checks and execution permissions')
+    return changes
 
 
-def load_docs(path: Path):
-    with path.open(encoding="utf-8") as f:
-        return [doc for doc in yaml.safe_load_all(f) if isinstance(doc, dict)]
-
-
-def fail(issues: list[str], message: str) -> None:
-    issues.append(message)
-
-
-def hostnames_from_block_text(text: str) -> set[str]:
-    hosts: set[str] = set()
-    for line in text.splitlines():
-        stripped = line.strip()
-        if stripped.startswith("- hostname:"):
-            hosts.add(stripped.split(":", 1)[1].strip())
-        elif stripped and not stripped.startswith("#"):
-            parts = stripped.split()
-            if len(parts) >= 2 and parts[0].count(".") == 3:
-                hosts.update(parts[1:])
-    return hosts
-
-
-def main() -> int:
-    issues: list[str] = []
-
-    if not ACCESS_CONTRACT.exists():
-        fail(issues, f"missing access contract: {ACCESS_CONTRACT}")
-    if not CLUSTER_CONTRACT.exists():
-        fail(issues, f"missing cluster contract: {CLUSTER_CONTRACT}")
-    if issues:
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--root', type=Path, default=ROOT)
+    parser.add_argument('--base-ref')
+    parser.add_argument('--report', type=Path)
+    args = parser.parse_args()
+    try:
+        cluster, access = load_contracts(args.root)
+        inventory = collect(args.root)
+        issues = check(cluster, access, inventory.resources)
+        changes = changes_since(args.root, args.base_ref, cluster, access) if args.base_ref else []
+        report = {'sources': inventory.sources, 'resourceCount': len(inventory.resources),
+                  'issues': issues, 'reviewRequired': changes,
+                  'runtimeChecks': [{'identity': e['identity'], 'checks': e['runtimeChecks']}
+                                    for e in cluster['spec']['security']['operatorResources']]}
+        if args.report:
+            args.report.write_text(json.dumps(report, ensure_ascii=False, indent=2) + '\n')
         for issue in issues:
-            print(f"[NG] {issue}", file=sys.stderr)
+            print('[NG] ' + issue, file=sys.stderr)
+        for change in changes:
+            print('[REVIEW] ' + change)
+        if not issues:
+            print(f'[OK] contracts: {len(inventory.sources)} sources, {len(inventory.resources)} resources; '
+                  'operator-generated resources require the documented runtime checks')
+        return bool(issues)
+    except (InventoryError, KeyError, TypeError, ValueError, OSError, subprocess.SubprocessError) as exc:
+        # 入力値・コマンド出力を例外のtracebackへ含めない。
+        message = str(exc) if isinstance(exc, InventoryError) else type(exc).__name__ + ' (details omitted)'
+        print('[NG] contract validation: ' + message, file=sys.stderr)
         return 1
 
-    access_contract = load_yaml(ACCESS_CONTRACT)
-    cluster_contract = load_yaml(CLUSTER_CONTRACT)
-    surfaces = access_contract["spec"]["surfaces"]
-    gateway_ip = cluster_contract["spec"]["network"]["serviceIPs"]["gateway"]
-    tailscale_split_dns_ip = cluster_contract["spec"]["network"]["serviceIPs"]["tailscaleSplitDNS"]
 
-    annotated_surfaces: set[str] = set()
-
-    for path in sorted(ACCESS_DIR.rglob("*.yaml")):
-        if path.name == "kustomization.yaml":
-            continue
-        for doc in load_docs(path):
-            kind = doc.get("kind")
-            meta = doc.get("metadata", {})
-            annotations = meta.get("annotations", {}) or {}
-            surface_id = annotations.get("contracts.k8s-myhome.local/access-surface")
-            if kind != "HTTPRoute" or not surface_id:
-                continue
-
-            rel = path.relative_to(ROOT)
-            annotated_surfaces.add(surface_id)
-            surface = surfaces.get(surface_id)
-            if not surface:
-                fail(issues, f"{rel}: unknown access surface annotation: {surface_id}")
-                continue
-
-            expected_hostname = surface["hostname"]
-            actual_hostnames = set(doc.get("spec", {}).get("hostnames") or [])
-            if actual_hostnames != {expected_hostname}:
-                fail(issues, f"{rel}: {meta.get('name')} hostnames {sorted(actual_hostnames)} != {expected_hostname}")
-
-            parent_refs = doc.get("spec", {}).get("parentRefs") or []
-            section_names = {ref.get("sectionName") for ref in parent_refs if ref.get("sectionName")}
-            allowed_sections = {"http", surface["gatewayListener"]}
-            if not section_names or not section_names <= allowed_sections:
-                fail(issues, f"{rel}: {meta.get('name')} sectionName {sorted(section_names)} not in {sorted(allowed_sections)}")
-
-            backend_refs = []
-            for rule in doc.get("spec", {}).get("rules") or []:
-                backend_refs.extend(rule.get("backendRefs") or [])
-            if backend_refs:
-                backend_names = {ref.get("name") for ref in backend_refs if ref.get("name")}
-                expected_backend = surface["backend"]["service"]
-                if expected_backend not in backend_names:
-                    fail(issues, f"{rel}: {meta.get('name')} backendRefs {sorted(backend_names)} missing {expected_backend}")
-
-    for surface_id in surfaces:
-        if surface_id not in annotated_surfaces:
-            fail(issues, f"access surface has no annotated HTTPRoute: {surface_id}")
-
-    gateway_doc = load_docs(ACCESS_DIR / "gateway/gateway.yaml")[0]
-    listeners = gateway_doc.get("spec", {}).get("listeners") or []
-    listener_hosts = {listener.get("name"): listener.get("hostname") for listener in listeners}
-    for surface_id, surface in surfaces.items():
-        listener = surface["gatewayListener"]
-        hostname = surface["hostname"]
-        if listener_hosts.get(listener) != hostname:
-            fail(issues, f"gateway listener {listener} hostname {listener_hosts.get(listener)} != {hostname} ({surface_id})")
-
-    coredns = load_docs(ACCESS_DIR / "dns/core/coredns-configmap.yaml")[0]
-    corefile = coredns.get("data", {}).get("Corefile", "")
-    expected_core_hosts = {s["hostname"] for s in surfaces.values() if s["publish"].get("coreDNS")}
-    core_hosts = hostnames_from_block_text(corefile)
-    if core_hosts != expected_core_hosts:
-        fail(issues, f"CoreDNS hosts {sorted(core_hosts)} != {sorted(expected_core_hosts)}")
-    for host in expected_core_hosts:
-        if f"{gateway_ip} {host}" not in corefile:
-            fail(issues, f"CoreDNS host {host} does not use gateway IP {gateway_ip}")
-
-    tailscale_docs = load_docs(ACCESS_DIR / "dns/tailscale/manifest.yaml")
-    tailscale_config = next(doc for doc in tailscale_docs if doc.get("kind") == "ConfigMap")
-    tailscale_corefile = tailscale_config.get("data", {}).get("Corefile", "")
-    expected_ts_hosts = {s["hostname"] for s in surfaces.values() if s["publish"].get("tailscaleSplitDNS")}
-    ts_hosts = hostnames_from_block_text(tailscale_corefile)
-    if ts_hosts != expected_ts_hosts:
-        fail(issues, f"Tailscale Split DNS hosts {sorted(ts_hosts)} != {sorted(expected_ts_hosts)}")
-    for host in expected_ts_hosts:
-        if f"{gateway_ip} {host}" not in tailscale_corefile:
-            fail(issues, f"Tailscale Split DNS host {host} does not use gateway IP {gateway_ip}")
-
-    tailscale_service = next(doc for doc in tailscale_docs if doc.get("kind") == "Service")
-    actual_lb_ip = tailscale_service.get("spec", {}).get("loadBalancerIP")
-    if actual_lb_ip != tailscale_split_dns_ip:
-        fail(issues, f"Tailscale Split DNS loadBalancerIP {actual_lb_ip} != {tailscale_split_dns_ip}")
-
-    if issues:
-        for issue in issues:
-            print(f"[NG] {issue}", file=sys.stderr)
-        return 1
-
-    print("[OK] access manifests match home-lab contracts")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+if __name__ == '__main__':
+    sys.exit(main())

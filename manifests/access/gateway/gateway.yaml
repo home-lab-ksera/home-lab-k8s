@@ -13,8 +13,21 @@ spec:
       port: 80
       protocol: HTTP
       allowedRoutes:
+        kinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
         namespaces:
-          from: All
+          from: Selector
+          selector:
+            matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: In
+              values:
+              - argocd
+              - harbor
+              - observability
+              - rustfs
+              - sandbox
     - name: https-argocd-external
       hostname: argocd.qroksera.com
       port: 443
@@ -27,8 +40,17 @@ spec:
             name: wildcard-external-tls
             namespace: nginx-gateway
       allowedRoutes:
+        kinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
         namespaces:
-          from: All
+          from: Selector
+          selector:
+            matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: In
+              values:
+              - argocd
     - name: https-rustfs
       hostname: rustfs.qroksera.com
       port: 443
@@ -41,8 +63,17 @@ spec:
             name: wildcard-external-tls
             namespace: nginx-gateway
       allowedRoutes:
+        kinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
         namespaces:
-          from: All
+          from: Selector
+          selector:
+            matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: In
+              values:
+              - rustfs
     - name: https-harbor-external
       hostname: harbor.qroksera.com
       port: 443
@@ -55,8 +86,17 @@ spec:
             name: wildcard-external-tls
             namespace: nginx-gateway
       allowedRoutes:
+        kinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
         namespaces:
-          from: All
+          from: Selector
+          selector:
+            matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: In
+              values:
+              - harbor
     - name: https-argocd-internal
       hostname: argocd.internal.qroksera.com
       port: 443
@@ -69,8 +109,17 @@ spec:
             name: argocd-internal-tls
             namespace: nginx-gateway
       allowedRoutes:
+        kinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
         namespaces:
-          from: All
+          from: Selector
+          selector:
+            matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: In
+              values:
+              - argocd
     - name: https-harbor-internal
       hostname: harbor.internal.qroksera.com
       port: 443
@@ -83,8 +132,17 @@ spec:
             name: harbor-internal-tls
             namespace: nginx-gateway
       allowedRoutes:
+        kinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
         namespaces:
-          from: All
+          from: Selector
+          selector:
+            matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: In
+              values:
+              - harbor
     - name: https-cooklog-internal
       hostname: cooklog.internal.qroksera.com
       port: 443
@@ -97,8 +155,17 @@ spec:
             name: cooklog-internal-tls
             namespace: nginx-gateway
       allowedRoutes:
+        kinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
         namespaces:
-          from: All
+          from: Selector
+          selector:
+            matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: In
+              values:
+              - sandbox
     - name: https-api-hub-internal
       hostname: api-hub.internal.qroksera.com
       port: 443
@@ -111,8 +178,17 @@ spec:
             name: api-hub-internal-tls
             namespace: nginx-gateway
       allowedRoutes:
+        kinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
         namespaces:
-          from: All
+          from: Selector
+          selector:
+            matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: In
+              values:
+              - sandbox
     - name: https-hitomi-upload-viewer-internal
       hostname: hitomi-upload-viewer.internal.qroksera.com
       port: 443
@@ -125,8 +201,17 @@ spec:
             name: hitomi-upload-viewer-internal-tls
             namespace: nginx-gateway
       allowedRoutes:
+        kinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
         namespaces:
-          from: All
+          from: Selector
+          selector:
+            matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: In
+              values:
+              - sandbox
     - name: https-observability-internal
       hostname: observability.internal.qroksera.com
       port: 443
@@ -139,8 +224,17 @@ spec:
             name: observability-internal-tls
             namespace: nginx-gateway
       allowedRoutes:
+        kinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
         namespaces:
-          from: All
+          from: Selector
+          selector:
+            matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: In
+              values:
+              - observability
     - name: https-blog-external
       hostname: blog.qroksera.com
       port: 443
@@ -153,8 +247,17 @@ spec:
             name: wildcard-external-tls
             namespace: nginx-gateway
       allowedRoutes:
+        kinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
         namespaces:
-          from: All
+          from: Selector
+          selector:
+            matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: In
+              values:
+              - sandbox
     - name: https-rsshub-internal
       hostname: rsshub.internal.qroksera.com
       port: 443
@@ -167,8 +270,17 @@ spec:
             name: rsshub-internal-tls
             namespace: nginx-gateway
       allowedRoutes:
+        kinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
         namespaces:
-          from: All
+          from: Selector
+          selector:
+            matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: In
+              values:
+              - sandbox
     - name: https-rustfs-internal
       hostname: rustfs.internal.qroksera.com
       port: 443
@@ -181,8 +293,17 @@ spec:
             name: rustfs-internal-tls
             namespace: nginx-gateway
       allowedRoutes:
+        kinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
         namespaces:
-          from: All
+          from: Selector
+          selector:
+            matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: In
+              values:
+              - rustfs
     - name: https-blog-internal
       hostname: blog.internal.qroksera.com
       port: 443
@@ -195,8 +316,17 @@ spec:
             name: blog-internal-tls
             namespace: nginx-gateway
       allowedRoutes:
+        kinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
         namespaces:
-          from: All
+          from: Selector
+          selector:
+            matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: In
+              values:
+              - sandbox
     - name: https-grafana-internal
       hostname: grafana.internal.qroksera.com
       port: 443
@@ -209,8 +339,17 @@ spec:
             name: grafana-internal-tls
             namespace: nginx-gateway
       allowedRoutes:
+        kinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
         namespaces:
-          from: All
+          from: Selector
+          selector:
+            matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: In
+              values:
+              - observability
     - name: https-s3-internal
       hostname: s3.internal.qroksera.com
       port: 443
@@ -223,5 +362,14 @@ spec:
             name: s3-internal-tls
             namespace: nginx-gateway
       allowedRoutes:
+        kinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
         namespaces:
-          from: All
+          from: Selector
+          selector:
+            matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: In
+              values:
+              - rustfs
