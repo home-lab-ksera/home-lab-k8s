@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import re
 import shutil
-import subprocess
 import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
 import yaml
+
+from contract_inventory import InventoryError, render_local
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -263,14 +264,10 @@ def check_child_app_structure(issues: list[str]) -> None:
 
 
 def render_child_app(path: str) -> tuple[int, str, str]:
-    proc = subprocess.run(
-        ["kustomize", "build", "--enable-helm", str(ROOT / path)],
-        cwd=ROOT,
-        text=True,
-        capture_output=True,
-        check=False,
-    )
-    return proc.returncode, proc.stdout, proc.stderr
+    try:
+        return 0, yaml.safe_dump_all(render_local(ROOT, path)), ""
+    except InventoryError as exc:
+        return 1, "", str(exc)
 
 
 def default_namespace_for_app(doc: dict[str, Any]) -> str | None:

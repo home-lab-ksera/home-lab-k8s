@@ -1,4 +1,4 @@
-apiVersion: contracts.k8s-myhome.local/v1alpha1
+apiVersion: contracts.k8s-myhome.local/v1alpha2
 kind: ClusterContract
 metadata:
   name: home-lab
@@ -13,8 +13,8 @@ spec:
     nodes:
       controlPlane: 192.168.122.10
       workers:
-        - 192.168.122.11
-        - 192.168.122.12
+      - 192.168.122.11
+      - 192.168.122.12
     podCIDR: 10.244.0.0/16
     serviceCIDR: 10.96.0.0/12
     metallb:
@@ -29,10 +29,193 @@ spec:
     classes:
       external: nfs-external
       local:
-        - local-storage
-        - local-ssd-storage
-        - local-path
+      - local-storage
+      - local-ssd-storage
+      - local-path
   apps:
     apiHub:
       service:
-        nodePort: 32001
+        namespace: sandbox
+        name: api-hub
+        type: ClusterIP
+        ports:
+        - 3000
+  security:
+    exceptions:
+    - identity:
+        group: ''
+        kind: Service
+        namespace: tailscale
+        name: tailscale-split-dns
+      reason: Tailnet向けSplit DNSのUDP/TCP 53。
+      fields:
+        type: LoadBalancer
+        externalIPs: []
+        externalName: ''
+        loadBalancerIP: 192.168.122.101
+        loadBalancerSourceRanges: []
+        allocateLoadBalancerNodePorts: true
+        ports:
+        - name: dns-udp
+          port: 53
+          protocol: UDP
+          targetPort: 53
+        - name: dns-tcp
+          port: 53
+          protocol: TCP
+          targetPort: 53
+        selector:
+          app: tailscale-split-dns
+        annotations: {}
+    - identity:
+        group: apps
+        kind: DaemonSet
+        namespace: kube-system
+        name: kube-network-policies
+      reason: ノードのNetworkPolicyを適用するDaemonSet。
+      fields:
+        hostAccess:
+        - path: /spec/template/spec
+          hostNetwork: true
+    - identity:
+        group: apps
+        kind: DaemonSet
+        namespace: metallb-system
+        name: metallb-speaker
+      reason: L2広告を担当するMetalLB speaker。
+      fields:
+        hostAccess:
+        - path: /spec/template/spec
+          hostNetwork: true
+    operatorResources:
+    - identity:
+        group: gateway.networking.k8s.io
+        kind: GatewayClass
+        namespace: ''
+        name: nginx
+      reason: NGINX Gateway controllerと設定参照。
+      fields:
+        controllerName: gateway.nginx.org/nginx-gateway-controller
+        parametersRef:
+          group: gateway.nginx.org
+          kind: NginxProxy
+          name: nginx-gateway-fabric-proxy-config
+          namespace: nginx-gateway
+      runtimeChecks:
+      - 生成後のService種別・port・ownerReference、PodのhostNetwork/hostPortを確認する。
+    - identity:
+        group: gateway.nginx.org
+        kind: NginxProxy
+        namespace: nginx-gateway
+        name: nginx-gateway-fabric-proxy-config
+      reason: Gatewayの生成ServiceとPodの設定。
+      fields:
+        kubernetes:
+          deployment:
+            replicas: 1
+            container: {}
+          service:
+            externalTrafficPolicy: Local
+            loadBalancerIP: 192.168.122.100
+            type: LoadBalancer
+      runtimeChecks:
+      - 生成後のService種別・port・ownerReference、PodのhostNetwork/hostPortを確認する。
+    - identity:
+        group: postgres-operator.crunchydata.com
+        kind: PostgresCluster
+        namespace: database
+        name: shared-postgresql
+      reason: PGO生成Service・instance・proxyの宣言。
+      fields:
+        instances:
+        - dataVolumeClaimSpec:
+            accessModes:
+            - ReadWriteOnce
+            resources:
+              requests:
+                storage: 10Gi
+            storageClassName: nfs-postgresql
+          name: main
+          replicas: 1
+          resources:
+            limits:
+              cpu: '1'
+              memory: 1Gi
+            requests:
+              cpu: 250m
+              memory: 512Mi
+      runtimeChecks:
+      - 生成後のService種別・port・ownerReference、PodのhostNetwork/hostPortを確認する。
+    - identity:
+        group: tailscale.com
+        kind: Connector
+        namespace: tailscale
+        name: k8s-subnet-router
+      reason: 既存の自宅サブネット広告。
+      fields:
+        hostnamePrefix: k8s-subnet-router
+        replicas: 1
+        subnetRouter:
+          advertiseRoutes:
+          - 192.168.122.0/24
+        tags:
+        - tag:k8s-subnet-router
+      runtimeChecks:
+      - 生成後のService種別・port・ownerReference、PodのhostNetwork/hostPortを確認する。
+    - identity:
+        group: actions.github.com
+        kind: AutoscalingRunnerSet
+        namespace: arc-systems
+        name: harbor-publish-runners
+      reason: ARCが生成するrunner Podの設定。
+      fields:
+        template:
+          spec:
+            automountServiceAccountToken: false
+            hostAliases:
+            - hostnames:
+              - harbor.internal.qroksera.com
+              ip: 192.168.122.100
+            securityContext:
+              fsGroup: 1001
+              runAsGroup: 1001
+              runAsNonRoot: true
+              runAsUser: 1001
+              seccompProfile:
+                type: RuntimeDefault
+            restartPolicy: Never
+            serviceAccountName: github-actions-runner
+            containers:
+            - name: runner
+              command:
+              - /home/runner/run.sh
+              image: ghcr.io/actions/actions-runner:latest
+              resources:
+                limits:
+                  ephemeral-storage: 8Gi
+                  memory: 1Gi
+                requests:
+                  cpu: 500m
+                  ephemeral-storage: 2Gi
+                  memory: 512Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                  - ALL
+              volumeMounts:
+              - mountPath: /home/runner/_work
+                name: work
+              - mountPath: /etc/harbor-auth
+                name: harbor-auth
+                readOnly: true
+            volumes:
+            - emptyDir:
+                sizeLimit: 6Gi
+              name: work
+            - name: harbor-auth
+              secret:
+                defaultMode: 288
+                secretName: harbor-ci-auth
+      runtimeChecks:
+      - 生成後のService種別・port・ownerReference、PodのhostNetwork/hostPortを確認する。

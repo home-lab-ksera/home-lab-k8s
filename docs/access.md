@@ -3,6 +3,35 @@
 経路の照合元は [access-surfaces.yaml](../manifests/contracts/home-lab/access-surfaces.yaml)、
 実リソースは [access/](../manifests/access/) です。contract の変更だけでは DNS や Route は生成されません。
 
+## 公開経路のCI検証
+
+台帳はv1alpha2です。各surfaceにRouteのnamespace/name、Gateway/listener、TLS参照、
+転送ルールのprofileを登録します。Harborのcore/portal分岐、S3のGET/HEAD/OPTIONSと
+許可prefix、RustFS consoleのredirectもprofileで照合します。変更時は実リソースと台帳を一緒に更新してください。
+Nature RemoはHTTPRouteではなく `tailscale-ingress` として登録しています。
+
+checkerはbootstrapからApplication/ApplicationSetを辿り、Kustomizeと外部Helmの展開結果を検査します。
+注釈のないRouteや台帳外のIngress、余分なbackend、NodePort、HTTP直結、TLS欠落、
+未登録のnamespace間参照を拒否します。全条件は[検証ルール](../automation/scripts/ci/contract_rules.py)が正本です。
+未対応のsourceやchart取得失敗を正常扱いにはしません。
+
+Gatewayの各HTTPS listenerは、そのRouteが属するnamespaceだけを許可します。
+HTTP listenerは登録済みredirect Routeのnamespace集合を許可します。
+namespaceは `kubernetes.io/metadata.name` で選び、許可kindはHTTPRouteのみです。
+同じnamespace内でのRoute書換えやGitを経由しない変更は、このCIだけでは防げません。
+
+新しい経路を追加する際は、次も更新します。
+
+- surfaceの `routes` と `profiles`。profileはbackendのService portを使い、targetPortとは区別する。
+- listenerのallowedRoutesと証明書。既存listenerのAllへの変更は検証に失敗する。
+- DNSのhostsエントリとpublish設定。rewrite/import等の迂回設定は未対応として拒否する。
+- 必要な場合だけ、[cluster contract](../manifests/contracts/home-lab/cluster-contract.yaml)の基盤例外。
+  例外はidentity・許可する設定・理由を明示し、namespace全体を除外しない。
+
+`internal` は公開意図の記録です。ホスト名・DNS設定・CI成功だけではInternetからの到達を遮断できません。
+Tailnet ACL、ルーター/NAT、証明書の実値、operator生成後のService/Podは別途確認します。
+台帳とmanifestを同時に緩和すると一致検査だけは通るため、PRの公開設定差分もレビューしてください。
+
 ```mermaid
 flowchart LR
   Nodes[kubelet / containerd] --> GW[NGINX Gateway :443]
