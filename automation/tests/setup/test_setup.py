@@ -32,8 +32,7 @@ class SetupTests(unittest.TestCase):
                      'automation/scripts/verify.sh',
                      'automation/platform/platform-deploy.sh',
                      'manifests/bootstrap/app-of-apps.yaml',
-                     'manifests/platform/argocd-config/upstream/kustomization.yaml',
-                     'automation/templates/platform/argocd-ingress.yaml'):
+                     'manifests/platform/argocd-config/upstream/kustomization.yaml'):
             target = self.root / path
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(ROOT / path, target)
@@ -152,6 +151,7 @@ fi
         self.assertLess(secret, root)
         self.assertIn('--from-literal=accessToken=' + token, events[secret])
         self.assertNotIn(token, result.stdout + result.stderr)
+        self.assertFalse(any('argocd-ingress.yaml' in event or 'argocd.local' in event for event in events))
 
     def test_bootstrap_failures_do_not_apply_root(self):
         self.prepare_bootstrap()
