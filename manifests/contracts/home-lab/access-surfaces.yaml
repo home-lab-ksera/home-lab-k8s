@@ -4,34 +4,6 @@ metadata:
   name: home-lab
 spec:
   surfaces:
-    argocd-external:
-      hostname: argocd.qroksera.com
-      exposure: external
-      gatewayListener: https-argocd-external
-      publish:
-        coreDNS: false
-        tailscaleSplitDNS: false
-      type: gateway-http
-      gateway:
-        namespace: nginx-gateway
-        name: nginx-gateway
-        className: nginx
-      tls:
-        certificate: wildcard-external
-        secret: wildcard-external-tls
-        issuer:
-          group: cert-manager.io
-          kind: ClusterIssuer
-          name: letsencrypt-cloudflare
-      routes:
-      - namespace: argocd
-        name: argocd-external
-        listener: https-argocd-external
-        profile: argocd-external
-      - namespace: argocd
-        name: argocd-external-redirect
-        listener: http
-        profile: argocd-external-redirect
     argocd-internal:
       hostname: argocd.internal.qroksera.com
       exposure: internal
@@ -114,62 +86,6 @@ spec:
         profile: harbor-external
       - namespace: harbor
         name: harbor-internal-redirect
-        listener: http
-        profile: argocd-external-redirect
-    rustfs-console:
-      hostname: rustfs.qroksera.com
-      exposure: external
-      gatewayListener: https-rustfs
-      publish:
-        coreDNS: false
-        tailscaleSplitDNS: false
-      type: gateway-http
-      gateway:
-        namespace: nginx-gateway
-        name: nginx-gateway
-        className: nginx
-      tls:
-        certificate: wildcard-external
-        secret: wildcard-external-tls
-        issuer:
-          group: cert-manager.io
-          kind: ClusterIssuer
-          name: letsencrypt-cloudflare
-      routes:
-      - namespace: rustfs
-        name: rustfs-console
-        listener: https-rustfs
-        profile: rustfs-console
-      - namespace: rustfs
-        name: rustfs-console-redirect
-        listener: http
-        profile: argocd-external-redirect
-    blog-external:
-      hostname: blog.qroksera.com
-      exposure: external
-      gatewayListener: https-blog-external
-      publish:
-        coreDNS: false
-        tailscaleSplitDNS: false
-      type: gateway-http
-      gateway:
-        namespace: nginx-gateway
-        name: nginx-gateway
-        className: nginx
-      tls:
-        certificate: wildcard-external
-        secret: wildcard-external-tls
-        issuer:
-          group: cert-manager.io
-          kind: ClusterIssuer
-          name: letsencrypt-cloudflare
-      routes:
-      - namespace: sandbox
-        name: blog-external
-        listener: https-blog-external
-        profile: blog-external
-      - namespace: sandbox
-        name: blog-external-redirect
         listener: http
         profile: argocd-external-redirect
     cooklog-internal:

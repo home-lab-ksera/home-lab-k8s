@@ -54,6 +54,8 @@ Harbor は push・pull・認証を内部 Gateway `192.168.122.100` で完結さ�
 cloudflared と専用 Secret / Namespace / Application は撤去しました。
 旧 `harbor.qroksera.com` の Route は既存イメージ名との互換用に内部で残しています。
 contract の `harbor-external` は旧名であり、exposure は internal です。
+Internet向けだった `argocd.qroksera.com`、`rustfs.qroksera.com`、`blog.qroksera.com` の
+listener・Route・台帳エントリは撤去済みです。現在 `exposure: external` のsurfaceはありません。
 
 RustFS の Gateway backend は console の 9001 のみです。S3 の 9000 はクラスタ内で api-hub などが利用します。
 console の `/` は GET / HEAD のリダイレクトと POST / Authorization 付き GET の転送を
@@ -78,7 +80,8 @@ DNS の UDP/TCP 53、Gateway の TCP 443（HTTP redirect を使うなら 80）�
 Harbor internal は CoreDNS と Tailscale Split DNS の両方に登録しています。
 
 GitHub OAuth App の callback は ArgoCD の URL と `/api/dex/callback` を一致させます。
-Cloudflare 側の旧 Tunnel / DNS レコードの削除、Tailnet ACL、OAuth App の設定はこのリポジトリから自動反映されません。
+Cloudflare 側の旧 Tunnel と argocd・rustfs・blog・harbor の DNS レコードは 2026-11-10 に削除済みです。
+Cloudflare 側の設定、Tailnet ACL、OAuth App の設定はこのリポジトリから自動反映されません。
 
 ## 新しく到達可能な API を追加する手順
 
