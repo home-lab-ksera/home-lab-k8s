@@ -1,0 +1,71 @@
+rule_files:
+  - ../../../manifests/platform/observability/config/alert-rules.yaml
+evaluation_interval: 1m
+tests:
+  # 毎日成功している通常状態では通知しない。24h後に次の成功時刻へ更新される。
+  - interval: 1m
+    input_series:
+      - series: 'kube_cronjob_status_last_successful_time{namespace="database",cronjob="shared-postgresql-repo1-diff"}'
+        values: '0x1440 86400x600'
+      - series: 'kube_cronjob_status_last_schedule_time{namespace="database",cronjob="shared-postgresql-repo1-diff"}'
+        values: '0x1440 86400x600'
+    alert_rule_test:
+      - eval_time: 33h
+        alertname: PostgreSQLBackupStale
+        exp_alerts: []
+      - eval_time: 33h
+        alertname: PostgreSQLBackupFailed
+        exp_alerts: []
+  # 成功が止まると26時間+30分後に critical。
+  - interval: 1m
+    input_series:
+      - series: 'kube_cronjob_status_last_successful_time{namespace="database",cronjob="shared-postgresql-repo1-diff"}'
+        values: '0x1700'
+    alert_rule_test:
+      - eval_time: 26h20m
+        alertname: PostgreSQLBackupStale
+        exp_alerts: []
+      - eval_time: 26h40m
+        alertname: PostgreSQLBackupStale
+        exp_alerts:
+          - exp_labels:
+              namespace: database
+              severity: critical
+            exp_annotations:
+              summary: "共通PostgreSQLのpgBackRestバックアップが26時間以上成功していません。database namespaceのbackup Jobとrepo-hostのログを確認してください"
+  # メトリクス自体が無い場合も通知する。
+  - interval: 1m
+    input_series: []
+    alert_rule_test:
+      - eval_time: 31m
+        alertname: PostgreSQLBackupStale
+        exp_alerts:
+          - exp_labels:
+              namespace: database
+              severity: critical
+            exp_annotations:
+              summary: "共通PostgreSQLのpgBackRestバックアップが26時間以上成功していません。database namespaceのbackup Jobとrepo-hostのログを確認してください"
+  # full は失敗が続き warning、diff は数分の実行後に成功するため通知しない。
+  - interval: 1m
+    input_series:
+      - series: 'kube_cronjob_status_last_schedule_time{namespace="database",cronjob="shared-postgresql-repo1-full"}'
+        values: '0x10 600x200'
+      - series: 'kube_cronjob_status_last_successful_time{namespace="database",cronjob="shared-postgresql-repo1-full"}'
+        values: '100x210'
+      - series: 'kube_cronjob_status_last_schedule_time{namespace="database",cronjob="shared-postgresql-repo1-diff"}'
+        values: '0x10 600x200'
+      - series: 'kube_cronjob_status_last_successful_time{namespace="database",cronjob="shared-postgresql-repo1-diff"}'
+        values: '100x16 900x194'
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: PostgreSQLBackupFailed
+        exp_alerts: []
+      - eval_time: 2h30m
+        alertname: PostgreSQLBackupFailed
+        exp_alerts:
+          - exp_labels:
+              namespace: database
+              cronjob: shared-postgresql-repo1-full
+              severity: warning
+            exp_annotations:
+              summary: "pgBackRest shared-postgresql-repo1-full の直近の実行が成功していません。kubectl -n database get jobs で失敗Jobを確認してください"

@@ -301,6 +301,28 @@ groups:
           severity: warning
         annotations:
           summary: "Harbor自動保守が30分以上成功していません。Jobログと配布状態を確認してください"
+      # pgBackRest: full（日曜）と diff（月〜土）が毎日 18:00 UTC に実行される。
+      # どちらかの成功が26時間ない場合は、バックアップの欠落として critical で通知する。
+      - alert: PostgreSQLBackupStale
+        expr: >-
+          time() - max(kube_cronjob_status_last_successful_time{namespace="database",cronjob=~"shared-postgresql-repo1-(full|diff)"}) > 26 * 3600
+          or absent(kube_cronjob_status_last_successful_time{namespace="database",cronjob=~"shared-postgresql-repo1-(full|diff)"})
+        for: 30m
+        labels:
+          severity: critical
+          namespace: database
+        annotations:
+          summary: "共通PostgreSQLのpgBackRestバックアップが26時間以上成功していません。database namespaceのbackup Jobとrepo-hostのログを確認してください"
+      # 直近のスケジュール実行が成功していない（失敗・未完了）状態が続く場合。実行中の数分は for で除外する。
+      - alert: PostgreSQLBackupFailed
+        expr: >-
+          kube_cronjob_status_last_schedule_time{namespace="database",cronjob=~"shared-postgresql-repo1-(full|diff)"}
+          > kube_cronjob_status_last_successful_time{namespace="database",cronjob=~"shared-postgresql-repo1-(full|diff)"}
+        for: 2h
+        labels:
+          severity: warning
+        annotations:
+          summary: "pgBackRest {{ $labels.cronjob }} の直近の実行が成功していません。kubectl -n database get jobs で失敗Jobを確認してください"
       - alert: HarborRepositoryBlocked
         # 配布・切替中の短時間のblockedは正常。1時間継続したrepoだけを通知する。
         expr: max by (repository) (max_over_time(harbor_maintenance_repository_blocked[15m])) == 1

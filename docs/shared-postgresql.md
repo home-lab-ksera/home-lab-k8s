@@ -101,7 +101,9 @@ DB と backup repo が同じ NFS にあるため、その媒体の喪失に備�
 
 PostgresCluster は full `0 18 * * 0`、differential `0 18 * * 1-6`、full 3 世代保持を指定しています。
 CR には timezone 指定がないため、生成 CronJob と controller のタイムゾーンを確認します。
-UTC 解釈の場合は full が月曜 03:00 JST、differential が火〜日曜 03:00 JST です。
+UTC 解釈の場合は full が月曜 03:00 JST、differential が火〜日曜 03:00 JST です（2026-11-10 に実行時刻から UTC 解釈を確認）。
+CronJob の成功時刻を `PostgreSQLBackupStale`（26時間成功なし）と `PostgreSQLBackupFailed`（直近実行の失敗）で監視します。
+Job の成功は WAL アーカイブの継続や復元可能性までは保証しません。
 
 ```bash
 # 新しい full backup を実行する操作
