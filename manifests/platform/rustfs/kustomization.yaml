@@ -4,6 +4,7 @@ kind: Kustomization
 resources:
   - lifecycle-job.yaml
   - lifecycle-networkpolicy.yaml
+  - scanner-monitor.yaml
 
 configMapGenerator:
   - name: rustfs-lifecycle
@@ -13,6 +14,10 @@ configMapGenerator:
       - cors.json
       - buckets.txt
       - apply-lifecycle.sh
+  - name: rustfs-scanner-monitor
+    namespace: rustfs
+    files:
+      - scripts/scanner-monitor.py
 
 helmCharts:
   - name: rustfs

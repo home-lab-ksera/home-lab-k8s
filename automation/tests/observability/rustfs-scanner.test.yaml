@@ -1,0 +1,56 @@
+rule_files:
+  - ../../../manifests/platform/observability/config/alert-rules.yaml
+evaluation_interval: 1m
+tests:
+  # 15分ごとの送信で、走査が10分ごとに進んでいる通常状態。
+  - interval: 15m
+    input_series:
+      - series: 'rustfs_scanner_last_cycle_end_timestamp_seconds'
+        values: '0+900x40'
+      - series: 'rustfs_scanner_monitor_last_run_timestamp_seconds'
+        values: '0+900x40'
+    alert_rule_test:
+      - eval_time: 9h
+        alertname: RustFSScannerStalled
+        exp_alerts: []
+      - eval_time: 9h
+        alertname: RustFSScannerMonitorMissing
+        exp_alerts: []
+  # 送信は続くが走査完了時刻が止まると、6時間+15分後に通知。
+  - interval: 15m
+    input_series:
+      - series: 'rustfs_scanner_last_cycle_end_timestamp_seconds'
+        values: '0x40'
+      - series: 'rustfs_scanner_monitor_last_run_timestamp_seconds'
+        values: '0+900x40'
+    alert_rule_test:
+      - eval_time: 6h
+        alertname: RustFSScannerStalled
+        exp_alerts: []
+      - eval_time: 6h30m
+        alertname: RustFSScannerStalled
+        exp_alerts:
+          - exp_labels:
+              namespace: rustfs
+              severity: warning
+            exp_annotations:
+              summary: "RustFS scannerが6時間以上走査を完了していません（lifecycleの期限切れ削除も停止）。scanner statusとrustfsのログを確認してください"
+  # 監視Jobの送信が止まった場合（系列が途絶）。
+  - interval: 15m
+    input_series:
+      - series: 'rustfs_scanner_monitor_last_run_timestamp_seconds'
+        values: '0+900x4 _x30'
+      - series: 'rustfs_scanner_last_cycle_end_timestamp_seconds'
+        values: '0+900x4 _x30'
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: RustFSScannerMonitorMissing
+        exp_alerts: []
+      - eval_time: 2h30m
+        alertname: RustFSScannerMonitorMissing
+        exp_alerts:
+          - exp_labels:
+              namespace: rustfs
+              severity: warning
+            exp_annotations:
+              summary: "RustFS scannerの監視Jobが1時間以上メトリクスを送信していません。rustfs-scanner-monitor CronJobを確認してください"

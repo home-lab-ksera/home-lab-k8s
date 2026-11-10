@@ -334,6 +334,27 @@ groups:
           severity: warning
         annotations:
           summary: "pgBackRest {{ $labels.cronjob }} の直近の実行が成功していません。kubectl -n database get jobs で失敗Jobを確認してください"
+      # RustFS scanner は lifecycle（30日保持）も実行する。停止すると期限切れ削除が止まり容量が増え続ける。
+      # 通常は約10分ごとに1周を完了する（2026-11-10 実測）。
+      - alert: RustFSScannerStalled
+        expr: >-
+          time() - max(max_over_time(rustfs_scanner_last_cycle_end_timestamp_seconds[1h])) > 6 * 3600
+        for: 15m
+        labels:
+          severity: warning
+          namespace: rustfs
+        annotations:
+          summary: "RustFS scannerが6時間以上走査を完了していません（lifecycleの期限切れ削除も停止）。scanner statusとrustfsのログを確認してください"
+      - alert: RustFSScannerMonitorMissing
+        expr: >-
+          time() - max(max_over_time(rustfs_scanner_monitor_last_run_timestamp_seconds[2h])) > 3600
+          or absent_over_time(rustfs_scanner_monitor_last_run_timestamp_seconds[2h])
+        for: 15m
+        labels:
+          severity: warning
+          namespace: rustfs
+        annotations:
+          summary: "RustFS scannerの監視Jobが1時間以上メトリクスを送信していません。rustfs-scanner-monitor CronJobを確認してください"
       - alert: HarborRepositoryBlocked
         # 配布・切替中の短時間のblockedは正常。1時間継続したrepoだけを通知する。
         expr: max by (repository) (max_over_time(harbor_maintenance_repository_blocked[15m])) == 1

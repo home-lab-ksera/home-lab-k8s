@@ -29,6 +29,31 @@ PostSync の `rustfs-lifecycle` Job を持ちます。
 同期時には Job の成功と各対象バケットの lifecycle を確認します。保持設定の変更はオブジェクトの削除につながるため、
 対象バケットと日数をレビューします。
 
+### scanner の監視と復旧
+
+lifecycle の期限切れ削除は RustFS の scanner が実行します。設定の適用（上記 Job の成功）だけでは削除は保証されません。
+2026-11-03 以前から 11-10 まで、scanner は `usage_floor_load_failed` で停止し続け、一度も走査を完了していませんでした。
+そのため30日を超えたオブジェクトが残っていました。
+
+[rustfs-scanner-monitor](../manifests/platform/rustfs/scanner-monitor.yaml) CronJob が15分ごとに管理 API
+（`/rustfs/admin/v3/scanner/status`、`/rustfs/admin/v3/ilm/expiry/status`）を読み、VictoriaMetrics へ送信します。
+通常は約10分ごとに走査が完了します。`RustFSScannerStalled`（6時間完了なし）と
+`RustFSScannerMonitorMissing`（監視の送信停止）で通知します。
+
+scanner status の `cycle_recovery.classification` が `usage_floor_load_failed` の場合は、使用量状態を再構築します。
+オブジェクトは削除せず、次の完全な走査で使用量を作り直します。走査が再開すると期限切れのオブジェクトがまとめて削除されます。
+
+```bash
+kubectl -n rustfs port-forward svc/rustfs-svc 19000:9000 &
+AK=$(kubectl -n rustfs get secret rustfs-auth -o jsonpath='{.data.RUSTFS_ACCESS_KEY}' | base64 -d)
+SK=$(kubectl -n rustfs get secret rustfs-auth -o jsonpath='{.data.RUSTFS_SECRET_KEY}' | base64 -d)
+curl -s --aws-sigv4 "aws:amz:us-east-1:s3" --user "$AK:$SK" localhost:19000/rustfs/admin/v3/scanner/status | jq '.freshness, .cycle_recovery'
+curl -s --aws-sigv4 "aws:amz:us-east-1:s3" --user "$AK:$SK" -X POST -H 'Content-Type: application/json' \
+  -d '{"mode":"full-rebuild"}' localhost:19000/rustfs/admin/v3/scanner/usage-state/reset
+```
+
+手順の正本は RustFS の `docs/operations/scanner-runtime-controls.md`（採用版のタグ）です。
+
 ## Harbor cleanup
 
 旧 `harbor-sandbox-image-cleanup` CronJobは撤去済みです。
