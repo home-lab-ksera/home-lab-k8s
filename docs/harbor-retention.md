@@ -26,11 +26,15 @@ CIの連続公開と削除が重なっても、配布中の版を保護できま
 
 対象はapi-hub、blog、cooklog、hitomi、hitomi-pdf-batch、hitomi-upload-viewer、home-camera、rsshub-privateです。
 OCI indexは親digestを1世代と数え、子manifestのimageIDを照合します。
+再pushで圧縮だけ異なるmanifestが増えると、containerdは同じconfigのimageに複数のrepoDigestを持ち、
+PodのimageIDに旧digestを返すことがあります。digestが一致しない場合はHarborからconfig digestを取得し、
+同一imageであれば一致と判定します（2026-11-10、hitomi-pdf-batchの誤検知への対応）。
 CronJobと常駐workloadが同じイメージを使う場合、正常判定は常駐workloadのReadyと全templateの一致を使用します。
 これは業務処理の成功を保証する検査ではありません。実行中の旧Jobは保護し、終了済みJobの履歴は保持理由にしません。
 CronJobだけのアプリを追加した場合は正常判定の追加が必要で、現実装は削除を止めます。
 未使用のslack.rsは参照がないことを確認したarchive指定で、最新push 3件を保持します。
-未知repoは全保持し、保守失敗として通知します。新アプリはImage Updaterとmaintenance.jsonを一緒に登録してください。
+未知repoは全保持し、repo単位の保留（`HarborRepositoryBlocked`）として通知します。
+新アプリはImage Updaterとmaintenance.jsonを一緒に登録してください。Image Updater対象外のrepoは`"preserve": true`で登録します。
 
 ## 自動処理と容量
 
@@ -49,8 +53,25 @@ Jobはrequests 25m CPU/32Mi、limits 250m CPU/128Mi、最大15分、再試行は
 既存のHarbor管理Secretをread-only mountし、Kubernetes権限はworkload/ArgoCDの読取と専用Leaseの更新に限定します。
 RunnerにKubernetes権限は追加しません。
 
-監視は`HarborMaintenanceStalled`（30分以上成功なし、10分継続）と既存のPod/PVC監視を使います。
-GCの実成功が36時間以上ない場合、quota使用量が90%以上の場合も保守Jobを失敗にして通知します。
+監視は2段階です。
+
+| アラート | 対象 | 条件 |
+|---|---|---|
+| `HarborMaintenanceStalled` | 保守全体 | Jobが30分以上成功していない（10分継続） |
+| `HarborRepositoryBlocked` | repo単位 | 同じrepoの保留が1時間以上継続 |
+
+Jobを失敗にするのは全体の異常に限ります。対象はHarbor/Kubernetes APIエラー、保持処理の失敗、
+GCの実成功が36時間以上ない場合、quota使用量90%以上、メトリクス送信失敗です。
+repoの保留（blocked）はJobを失敗させません。保留中のrepoは保持処理の対象外（全保持）となり、他repoの保守は継続します。
+
+Jobは毎回VictoriaMetricsへ次を送信します（NetworkPolicyでVictoriaMetrics:8428への通信のみ許可）。
+
+- `harbor_maintenance_repository_blocked{repository, reason}`: 保留中1、正常・preserve・archive 0。reasonは保留理由
+- `harbor_maintenance_last_run_timestamp_seconds`: 最終実行時刻
+
+```promql
+max by (repository, reason) (max_over_time(harbor_maintenance_repository_blocked[15m])) == 1
+```
 
 ## 状態確認・切り戻し
 
@@ -61,6 +82,7 @@ kubectl -n harbor logs job/<直近のharbor-maintenanceのJob名>
 ```
 
 ログの`eligible`・`blocked`、正常digest、役割、保持execution IDを確認します。
+`HarborRepositoryBlocked`の場合は、該当repoの`reason`をログかメトリクスで確認します。
 失敗時はAPI疎通、Application同期、Pod、旧Job、quota、Harbor保持/GC履歴を確認します。
 手動でタグ・保持policyを変更したり旧cleanupを復活させたりしないでください。
 

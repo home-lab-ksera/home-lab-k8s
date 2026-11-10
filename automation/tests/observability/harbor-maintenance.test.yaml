@@ -27,3 +27,26 @@ tests:
       - eval_time: 45m
         alertname: HarborMaintenanceStalled
         exp_alerts: []
+  - interval: 1m
+    input_series:
+      # 配布中の短時間blockedは通知しない。
+      - series: 'harbor_maintenance_repository_blocked{repository="blog",reason="workloadの切替完了待ち"}'
+        values: '0x10 1x5 0x100'
+      # 1時間以上継続したblockedはreasonが変わってもrepo単位で通知する。
+      - series: 'harbor_maintenance_repository_blocked{repository="hitomi-pdf-batch",reason="実行imageIDがmanifestと不一致"}'
+        values: '1x40 _x80'
+      - series: 'harbor_maintenance_repository_blocked{repository="hitomi-pdf-batch",reason="workloadの切替完了待ち"}'
+        values: '_x40 1x80'
+    alert_rule_test:
+      - eval_time: 50m
+        alertname: HarborRepositoryBlocked
+        exp_alerts: []
+      - eval_time: 80m
+        alertname: HarborRepositoryBlocked
+        exp_alerts:
+          - exp_labels:
+              repository: hitomi-pdf-batch
+              namespace: harbor
+              severity: warning
+            exp_annotations:
+              summary: "Harbor保守で hitomi-pdf-batch が1時間以上保留されています（保持処理の対象外）。harbor-maintenance Jobログの reason を確認してください"

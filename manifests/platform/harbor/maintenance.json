@@ -7,11 +7,13 @@
     },
     "blog": {"application": "blog"},
     "cooklog": {"application": "cooklog"},
+    "cooklog-slack": {"preserve": true},
     "hitomi": {"application": "hitomi"},
     "hitomi-pdf-batch": {"application": "hitomi-pdf"},
     "hitomi-upload-viewer": {"application": "hitomi-upload-viewer"},
     "home-camera": {"application": "home-camera"},
     "nature-remo": {"application": "nature-remo"},
+    "oci-always-free": {"preserve": true},
     "rsshub-private": {"application": "rsshub"},
     "slack.rs": {"archive": true}
   }
