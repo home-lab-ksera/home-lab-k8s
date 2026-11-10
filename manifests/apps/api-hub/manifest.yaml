@@ -75,6 +75,7 @@ metadata:
   labels:
     app: api-hub
 spec:
+  revisionHistoryLimit: 3
   replicas: 1
   strategy:
     type: Recreate

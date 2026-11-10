@@ -19,6 +19,7 @@ metadata:
   annotations:
     secret.reloader.stakater.com/reload: alertmanager-slack
 spec:
+  revisionHistoryLimit: 3
   replicas: 1
   strategy:
     type: Recreate

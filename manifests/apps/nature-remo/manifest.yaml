@@ -19,6 +19,7 @@ metadata:
   name: nature-remo
   namespace: sandbox
 spec:
+  revisionHistoryLimit: 3
   replicas: 1
   # JSON ファイルを単一プロセスで管理するため、更新時も同時稼働させない。
   strategy:

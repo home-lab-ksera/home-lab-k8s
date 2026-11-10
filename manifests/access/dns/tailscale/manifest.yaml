@@ -42,6 +42,7 @@ metadata:
   annotations:
     contracts.k8s-myhome.local/service-ip: network.serviceIPs.tailscaleSplitDNS
 spec:
+  revisionHistoryLimit: 3
   replicas: 1
   selector:
     matchLabels:

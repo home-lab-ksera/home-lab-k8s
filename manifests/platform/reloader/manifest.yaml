@@ -10,6 +10,7 @@ metadata:
   name: reloader
   namespace: kube-system
 spec:
+  revisionHistoryLimit: 3
   replicas: 1
   strategy:
     type: Recreate

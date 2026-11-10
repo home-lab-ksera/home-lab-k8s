@@ -50,6 +50,7 @@ metadata:
   name: local-path-provisioner
   namespace: local-path-storage
 spec:
+  revisionHistoryLimit: 3
   replicas: 1
   selector:
     matchLabels:

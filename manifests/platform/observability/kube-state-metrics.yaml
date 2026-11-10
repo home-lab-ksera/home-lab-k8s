@@ -238,6 +238,7 @@ metadata:
   labels:
     app.kubernetes.io/name: kube-state-metrics
 spec:
+  revisionHistoryLimit: 3
   replicas: 1
   selector:
     matchLabels:

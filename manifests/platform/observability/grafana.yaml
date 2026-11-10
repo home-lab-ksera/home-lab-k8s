@@ -33,6 +33,7 @@ metadata:
     secret.reloader.stakater.com/reload: grafana-postgresql
     configmap.reloader.stakater.com/reload: shared-postgresql-ca
 spec:
+  revisionHistoryLimit: 3
   replicas: 1
   strategy:
     type: Recreate
