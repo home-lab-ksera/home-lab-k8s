@@ -16,7 +16,7 @@ tests:
       - eval_time: 33h
         alertname: PostgreSQLBackupFailed
         exp_alerts: []
-  # 成功が止まると26時間+30分後に critical。
+  # 成功が止まると26時間+30分後に通知。
   - interval: 1m
     input_series:
       - series: 'kube_cronjob_status_last_successful_time{namespace="database",cronjob="shared-postgresql-repo1-diff"}'
@@ -30,7 +30,7 @@ tests:
         exp_alerts:
           - exp_labels:
               namespace: database
-              severity: critical
+              severity: warning
             exp_annotations:
               summary: "共通PostgreSQLのpgBackRestバックアップが26時間以上成功していません。database namespaceのbackup Jobとrepo-hostのログを確認してください"
   # メトリクス自体が無い場合も通知する。
@@ -42,7 +42,7 @@ tests:
         exp_alerts:
           - exp_labels:
               namespace: database
-              severity: critical
+              severity: warning
             exp_annotations:
               summary: "共通PostgreSQLのpgBackRestバックアップが26時間以上成功していません。database namespaceのbackup Jobとrepo-hostのログを確認してください"
   # full は失敗が続き warning、diff は数分の実行後に成功するため通知しない。

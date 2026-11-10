@@ -102,7 +102,7 @@ Alloy は 167 時間より古いログを転送前に除外し、Loki は Compac
 | kubelet volume scrape | 失敗・欠損 / 5 分 |
 | ノードのルートディスク | 空き推定値12GiBまたは20%未満 / 10 分、9GiBまたは15%未満 / 5 分 |
 | ノードのルートディスク計測 | Node台帳にあるノードの容量・使用量が欠損、または容量が0 / 5 分 |
-| pgBackRest（`PostgreSQLBackupStale`） | full / diff のどちらも26時間成功なし、またはメトリクス欠損 / 30 分（critical） |
+| pgBackRest（`PostgreSQLBackupStale`） | full / diff のどちらも26時間成功なし、またはメトリクス欠損 / 30 分 |
 | pgBackRest（`PostgreSQLBackupFailed`） | CronJob の直近スケジュール実行が未成功 / 2 時間 |
 
 condition や対象時系列そのものの欠損をすべて検出する構成ではありません。

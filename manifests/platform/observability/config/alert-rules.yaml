@@ -302,14 +302,14 @@ groups:
         annotations:
           summary: "Harbor自動保守が30分以上成功していません。Jobログと配布状態を確認してください"
       # pgBackRest: full（日曜）と diff（月〜土）が毎日 18:00 UTC に実行される。
-      # どちらかの成功が26時間ない場合は、バックアップの欠落として critical で通知する。
+      # どちらかの成功が26時間ない場合に通知する。DBの重要度が低いため warning とする。
       - alert: PostgreSQLBackupStale
         expr: >-
           time() - max(kube_cronjob_status_last_successful_time{namespace="database",cronjob=~"shared-postgresql-repo1-(full|diff)"}) > 26 * 3600
           or absent(kube_cronjob_status_last_successful_time{namespace="database",cronjob=~"shared-postgresql-repo1-(full|diff)"})
         for: 30m
         labels:
-          severity: critical
+          severity: warning
           namespace: database
         annotations:
           summary: "共通PostgreSQLのpgBackRestバックアップが26時間以上成功していません。database namespaceのbackup Jobとrepo-hostのログを確認してください"
