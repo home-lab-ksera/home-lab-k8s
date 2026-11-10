@@ -21,7 +21,6 @@ CONTROL_PLANE_IP="${K8S_CONTROL_PLANE_IP:-192.168.122.10}"
 K8S_USER="${K8S_USER:-k8suser}"
 REMOTE_TMP="/tmp/k8s-myhome-bootstrap"
 APP_OF_APPS_SRC="$ROOT_DIR/manifests/bootstrap/app-of-apps.yaml"
-ARGOCD_INGRESS_SRC="$AUTOMATION_DIR/templates/platform/argocd-ingress.yaml"
 ARGOCD_UPSTREAM_KUSTOMIZATION="$ROOT_DIR/manifests/platform/argocd-config/upstream/kustomization.yaml"
 # 初回導入も GitOps と同じ固定版を使い、再 bootstrap での巻き戻しを防ぐ。
 ARGOCD_BOOTSTRAP_VERSION="$(awk -F/ '/https:\/\/raw.githubusercontent.com\/argoproj\/argo-cd\// { print $(NF-2) }' "$ARGOCD_UPSTREAM_KUSTOMIZATION")"
@@ -52,7 +51,6 @@ log_status "対象 control-plane: ${K8S_USER}@${CONTROL_PLANE_IP}"
 log_status "ArgoCD bootstrap version: ${ARGOCD_BOOTSTRAP_VERSION}"
 
 require_file "$APP_OF_APPS_SRC"
-require_file "$ARGOCD_INGRESS_SRC"
 
 if ! "${ssh_cmd[@]}" 'kubectl get nodes' >/dev/null 2>&1; then
   log_error "k8sクラスタに接続できません。make phase2 を先に完了してください。"
@@ -74,7 +72,6 @@ bash "$AUTOMATION_DIR/scripts/kubelet-serving-certificates.sh" --prepare
 
 "${ssh_cmd[@]}" "mkdir -p ${REMOTE_TMP}"
 copy_manifest "$APP_OF_APPS_SRC" "app-of-apps.yaml"
-copy_manifest "$ARGOCD_INGRESS_SRC" "argocd-ingress.yaml"
 
 log_status "ArgoCD を初期導入中..."
 "${ssh_cmd[@]}" "ARGOCD_BOOTSTRAP_VERSION=${ARGOCD_BOOTSTRAP_VERSION} bash -s" <<'REMOTE'
@@ -86,7 +83,6 @@ kubectl apply --server-side -f "https://raw.githubusercontent.com/argoproj/argo-
 kubectl get crd applicationsets.argoproj.io >/dev/null
 kubectl rollout status deployment/argocd-server -n argocd --timeout=300s
 kubectl patch configmap argocd-cmd-params-cm -n argocd --type merge -p '{"data":{"server.insecure":"true"}}'
-kubectl apply -f /tmp/k8s-myhome-bootstrap/argocd-ingress.yaml
 REMOTE
 
 log_status "pre-ESO Secret を作成中..."

@@ -50,6 +50,21 @@ kubectl -n argocd get externalsecret argocd-notifications-secret
 kubectl -n argocd logs deployment/argocd-notifications-controller --since=10m
 ```
 
+## bootstrap時のArgoCDアクセス
+
+旧 `http://argocd.local` のHTTPRouteは使用しません。bootstrapはこの経路を作成せず、
+通常の管理画面は `https://argocd.internal.qroksera.com` または既存の外部HTTPS URLを使います。
+Gatewayの準備前に必要な場合は、踏み台のkubectl port-forwardをSSHでlocalhostへ転送します。
+
+```bash
+ssh -i ~/.ssh/id_ed25519 -L 127.0.0.1:8080:127.0.0.1:8080 ksera@192.168.10.11 \
+  'kubectl -n argocd port-forward --address=127.0.0.1 svc/argocd-server 8080:80'
+```
+
+このセッション中だけ `http://127.0.0.1:8080` でアクセスできます。終了すると転送も停止します。
+旧RouteはGitOps管理外のため、宣言の削除だけでは消えません。移行時には正規HTTPSの疎通を確認した後、
+`argocd/argocd-server` HTTPRouteだけを削除し、他のArgoCD ServiceやRouteは維持します。
+
 ## 切り戻し
 
 通常は Git の変更を revert して同期を確認します。DB migration やデータ形式の変更後は、
