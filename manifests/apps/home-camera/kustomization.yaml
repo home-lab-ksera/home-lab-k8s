@@ -7,4 +7,4 @@ images:
   - name: harbor.qroksera.com/sandbox/home-camera
     newTag: deploy
     newName: harbor.qroksera.com/sandbox/home-camera
-    digest: sha256:4af1b45e030e751c42e56dc089f300bde4f1ef47381b53d47e078dccbef127ab
+    digest: sha256:1bfc9b2336f967a9b401d041b670d213e3c1b75a5efea5b6ec3dad25c434aa0e
