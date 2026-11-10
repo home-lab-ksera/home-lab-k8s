@@ -1,6 +1,6 @@
 # アプリケーションの運用・切替・復元
 
-現行構成は[簡素化の実行記録](application-simplification-20261025.md)。2026-10-24〜25のPostgreSQL初回切替は過去の配備記録で、当時の専用通知worker・camera DB依存・PostSync importを通常運用へ戻さない。
+現行構成は[簡素化の実行記録](archive/application-simplification-20261025.md)。2026-10-24〜25のPostgreSQL初回切替は過去の配備記録で、当時の専用通知worker・camera DB依存・PostSync importを通常運用へ戻さない。
 
 ## 通常の起動
 

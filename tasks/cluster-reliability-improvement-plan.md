@@ -2,7 +2,7 @@
 
 作成日: 2026-11-08
 
-状態: 項目1のみローカル実装・静的検証済み。[詳細と未完了条件](contract-ci-security-plan.md)。他の項目、実クラスタへの反映、GitHub設定変更、復元試験は未実施。
+状態: 項目1はローカル実装・静的検証済み。項目3（ARC整理）は2026-11-10に完了（組織内のARC利用workflow 0件を確認し、ScaleSet→controller・関連資産の順に撤去）。[詳細と未完了条件](contract-ci-security-plan.md)。他の項目、実クラスタへの反映、GitHub設定変更、復元試験は未実施。
 現状の根拠はローカルの宣言・スクリプトであり、本番の適用状態は着手時に確認する。
 以下は着手前の調査と全体計画を記録したもの。
 
@@ -24,7 +24,7 @@ OCI移行、容量最適化、DBロール分離、別媒体バックアップ、
 - [contract-check.py](../automation/scripts/ci/contract-check.py) は [consistency-check.sh](../automation/scripts/ci/consistency-check.sh) 経由で既存CIに組み込まれている。hostname・listener・backend名・DNSは照合するが、Service種別・backend port・参照先namespaceの厳密な検証は不足している。
 - [cluster-contract.yaml](../manifests/contracts/home-lab/cluster-contract.yaml) のapi-hubには `nodePort: 32001` が残るが、[実Service](../manifests/apps/api-hub/manifest.yaml) は `ClusterIP`。
 - [HTTPRouteメトリクス](../manifests/platform/observability/kube-state-metrics.yaml) は `conditions[0].status` を参照する。Accepted・ResolvedRefsを区別する情報が不足し、[alert-rules.yaml](../manifests/platform/observability/config/alert-rules.yaml) にHTTPRoute専用ルールはない。
-- [ARC定義](../manifests/platform/ci-cd/github-actions/kustomization.yaml) はcontrollerと共通ScaleSetを管理している。確認済みのアプリ公開workflowはhosted runnerへ移行済みだが、組織全体の未使用確認は未実施。
+- ARC定義（撤去済み）はcontrollerと共通ScaleSetを管理していた。確認済みのアプリ公開workflowはhosted runnerへ移行済みだが、組織全体の未使用確認は未実施。
 - [復元例](../automation/examples/postgresql/restore-test.yaml) は旧Harbor用の名前・roleが残る。現行DBはregistry/api_hub/hitomi/media、camera履歴DBは存在する場合に保全する。
 - [更新前チェック](../automation/scripts/upgrade/upgrade-precheck.sh) はetcd snapshotを取得するが、この取得成功だけでは復元可能性を保証しない。
 
@@ -137,7 +137,7 @@ PR 4a/4bの準備はPR 1以降に進められる。ARC撤去による空き容�
 - [ ] 調査記録に対象cluster context、Git revision、backup識別子、全CI利用元、未確認事項を記載した。
 - [ ] PR 1: 正常/不整合の回帰テストと `make validate` が成功した。
 - [ ] PR 2: 試験対象の異常/復旧/欠損を検知し、本番正常値と7日間の運用を確認した。
-- [ ] PR 3a/3b: 全利用元の移行と段階削除、公開・digest更新の継続を確認した。
+- [x] PR 3a/3b: 全利用元の移行と段階削除、公開・digest更新の継続を確認した（2026-11-10）。
 - [ ] PR 4a/4b: 初回隔離復元、定期実行、失敗検知、後片付けの証跡を保存した。
 - [ ] 関連するdocs、構成図、運用手順を最終構成に合わせた。
 

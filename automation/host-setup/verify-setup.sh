@@ -88,12 +88,6 @@ if check_status "Storage mount point" "mountpoint -q $MOUNT_BASE"; then
     
     # Check directory structure
     check_status "NFS share directory" "test -d $MOUNT_BASE/nfs-share"
-    check_status "Local volumes directory" "test -d $MOUNT_BASE/local-volumes"
-    
-    # Check application directories
-    for app in hitomi pepup rss slack; do
-        check_status "$app directory" "test -d $MOUNT_BASE/local-volumes/$app"
-    done
 else
     log_error "Storage is not properly mounted"
 fi

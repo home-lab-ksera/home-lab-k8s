@@ -1,4 +1,4 @@
-"""Runner の権限境界と、実際の生成・Kustomize 出力を検証する。"""
+"""Image Updater の digest 反映が全 workload template に届くことを検証する。"""
 from pathlib import Path
 import shutil
 import subprocess
@@ -8,39 +8,10 @@ import unittest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
-ARC = ROOT / 'manifests/platform/ci-cd/github-actions'
 UPDATER = ROOT / 'manifests/platform/ci-cd/image-updater/sandbox-images.yaml'
 
 
-class RunnerDeliveryTests(unittest.TestCase):
-    def test_runner_has_no_api_token_or_privileged_containers(self):
-        appset = yaml.safe_load((ARC / 'runners-appset.yaml').read_text())
-        values = yaml.safe_load(appset['spec']['template']['spec']['source']['helm']['values'])
-        spec = values['template']['spec']
-        self.assertFalse(spec['automountServiceAccountToken'])
-        self.assertTrue(spec['securityContext']['runAsNonRoot'])
-        self.assertEqual(spec['securityContext']['seccompProfile']['type'], 'RuntimeDefault')
-        self.assertFalse(spec.get('initContainers'))
-        self.assertEqual([c['name'] for c in spec['containers']], ['runner'])
-        for container in spec['containers']:
-            security = container['securityContext']
-            self.assertFalse(security.get('privileged', False))
-            self.assertFalse(security['allowPrivilegeEscalation'])
-            self.assertEqual(security['capabilities']['drop'], ['ALL'])
-        credentials = next(v for v in spec['volumes'] if v['name'] == 'harbor-auth')
-        self.assertEqual(credentials['secret']['secretName'], 'harbor-ci-auth')
-        for volume in spec['volumes']:
-            self.assertNotIn('hostPath', volume)
-            self.assertNotIn('projected', volume)
-        # 別ファイルから同じ SA に権限を復活させても検出する。
-        for path in (ROOT / 'manifests').rglob('*.yaml'):
-            if 'charts' in path.parts:
-                continue
-            for doc in yaml.safe_load_all(path.read_text()):
-                if isinstance(doc, dict) and doc.get('kind') in ('RoleBinding', 'ClusterRoleBinding'):
-                    for subject in doc.get('subjects', []):
-                        self.assertNotEqual(subject.get('name'), 'github-actions-runner', str(path))
-
+class ImageDeliveryTests(unittest.TestCase):
     def test_digest_reaches_all_deployment_and_cronjob_templates(self):
         config = yaml.safe_load(UPDATER.read_text())
         self.assertEqual(config['spec']['commonUpdateSettings']['updateStrategy'], 'digest')

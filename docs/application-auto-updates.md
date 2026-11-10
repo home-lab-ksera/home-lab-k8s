@@ -10,7 +10,6 @@ PR を作成して検証し、**マージは手動**です。Kubernetes / contai
 | 公開コンテナ、bootstrap の外部 Helm chart | [renovate.json](../renovate.json) の Kubernetes / ArgoCD manager |
 | PGO と関連イメージ | PGO chart を起点に同梱 chart・DB・pgBackRest・補助コンテナを同期。[専用手順](postgresql-updates.md) |
 | Harbor / RustFS 同梱 chart | 手動 Application Version Updates workflow |
-| ARC controller / runner / version ConfigMap | 手動 updater で連動更新 |
 | ArgoCD / Gateway API の配布 URL | 手動 updater |
 | private Harbor のアプリ | アプリ側 workflow。[アプリ配布](app-delivery.md) |
 

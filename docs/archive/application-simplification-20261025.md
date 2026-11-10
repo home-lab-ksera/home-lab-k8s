@@ -20,7 +20,7 @@ hitomiは22:55 JSTの日次schedule。既存のsources/items/outboxを初期化�
 ## P1
 
 通常media manifestと旧切替exampleからmedia-import hookを除去。生成器もhookを生成しない。
-明示Jobと対象・digest・理由を指定する[手順](../automation/examples/media-import/README.md)を追加。
+明示Jobと対象・digest・理由を指定する[手順](../../automation/examples/media-import/README.md)を追加。
 過去の切替記録のPostSync成功は履歴として保持する。
 
 以降の変更・検証結果は段階ごとに追記する。配備していない変更を配備済みとは記録しない。
@@ -87,7 +87,7 @@ api-hub #13の準備image `sha256:7293713df8a0d060217d122374951017e53aa38f555f67
 
 最終app検証: cameraは通常とFFmpeg回復・不正引数、hitomiはlib60/HTTP3とDB必須、mediaは通常19/隔離durable recovery、APIは通常24/HTTP7/隔離3が成功。APIのmemory fixtureは配布imageに含まないtest専用exampleへ移し、製品へAPI専用flagを残していない。同じ2thread条件で64/256MiB debug fixtureのupload55,312/72,684KiB、download15,628/15,636KiBで既存閾値内。
 
-GitOps #123で専用worker Deployment・旧camera CronJob・専用policy参照・未使用env・旧生成器を撤去した。[構成図](application-simplification-architecture.md)、[運用・復元手順](application-postgresql-cutover.md)、[接続予算](shared-postgresql.md)を最終形へ更新。DB復元時の重複通知は許容し、通常の統合起動で再開する。Slack事前照合用の起動modeは設けない。
+GitOps #123で専用worker Deployment・旧camera CronJob・専用policy参照・未使用env・旧生成器を撤去した。[構成図](../application-simplification-architecture.md)、[運用・復元手順](../application-postgresql-cutover.md)、[接続予算](../shared-postgresql.md)を最終形へ更新。DB復元時の重複通知は許容し、通常の統合起動で再開する。Slack事前照合用の起動modeは設けない。
 
 対象常駐Pod6→5、container7→6、主処理pool上限18→14、全app最大見積り78→70（app80/cluster100）。09時台の待機時実測はapp接続11（api_hub2/hitomi2/media4/registry3、全idle）であり、ピーク実測とは扱わない。cameraは接続0。
 

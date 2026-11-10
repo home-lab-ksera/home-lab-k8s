@@ -40,14 +40,14 @@ PostgreSQLには「何を発見し、何を保存し、何に失敗し、何を�
 
 主な根拠：
 
-- [api-hub server](../../api-hub/src/server.rs)：`write_preview_stream_response`、`request_decoder`、`route_request`。
-- [S3 service](../../api-hub/src/service/s3_service.rs)：`get_object_proxy_stream`、`list_objects_v2`、`presigned_get`。
-- [S3 handler](../../api-hub/src/handlers/s3_handler.rs)：`parse_list_objects_v2_request`、`put_object_and_notify`。
-- [viewer API](../../hitomi-pdf-batch/apps/upload-viewer/src/api.ts)、[PDF画面](../../hitomi-pdf-batch/apps/upload-viewer/src/App.tsx)、[ランダム画面](../../hitomi-pdf-batch/apps/upload-viewer/src/RandomPage.tsx)。動画・ランダム一覧は既に `start_after` でtoken不対応を回避しているが、PDF一覧・バッチはtoken方式が残る。
-- [バッチ本体](../../hitomi-pdf-batch/apps/batch/src/main.rs)、[動画キー](../../hitomi-pdf-batch/apps/batch/src/video_batch.rs)、[60秒待機設定](../../hitomi-pdf-batch/apps/batch/src/config.rs)。
-- [hitomi本体](../../hitomi/src/main.rs)、[漫画監視の例](../../hitomi/src/comic/sites/shonenjumpplus.rs)。
-- [録画本体](../../home-camera/src/main.rs)、[送信処理](../../home-camera/src/storage.rs)、[本番CronJob](../manifests/apps/home-camera/manifest.yaml)。
-- [PostgreSQL運用](shared-postgresql.md)、[DB宣言](../manifests/platform/shared-postgresql/postgrescluster.yaml)、[RustFS宣言](../manifests/platform/rustfs/values.yaml)、[保持ルール](../manifests/platform/rustfs/lifecycle.json)。
+- [api-hub server](../../../api-hub/src/server.rs)：`write_preview_stream_response`、`request_decoder`、`route_request`。
+- [S3 service](../../../api-hub/src/service/s3_service.rs)：`get_object_proxy_stream`、`list_objects_v2`、`presigned_get`。
+- [S3 handler](../../../api-hub/src/handlers/s3_handler.rs)：`parse_list_objects_v2_request`、`put_object_and_notify`。
+- [viewer API](../../../hitomi-pdf-batch/apps/upload-viewer/src/api.ts)、[PDF画面](../../../hitomi-pdf-batch/apps/upload-viewer/src/App.tsx)、[ランダム画面](../../../hitomi-pdf-batch/apps/upload-viewer/src/RandomPage.tsx)。動画・ランダム一覧は既に `start_after` でtoken不対応を回避しているが、PDF一覧・バッチはtoken方式が残る。
+- [バッチ本体](../../../hitomi-pdf-batch/apps/batch/src/main.rs)、[動画キー](../../../hitomi-pdf-batch/apps/batch/src/video_batch.rs)、[60秒待機設定](../../../hitomi-pdf-batch/apps/batch/src/config.rs)。
+- [hitomi本体](../../../hitomi/src/main.rs)、[漫画監視の例](../../../hitomi/src/comic/sites/shonenjumpplus.rs)。
+- [録画本体](../../../home-camera/src/main.rs)、[送信処理](../../../home-camera/src/storage.rs)、[本番CronJob](../../manifests/apps/home-camera/manifest.yaml)。
+- [PostgreSQL運用](../shared-postgresql.md)、[DB宣言](../../manifests/platform/shared-postgresql/postgrescluster.yaml)、[RustFS宣言](../../manifests/platform/rustfs/values.yaml)、[保持ルール](../../manifests/platform/rustfs/lifecycle.json)。
 
 ## PDF・動画の返却を速くする
 

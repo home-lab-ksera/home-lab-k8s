@@ -5,7 +5,6 @@ resources:
   - argocd-core.yaml
   - external-secrets-operator.yaml
   - config-secrets.yaml
-  - platform.yaml
   - harbor.yaml
   - rustfs.yaml
   - sandbox-config.yaml

@@ -9,7 +9,6 @@
 | Service | `rsshub:1200` |
 | image | `harbor.qroksera.com/sandbox/rsshub-private:latest`、Always pull |
 | URL | `https://rsshub.internal.qroksera.com` |
-| Runner | `harbor-publish-runners`、Application `harbor-publish-runner` |
 | アプリ repo | `home-lab-ksera/RSSHub-private`（GitHub-hosted runner + Tailscale OIDC） |
 
 ## 実行環境
@@ -20,7 +19,6 @@ Pod 再作成でキャッシュは失われます。外部サイトの認証が�
 
 ## 配布
 
-Runner は [runners-appset.yaml](../manifests/platform/ci-cd/github-actions/runners-appset.yaml) に登録されています。
 生成器の制約は [アプリ配布](app-delivery.md) を参照してください。
 `RSSHub-private` は大文字を含むため Docker 名の小文字化が必要です。
 アプリ側で Chromium を含む build、対象アーキテクチャ、KUBECONFIG 引き継ぎ、認証の渡し方を確認します。
@@ -29,7 +27,7 @@ Runner は [runners-appset.yaml](../manifests/platform/ci-cd/github-actions/runn
 ## 確認
 
 ```bash
-kubectl -n argocd get applications rsshub rsshub-access harbor-publish-runner
+kubectl -n argocd get applications rsshub rsshub-access
 kubectl -n sandbox rollout status deployment/rsshub-private --timeout=300s
 kubectl -n sandbox logs deployment/rsshub-private --tail=50
 curl --fail https://rsshub.internal.qroksera.com/healthz

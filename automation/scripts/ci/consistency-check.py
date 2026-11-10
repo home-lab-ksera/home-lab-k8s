@@ -12,16 +12,10 @@ import yaml
 ROOT = Path(__file__).resolve().parents[3]
 MANIFESTS = ROOT / "manifests"
 
-EXPECTED_CORE_RESOURCES = {
-    "storage-classes/local-storage-class.yaml",
-    "storage-classes/local-ssd-storage-class.yaml",
-}
-
 EXPECTED_EXTERNAL_SECRET_DOMAINS = {
     "stores",
     "argocd",
     "harbor",
-    "github-actions",
     "networking",
     "app-runtime",
     "observability",
@@ -30,8 +24,6 @@ EXPECTED_EXTERNAL_SECRET_DOMAINS = {
 EXPECTED_EXTERNAL_SECRET_FILES = {
     "harbor-admin-secret.yaml",
     "harbor-registry-sandbox.yaml",
-    "github-multi-repo-secret.yaml",
-    "harbor-auth-secret.yaml",
     "cloudflare-api-token.yaml",
     "tailscale-oauth.yaml",
     "slack-secret.yaml",
@@ -84,28 +76,6 @@ def check_bootstrap_target_revisions(issues: list[str]) -> None:
                 fail(issues, f"{rel(path)}: Application/{name} targetRevision must stay HEAD, not main")
 
 
-def check_core_kustomization(issues: list[str]) -> None:
-    path = MANIFESTS / "core/kustomization.yaml"
-    if not path.exists():
-        fail(issues, "manifests/core/kustomization.yaml が見つかりません")
-        return
-    data = load_yaml(path) or {}
-    resources = set(data.get("resources") or [])
-    missing = EXPECTED_CORE_RESOURCES - resources
-    if missing:
-        fail(issues, f"{rel(path)}: StorageClass resource が不足しています: {sorted(missing)}")
-
-
-def check_harbor_node_mutations(issues: list[str]) -> None:
-    path = MANIFESTS / "infrastructure/gitops/harbor/kustomization.yaml"
-    if not path.exists():
-        return
-    data = load_yaml(path) or {}
-    resources = set(data.get("resources") or [])
-    if "node-mutations/" in resources or "node-mutations" in resources:
-        fail(issues, f"{rel(path)}: harbor 既定 kustomization に node-mutations を含めません")
-
-
 def check_external_secrets(issues: list[str]) -> None:
     base = MANIFESTS / "platform/secrets/external-secrets"
     for domain in EXPECTED_EXTERNAL_SECRET_DOMAINS:
@@ -136,8 +106,6 @@ def check_external_secrets(issues: list[str]) -> None:
 def main() -> int:
     issues: list[str] = []
     check_bootstrap_target_revisions(issues)
-    check_core_kustomization(issues)
-    check_harbor_node_mutations(issues)
     check_external_secrets(issues)
 
     if issues:

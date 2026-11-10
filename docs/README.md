@@ -8,10 +8,10 @@
 
 | 目的 | 文書 |
 |---|---|
-| 構成と管理境界を知る | [全体構成](architecture.md)、[配置規約](manifests.md) |
+| 構成と管理境界を知る | [全体構成](architecture.md)、[配置規約](manifests.md)、[ホスト容量と VM サイズ](host-capacity.md) |
 | ホスト・クラスタを構築する | [初期構築](bootstrap.md) |
 | Git の変更を反映する | [GitOps](gitops.md)、[Application と Sync Wave](diagrams/app-of-apps-sync-wave.md) |
-| アプリ・Runner を追加する | [アプリ配布](app-delivery.md)、[RSSHub](rsshub.md) |
+| アプリ・公開 workflow を追加する | [アプリ配布](app-delivery.md)、[RSSHub](rsshub.md) |
 | URL・DNS・通信許可を変更する | [アクセス経路](access.md)、[NetworkPolicy](network-policy.md) |
 | 認証情報を用意・更新する | [Secret 管理](secrets.md) |
 | 状態・ログ・アラートを調べる | [日常運用](operations.md)、[監視](observability.md)、[障害対応](troubleshooting.md) |

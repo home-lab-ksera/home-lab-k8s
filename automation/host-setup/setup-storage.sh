@@ -225,12 +225,6 @@ fi
 # 7. Create subdirectories after mounting
 log_status "Creating subdirectories..."
 sudo -n mkdir -p "$MOUNT_BASE/nfs-share"
-sudo -n mkdir -p "$MOUNT_BASE/local-volumes"
-
-# Create application-specific directories
-for app in hitomi pepup rss slack; do
-    sudo -n mkdir -p "$MOUNT_BASE/local-volumes/$app"
-done
 
 # 8. Set permissions
 log_status "Setting permissions..."
@@ -294,17 +288,10 @@ storage:
   
 directories:
   nfs_share: $MOUNT_BASE/nfs-share
-  local_volumes: $MOUNT_BASE/local-volumes
   
 nfs:
   export_path: $MOUNT_BASE/nfs-share
   server_ip: localhost
-  
-applications:
-$(for app in hitomi pepup rss slack; do
-  echo "  - name: $app"
-  echo "    local_path: $MOUNT_BASE/local-volumes/$app"
-done)
 EOF
 
 sudo -n mv /tmp/k8s-storage-config.yaml "$MOUNT_BASE/k8s-storage-config.yaml"

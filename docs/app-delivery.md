@@ -24,7 +24,7 @@ Nature Remo の初回配布と手動ビルドは [ローカル操作アプリの
 
 [workflow 生成スクリプト](../automation/scripts/github-actions/add-runner.sh) は `STRATEGY=latest` のみを受け付けます。
 同じ GitHub-hosted runner で build → Tailscale OIDC 接続 → Harbor へ Docker push を行います。
-Docker イメージの artifact 転送、ARC runner、Kubernetes Secret のマウントは不要です。
+Docker イメージの artifact 転送、クラスタ内 runner、Kubernetes Secret のマウントは不要です。
 `build-<run-id>-<attempt>-<commit-sha>` タグを公開し、default branch HEAD と一致する版だけ `latest` へ昇格します。
 両タグの image config digest がローカルのビルド結果と一致することも検証します。公開処理は repo / ref 単位で直列化します。
 PR・手動実行は build までで、公開は生成時に取得した既定ブランチへの push に限定します。
@@ -54,7 +54,6 @@ Git に digest が残るため、履歴から配布イメージを特定でき�
 
 生成した workflow を各アプリリポジトリへ反映します。独自のテスト、Dockerfile、複数イメージ構成は維持してください。
 既存 workflow と重複して同じイメージを公開しないように統合します。
-旧 ARC / runner group 設定は生成処理から変更しません。
 
 CI には Harbor の `sandbox` project の pull / push 専用 Robot Account を使います。
 Image Updater の pull-only Robot Account と、このリポジトリへの書き込み用 Deploy Key は従来どおり別管理です。

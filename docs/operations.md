@@ -23,7 +23,6 @@ Job の Completed は正常終了として扱い、Pod の Running 表示だけ�
 | 公開・TLS | `kubectl get gateway,httproute -A`、`kubectl get certificate -A` |
 | データ領域 | `kubectl get pv`、`kubectl get pvc -A`、ホストの NFS / ディスク空き容量 |
 | DB バックアップ | [pgBackRest の成功・復元確認](shared-postgresql.md#バックアップ) |
-| Runner | `kubectl -n arc-systems get autoscalingrunnersets,pods` |
 | RustFS / Harbor の resources | [観測値・設定の根拠・反映後の確認](resource-sizing.md) |
 | worker の一時領域 | [ディスク拡張と容量監視](worker-disk.md)、Grafana「03 ストレージ」のノード容量 |
 

@@ -21,7 +21,6 @@ from packaging.version import Version
 ROOT = Path(__file__).resolve().parents[3]
 STABLE = re.compile(r"v?\d+\.\d+\.\d+")
 ARGO_BASE = "manifests/platform/argocd-config/upstream/kustomization.yaml"
-ARC_DIR = "manifests/platform/ci-cd/github-actions"
 
 
 def fetch(url: str, headers: tuple[str, ...] = ()) -> bytes:
@@ -177,12 +176,6 @@ class Audit:
             self.vendor_chart(path.parent, name, current, latest, download)
         field = "version" if wrapper else "targetRevision"
         replace_once(path, f"{field}: {current}", f"{field}: {latest}")
-        if name == "gha-runner-scale-set-controller":
-            for filename, old, new in [
-                ("runners-appset.yaml", f"targetRevision: {current}", f"targetRevision: {latest}"),
-                ("arc-version-configmap.yaml", f'controllerChartVersion: "{current}"', f'controllerChartVersion: "{latest}"'),
-            ]:
-                replace_once(self.root / ARC_DIR / filename, old, new)
 
     def vendor_chart(self, parent: Path, name: str, current: str, latest: str, url: str) -> None:
         with tempfile.TemporaryDirectory() as temp:
@@ -222,13 +215,6 @@ class Audit:
             replace_once(path, url, updated)
 
     def collect(self) -> None:
-        # ARCの3つの宣言がずれている状態を更新で隠さない。
-        arc = self.root / ARC_DIR
-        controller = yaml.safe_load((arc / "arc-controller.yaml").read_text())["spec"]["source"]["targetRevision"]
-        runner = yaml.safe_load((arc / "runners-appset.yaml").read_text())["spec"]["template"]["spec"]["source"]["targetRevision"]
-        config = yaml.safe_load((arc / "arc-version-configmap.yaml").read_text())["data"]["controllerChartVersion"]
-        if len({str(controller), str(runner), str(config)}) != 1:
-            raise ValueError("ARC Controller/Runner/ConfigMapのバージョンが一致しません")
         for path in sorted((self.root / "manifests").rglob("*.yaml")):
             if "charts" in path.relative_to(self.root).parts:
                 continue
@@ -271,7 +257,7 @@ class Audit:
                   "マージは手動です。リリースノート、データ移行、バックアップを確認してください。",
                   "マージ後はArgo CD本体を含めてGitOpsで同期されます。",
                   "private Harborのアプリ、可変タグ、digest固定はこの監査の対象外です。",
-                  f"\n調査した固定版宣言: {len(self.rows)} 件（ARC Runner/ConfigMapはControllerと連動）。"]
+                  f"\n調査した固定版宣言: {len(self.rows)} 件。"]
         return "\n".join(lines) + "\n"
 
 

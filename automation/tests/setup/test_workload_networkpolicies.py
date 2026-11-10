@@ -80,7 +80,7 @@ class NetworkPolicyTests(unittest.TestCase):
                                  gateway, '192.168.122.100', 443))
 
     def test_unlabelled_apps_cannot_reach_lan_or_internet(self):
-        for ns in ['sandbox', 'tools', 'arc-runners']:
+        for ns in ['sandbox', 'tools']:
             for ip in ['192.168.122.10', '192.168.10.4', '1.1.1.1']:
                 self.assertFalse(allowed(ns, {}, 'Egress', '', {}, ip, 443))
 
@@ -88,13 +88,6 @@ class NetworkPolicyTests(unittest.TestCase):
         self.assertTrue(allowed('sandbox', {'app': 'api-hub'}, 'Egress', '', {}, '1.1.1.1', 443))
         for ip, port in [('192.168.122.10', 443), ('169.254.169.254', 80), ('1.1.1.1', 22)]:
             self.assertFalse(allowed('sandbox', {'app': 'api-hub'}, 'Egress', '', {}, ip, port))
-
-    def test_only_arc_control_components_can_reach_api(self):
-        for ip, port in [('10.96.0.1', 443), ('192.168.122.10', 6443)]:
-            self.assertFalse(allowed('arc-systems', {'app.kubernetes.io/component': 'runner'}, 'Egress', '', {}, ip, port))
-            for labels in [{'app.kubernetes.io/name': 'gha-rs-controller'},
-                           {'app.kubernetes.io/component': 'runner-scale-set-listener'}]:
-                self.assertTrue(allowed('arc-systems', labels, 'Egress', '', {}, ip, port))
 
     def test_cache_requires_correct_client(self):
         for src, dstns, dst, port in [('rsshub', 'sandbox', 'rsshub-redis', 6379)]:

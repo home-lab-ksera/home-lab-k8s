@@ -10,7 +10,6 @@ NAMESPACE_LIST=(
   harbor
   cert-manager
   external-secrets
-  arc-systems
   nginx-gateway
   metallb-system
   apps

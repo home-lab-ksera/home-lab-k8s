@@ -35,7 +35,6 @@ Tailnet ACL、ルーター/NAT、証明書の実値、operator生成後のServic
 ```mermaid
 flowchart LR
   Nodes[kubelet / containerd] --> GW[NGINX Gateway :443]
-  ARC[ARC Runner] --> GW
   Client[LAN / Tailnet 端末] --> GW
   Client -. 名前解決 .-> DNS[Split DNS 192.168.122.101]
   GW --> Route[HTTPRoute]
@@ -122,7 +121,7 @@ Gateway の Programmed、HTTPRoute の Accepted / ResolvedRefs、Certificate の
 ノードの `/etc/hosts` のみをファイルマウントし、両 Harbor hostname の競合を除去して
 `192.168.122.100` に固定します。他のホスト名は保持し、60 秒ごとに再調整します。
 containerd の設定・再起動、hostNetwork、privileged は不要です。
-Pod DNS は CoreDNS、ARC は既存の hostAliases、ノードはこの DaemonSet を使います。
+Pod DNS は CoreDNS、ノードはこの DaemonSet を使います。
 
 既存の `harbor.qroksera.com/sandbox/...` はそのまま内部で pull できます。
 Harbor の externalURL / EXT_ENDPOINT は内部 hostname に統一し、token realm も内部へ向けます。

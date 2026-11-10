@@ -4,7 +4,5 @@ resources:
   - namespaces.yaml
   - networkpolicies.yaml
   - workload-networkpolicies.yaml
-  - storage-classes/local-storage-class.yaml
-  - storage-classes/local-ssd-storage-class.yaml
   - storage-classes/nfs-postgresql.yaml
   - application-networkpolicies.yaml

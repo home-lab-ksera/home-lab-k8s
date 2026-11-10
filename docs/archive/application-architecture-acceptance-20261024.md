@@ -33,4 +33,4 @@
 
 別媒体backupは対象外。既存のpgBackRestとkind内のbackup/restore試験は維持する。
 
-現行運用は [移行手順](application-postgresql-cutover.md)、計測条件は [変更前測定](performance/20261024/README.md) を参照。
+現行運用は [移行手順](../application-postgresql-cutover.md)、計測条件は [変更前測定](../performance/20261024/README.md) を参照。

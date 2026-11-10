@@ -77,26 +77,6 @@ class UpdateTests(unittest.TestCase):
                 self.audit.image(self.root / 'unused', repo, tag, repo + ':' + tag)
             tags.assert_not_called()
 
-    def test_arc_updates_all_three_pins(self):
-        base = audit.ARC_DIR
-        controller = self.write(base + '/arc-controller.yaml', 'targetRevision: 0.15.0\n')
-        runner = self.write(base + '/runners-appset.yaml', 'targetRevision: 0.15.0\n')
-        config = self.write(base + '/arc-version-configmap.yaml', 'controllerChartVersion: "0.15.0"\n')
-        with patch.object(audit, 'registry_tags', return_value=['0.15.0', '0.16.0', '0.17.0-rc1']):
-            self.audit.chart(controller, {'chart': 'gha-runner-scale-set-controller',
-                                         'repoURL': 'ghcr.io/actions/actions-runner-controller-charts',
-                                         'targetRevision': '0.15.0'}, False)
-        for path in (controller, runner, config):
-            self.assertIn('0.16.0', path.read_text())
-
-    def test_arc_mismatch_stops_before_network(self):
-        base = audit.ARC_DIR
-        self.write(base + '/arc-controller.yaml', 'spec: {source: {targetRevision: 0.15.0}}')
-        self.write(base + '/runners-appset.yaml', 'spec: {template: {spec: {source: {targetRevision: 0.14.0}}}}')
-        self.write(base + '/arc-version-configmap.yaml', 'data: {controllerChartVersion: "0.15.0"}')
-        with self.assertRaisesRegex(ValueError, 'ARC'):
-            self.audit.collect()
-
     def test_remote_release_pin_and_asset_verification(self):
         url = 'https://raw.githubusercontent.com/argoproj/argo-cd/v3.5.5/manifests/install.yaml'
         path = self.write(audit.ARGO_BASE, 'resources:\n  - ' + url + '\n')

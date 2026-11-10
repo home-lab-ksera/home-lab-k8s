@@ -85,6 +85,8 @@ kubectl -n harbor get deployment harbor-registry -o jsonpath='{.spec.template.sp
 
 ## 未設定アプリと runner の初期予算（2026-10-28）
 
+> runner（ARC）は 2026-11-10 に撤去した。以下の runner の記述は当時の記録として残す。
+
 2026-10-28 10:59 JST 頃、VictoriaMetrics の直近7日を読み取りで確認した。
 上記と同じ working set 最大・CPU 2分平均最大で、旧 Pod 系列も含む。
 通常時・処理時を分離した負荷試験ではなく、短いピークや未経験の負荷は保証しない。

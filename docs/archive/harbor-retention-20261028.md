@@ -24,7 +24,7 @@ sha256:ca619f4908f60cb2ab00e9c801d792171d22a4db1f7bbe11412a0e6e438f0a95
 ```
 
 以後の保守では、正常稼働確認後の新digestとこの記録を用いてpreviousを指定する。
-手順は [保持契約と保守コマンド](harbor-retention.md) を参照。
+手順は [保持契約と保守コマンド](../harbor-retention.md) を参照。
 
 ## 実環境で補正したAPI互換性
 
@@ -56,7 +56,7 @@ Image Updaterの自動書き戻しcommitは `c383faa64421dda55fa0dbe5b0767048d69
 
 ## 自動保守への切替（同日、後続対応）
 
-上記は手動pilot時点の記録。以後の正本は [自動保守の手順](harbor-retention.md) と
+上記は手動pilot時点の記録。以後の正本は [自動保守の手順](../harbor-retention.md) と
 `manifests/platform/harbor/maintenance.json` で、旧手動ツールは撤去した。
 
 - 全8アプリを対象に、5分ごとの`harbor-maintenance` CronJobを有効化。常駐Podの追加なし。

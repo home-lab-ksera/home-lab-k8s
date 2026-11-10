@@ -213,8 +213,10 @@ class InputTests(unittest.TestCase):
         self.assertNotIn('SECRET', str(e.exception))
 
     def test_list_appset_and_unknown_generator(self):
-        d = read_yaml(ROOT / 'manifests/platform/ci-cd/github-actions/runners-appset.yaml')
-        apps = list(expand_appset(d)); self.assertEqual(apps[0]['metadata']['name'], 'harbor-publish-runner')
+        d = {'kind': 'ApplicationSet', 'metadata': {'name': 'example'},
+             'spec': {'goTemplate': True, 'generators': [{'list': {'elements': [{'name': 'one'}]}}],
+                      'template': {'metadata': {'name': '{{ .name }}-app'}, 'spec': {}}}}
+        apps = list(expand_appset(d)); self.assertEqual(apps[0]['metadata']['name'], 'one-app')
         d['spec']['generators'] = [{'git': {}}]
         with self.assertRaises(InventoryError): list(expand_appset(d))
 

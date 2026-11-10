@@ -1,7 +1,0 @@
-# Runner は Kubernetes API を利用しない。認証情報は kubelet が Secret volume として渡す。
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: github-actions-runner
-  namespace: arc-systems
-automountServiceAccountToken: false

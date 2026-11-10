@@ -37,7 +37,6 @@ MONITORING_LEGACY_ALLOWLIST = {
 ALLOWLISTED_PRUNE_FALSE = {
     ("Application", "argocd", "argocd-projects", "spec.syncPolicy.automated.prune"),
     ("Application", "argocd", "argocd-core", "spec.syncPolicy.automated.prune"),
-    ("Application", "argocd", "arc-controller", "spec.syncPolicy.automated.prune"),
 }
 
 

@@ -16,7 +16,7 @@
 - ArgoCD 設定: `manifests/platform/argocd-config/`
 - 現行ユーザーアプリ定義: `manifests/bootstrap/applications/user-apps/*.yaml`
 - 現行実アプリ: `manifests/apps/<app>/`
-- 改革計画の正本: `tasks/roadmap.md`
+- 改善計画: `tasks/`（target-state を含む。現行の実体は repo を優先）
 
 ## マニフェスト規約
 - `bootstrap/` には Root/Application 定義のみを置き、`core/` に ArgoCD `Application` を置かない。
@@ -31,7 +31,7 @@
 - 初期設定: `cp automation/settings.toml.example automation/settings.toml`
 - 全体/個別: `make all`, `make phase1`, `make phase2`, `make bootstrap`, `make phase5`。
 - 保守: `make recover`, `make upgrade-safe`, `make containerd-safe`
-- `make add-runner REPO=<name>`（一括は `make add-runners-all`）は GitHub-hosted runner + Tailscale OIDC の workflow を生成する。GitHub API で公開範囲・既定ブランチを取得し、private repo は4つの repository Secrets を非表示入力または環境変数から登録する。生成 workflow は git 非追跡でアプリリポジトリへ反映する。新規 repo 用の ScaleSet / runner group 設定は不要。既存 ARC 定義はこの生成処理では変更しない。
+- `make add-runner REPO=<name>`（一括は `make add-runners-all`）は GitHub-hosted runner + Tailscale OIDC の workflow を生成する。GitHub API で公開範囲・既定ブランチを取得し、private repo は4つの repository Secrets を非表示入力または環境変数から登録する。生成 workflow は git 非追跡でアプリリポジトリへ反映する。クラスタ内 runner（ARC）は撤去済みで、ScaleSet / runner group 設定は不要。
 - `make all` と `make phase1` は `sudo` 前提。`make all` は `phase1 -> phase2 -> bootstrap -> phase5` の順に実行する。実行ログは `automation/run.log`。
 
 ## 検証
@@ -43,7 +43,4 @@
 
 ## CIで落ちる既知条件
 - `manifests/bootstrap/**` の `targetRevision` は `HEAD` を維持する。`main` は不可。
-- `manifests/core/kustomization.yaml` には `storage-classes/local-storage-class.yaml` と `storage-classes/local-ssd-storage-class.yaml` の両方が必要。
-- `manifests/infrastructure/gitops/harbor/kustomization.yaml` に `node-mutations/` を含めない。`node-mutations` は `/etc/hosts` と `/etc/containerd/config.toml` を変更するオプトイン。
-- ARC controller の正本は `manifests/platform/ci-cd/github-actions/arc-controller.yaml`。手動 Helm 適用に寄せない。
 - `.github/workflows/weekly-version-audit.yml` と `automation/scripts/ci/version-audit.py` は bootstrap Application 名と一部マニフェストパスをハードコードしている。名前変更や移動時は同時に更新する。

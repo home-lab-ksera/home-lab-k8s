@@ -37,4 +37,4 @@ make validate-local
 
 検証範囲、追加 CI、個別コマンドは [検証・参照](docs/reference.md) を参照してください。
 
-アプリ簡素化後の構成は[構成図](docs/application-simplification-architecture.md)、現行操作は[アプリ運用・復元](docs/application-postgresql-cutover.md)、実配備と残課題は[実行記録](docs/application-simplification-20261025.md)を参照。
+アプリ簡素化後の構成は[構成図](docs/application-simplification-architecture.md)、現行操作は[アプリ運用・復元](docs/application-postgresql-cutover.md)、実配備と残課題は[実行記録](docs/archive/application-simplification-20261025.md)を参照。

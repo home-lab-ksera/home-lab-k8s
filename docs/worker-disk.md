@@ -1,9 +1,9 @@
 # worker のディスク容量
 
 worker の root ディスクは各60GiB。動画取得の最大5GiB、アプリが残す空き4GiB、
-publish runner の一時領域、コンテナイメージ・ログを同じファイルシステムに置く。
+コンテナイメージ・ログを同じファイルシステムに置く。
 `emptyDir.sizeLimit` や `ephemeral-storage.requests` は物理容量を増やさない。
-runner は既存の min=0 / max=2 を維持する。
+クラスタ内の publish runner（ARC）は 2026-11-10 に撤去した。
 
 ## 2026-10-30 の既存VM拡張
 

@@ -43,7 +43,7 @@ artifactの保持は7日です。基盤の例外や台帳を変更した場合�
 Helmは固定toolchainとKubernetes 1.34.0の互換性条件でオフラインrenderします。
 この値は実クラスタから取得した版ではありません。実際のAPI discoveryやadmissionによる差分、
 operatorが後から生成する資産は静的renderでは再現しません。
-NGINX Gateway、PGO、ARC、Tailscaleの関連CRは台帳の `operatorResources` と照合し、
+NGINX Gateway、PGO、Tailscaleの関連CRは台帳の `operatorResources` と照合し、
 生成後のService種別・port・ownerReference、PodのhostNetwork/hostPortを確認します。
 任意の新規operatorが生成する全リソースの安全性まで保証する検証ではありません。
 

@@ -2,7 +2,7 @@
 
 2026-11-04 の [bootstrap 定義](../../manifests/bootstrap/applications/) から作成した一覧です。
 root は [bootstrap-root](../../manifests/bootstrap/app-of-apps.yaml) で、source は `manifests/bootstrap/applications` です。
-GitOps repository は `home-lab-ksera/home-lab-k8s`、各 runner の登録先は `home-lab-ksera` Organization です。
+GitOps repository は `home-lab-ksera/home-lab-k8s` です。
 
 ## 管理構造
 
@@ -12,12 +12,8 @@ flowchart TD
   Serving --> Root[bootstrap-root]
   Root --> Child[bootstrap 配下の child Applications]
   Child --> Workload[core / infrastructure / platform / access / apps]
-  Child --> Platform[platform: github-actions ディレクトリ]
   Child --> Updater[image-updater: Helm + ImageUpdater CR]
   Updater --> Git[アプリの digest を Git 更新]
-  Platform --> Controller[arc-controller Application]
-  Platform --> AppSet[arc-runners ApplicationSet]
-  AppSet --> Runner[harbor-publish-runner: 全repoで最大2並列]
 ```
 
 ## root が同期する Application
@@ -44,7 +40,6 @@ wave は root が作成・更新する Application の annotation です。別 A
 | 8 | [gateway-shared](../../manifests/bootstrap/applications/access/gateway-shared.yaml) | `access` | [manifests/access/gateway](../../manifests/access/gateway) | `nginx-gateway` |
 | 8 | [pgo](../../manifests/bootstrap/applications/platform/pgo.yaml) | `platform` | [manifests/platform/pgo](../../manifests/platform/pgo) | `postgres-operator` |
 | 9 | [config-secrets](../../manifests/bootstrap/applications/platform/config-secrets.yaml) | `platform` | [manifests/platform/secrets/external-secrets](../../manifests/platform/secrets/external-secrets) | `external-secrets-system` |
-| 10 | [platform](../../manifests/bootstrap/applications/platform/platform.yaml) | `platform` | [manifests/platform/ci-cd/github-actions](../../manifests/platform/ci-cd/github-actions) | `argocd` |
 | 11 | [image-updater](../../manifests/bootstrap/applications/platform/image-updater.yaml) | `platform` | Helm `argocd-image-updater` + [digest 更新設定](../../manifests/platform/ci-cd/image-updater) | `argocd` |
 | 10 | [reloader](../../manifests/bootstrap/applications/platform/reloader.yaml) | `platform` | [manifests/platform/reloader](../../manifests/platform/reloader) | `kube-system` |
 | 10 | [rustfs](../../manifests/bootstrap/applications/platform/rustfs.yaml) | `platform` | [manifests/platform/rustfs](../../manifests/platform/rustfs) | `rustfs` |
@@ -83,23 +78,8 @@ Nature Remo の追加定義:
 
 設定・初回公開は [Nature Remo](../nature-remo.md) を参照してください。
 
-root 配下は **48 Application**。`argocd-projects` / `argocd-core` のみ automated prune が false、他は true です。
+root 配下は **47 Application**。`argocd-projects` / `argocd-core` のみ automated prune が false、他は true です。
 ローカル Git source は `HEAD`、外部 chart は固定 revision です。
-
-## ARC が追加する Application
-
-[platform の Kustomization](../../manifests/platform/ci-cd/github-actions/kustomization.yaml) は
-[arc-controller](../../manifests/platform/ci-cd/github-actions/arc-controller.yaml) と
-[arc-runners ApplicationSet](../../manifests/platform/ci-cd/github-actions/runners-appset.yaml) を管理します。
-arc-controller は wave の明示なし、prune false。Runner template は wave 9 / prune true です。
-これらを root の wave 9 と同じ同期段階と解釈しません。
-
-| 生成 Application | GitHub scope | Runner 名 | min / max |
-|---|---|---|---|
-| `harbor-publish-runner` | `home-lab-ksera` Organization | `harbor-publish-runners` | 0 / 2 |
-
-runner group `harbor-publish` は blog、cookLog、hitomi、api-hub、home-camera、hitomi-pdf-batch、RSSHub-private の7 repo を許可します。
-listener は1つ。公開ジョブの同時実行数は全 repo 合計で最大2です。
 
 ## 確認する依存
 

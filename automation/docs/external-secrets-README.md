@@ -11,7 +11,6 @@ ExternalSecret の正本は GitOps 管理の `manifests/platform/secrets/externa
 - SecretStore: `manifests/platform/secrets/external-secrets/stores/`
 - ArgoCD 用 Secret: `manifests/platform/secrets/external-secrets/argocd/`
 - Harbor 用 Secret: `manifests/platform/secrets/external-secrets/harbor/`
-- GitHub Actions / ARC 用 Secret: `manifests/platform/secrets/external-secrets/github-actions/`
 - networking 用 Secret: `manifests/platform/secrets/external-secrets/networking/`
 - app runtime 用 Secret: `manifests/platform/secrets/external-secrets/app-runtime/`
 

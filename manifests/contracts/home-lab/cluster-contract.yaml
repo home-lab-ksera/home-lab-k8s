@@ -29,8 +29,6 @@ spec:
     classes:
       external: nfs-external
       local:
-      - local-storage
-      - local-ssd-storage
       - local-path
   apps:
     apiHub:
@@ -160,62 +158,5 @@ spec:
           - 192.168.122.0/24
         tags:
         - tag:k8s-subnet-router
-      runtimeChecks:
-      - 生成後のService種別・port・ownerReference、PodのhostNetwork/hostPortを確認する。
-    - identity:
-        group: actions.github.com
-        kind: AutoscalingRunnerSet
-        namespace: arc-systems
-        name: harbor-publish-runners
-      reason: ARCが生成するrunner Podの設定。
-      fields:
-        template:
-          spec:
-            automountServiceAccountToken: false
-            hostAliases:
-            - hostnames:
-              - harbor.internal.qroksera.com
-              ip: 192.168.122.100
-            securityContext:
-              fsGroup: 1001
-              runAsGroup: 1001
-              runAsNonRoot: true
-              runAsUser: 1001
-              seccompProfile:
-                type: RuntimeDefault
-            restartPolicy: Never
-            serviceAccountName: github-actions-runner
-            containers:
-            - name: runner
-              command:
-              - /home/runner/run.sh
-              image: ghcr.io/actions/actions-runner:latest
-              resources:
-                limits:
-                  ephemeral-storage: 8Gi
-                  memory: 1Gi
-                requests:
-                  cpu: 500m
-                  ephemeral-storage: 2Gi
-                  memory: 512Mi
-              securityContext:
-                allowPrivilegeEscalation: false
-                capabilities:
-                  drop:
-                  - ALL
-              volumeMounts:
-              - mountPath: /home/runner/_work
-                name: work
-              - mountPath: /etc/harbor-auth
-                name: harbor-auth
-                readOnly: true
-            volumes:
-            - emptyDir:
-                sizeLimit: 6Gi
-              name: work
-            - name: harbor-auth
-              secret:
-                defaultMode: 288
-                secretName: harbor-ci-auth
       runtimeChecks:
       - 生成後のService種別・port・ownerReference、PodのhostNetwork/hostPortを確認する。

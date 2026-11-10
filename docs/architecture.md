@@ -10,7 +10,7 @@ flowchart TD
   K8s --> Boot[bootstrap: ArgoCD / ESC token / root Application]
   Boot --> Argo[ArgoCD child Applications]
   Argo --> Infra[Storage / MetalLB / Gateway API / cert-manager]
-  Argo --> Platform[ESO / ARC / Harbor / RustFS / PostgreSQL / 監視]
+  Argo --> Platform[ESO / Harbor / RustFS / PostgreSQL / 監視]
   Argo --> Access[Gateway / HTTPRoute / DNS]
   Argo --> Apps[ユーザーアプリ]
 ```
@@ -42,7 +42,7 @@ control-plane、NFS、単一 replica のサービスを含むため、構成全�
 | GitOps | ArgoCD 本体・設定の自己管理、AppProject、ApplicationSet |
 | 認証情報 | ESO → Pulumi ESC。初回の ESC token は bootstrap が投入 |
 | 公開 | NGINX Gateway Fabric + cert-manager。Harbor を含む内部接続は LAN / Tailscale 経路 |
-| レジストリ・CI | Harbor、ARC。アプリの build workflow はアプリ側リポジトリに配置 |
+| レジストリ・CI | Harbor。アプリの build・push は GitHub-hosted runner + Tailscale OIDC（workflow はアプリ側リポジトリ） |
 | データ | RustFS（S3）、PGO 管理の共通 PostgreSQL（Harbor DB と Grafana の SQL 接続先） |
 | 監視 | VictoriaMetrics / kube-state-metrics / vmalert / Alertmanager / Grafana / Loki / Alloy |
 

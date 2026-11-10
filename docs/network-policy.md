@@ -14,8 +14,7 @@
 | [Loki](../manifests/platform/observability/logging-networkpolicy.yaml) | Grafana / Alloy → Loki:3100 |
 
 [workload-networkpolicies.yaml](../manifests/core/workload-networkpolicies.yaml) は
-`sandbox`・`tools`・`arc-systems`・`arc-runners`・`harbor` に Ingress/Egress 両方の default-deny を設定します。
-`arc-runners` は現在未使用で、DNS 以外の許可はありません。システム namespace 全体への一律適用は行いません。
+`sandbox`・`tools`・`harbor` に Ingress/Egress 両方の default-deny を設定します。
 
 | 接続元 | 許可する宛先 |
 |---|---|
@@ -28,8 +27,6 @@
 | hitomi-pdf | Gateway:443（内部 RSSHub URL） |
 | rsshub | rsshub-redis:6379 |
 | home-camera | 192.168.10.4:554/TCP と RTSP の RTP/RTCP 用 UDP 1024–65535（同カメラからの受信も許可） |
-| ARC namespace | 外部 HTTP/HTTPS、Gateway:443（Harbor push） |
-| ARC controller / listener のみ | API Service 10.96.0.1:443 と Control Plane 192.168.122.10:6443 |
 | Harbor 内部（cleanup Job 含む） | 同 namespace の Harbor Pod の TCP 8080 / 5000 / 8082 / 6379 |
 | Harbor | shared-postgresql:5432 |
 | Harbor Trivy | 外部 HTTP/HTTPS（脆弱性 DB 更新） |
@@ -85,9 +82,8 @@ Git 修正の反映後に撤去します。controller 全停止は全ポリシ�
 - Gateway から api-hub / blog / cooklog / viewer / RSSHub と Harbor にアクセスできる。
 - hitomi-pdf から `https://rsshub.internal.qroksera.com/twivideo/ranking` を取得できる。
 - api-hub の S3 操作、RSSHub のキャッシュ、hitomi の Selenium 操作、カメラ収録が成功する。
-- Runner を起動して GitHub 接続・依存取得・Harbor push、Harbor の DB 接続と Trivy 更新が成功する。
+- Harbor の DB 接続と Trivy 更新が成功する。
 - 無関係な sandbox Pod から hitomi Pod の WebDriver:4444、Redis、API Server、LAN への通信が失敗する。
-- controller/listener から API 接続が成功し、runner から API Service / Control Plane の両アドレスへの接続が失敗する。
 - 許可されていない Pod の外向き TCP 443 と、許可された Pod の外向き TCP 22 が失敗する。
 - api-hub Service が ClusterIP であり、ノードの旧 32001/TCP から到達できない。
 

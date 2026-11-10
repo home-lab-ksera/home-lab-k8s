@@ -1,7 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: arc-version
-  namespace: argocd
-data:
-  controllerChartVersion: "0.15.0"

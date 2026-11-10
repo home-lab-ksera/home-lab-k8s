@@ -9,7 +9,7 @@ Application の `source` を辿ったものが通常の GitOps 管理対象で�
 | [bootstrap/](../manifests/bootstrap/) | root と child Application。core / infrastructure / platform / access / user-apps に分類 |
 | [core/](../manifests/core/) | Namespace、基本 NetworkPolicy、StorageClass |
 | [infrastructure/](../manifests/infrastructure/) | ネットワーク・証明書・ストレージコントローラなど |
-| [platform/](../manifests/platform/) | ArgoCD、ESO、ARC、Harbor、RustFS、PGO、共通 DB、共有設定、監視 |
+| [platform/](../manifests/platform/) | ArgoCD、ESO、Harbor、RustFS、PGO、共通 DB、共有設定、監視 |
 | [access/](../manifests/access/) | Gateway、HTTPRoute、DNS |
 | [apps/](../manifests/apps/) | アプリの Deployment / Service / CronJob など |
 | [contracts/](../manifests/contracts/) | 非機密な環境値と公開経路の照合用定義 |
@@ -27,24 +27,18 @@ Application の `source` を辿ったものが通常の GitOps 管理対象で�
 
 `argocd-projects` と `argocd-core` は同じ source directory を使いますが、前者は `directory.include` で
 AppProject ファイルのみ、後者は Kustomize で本体・設定のみを描画します。
-`platform` Application の実際の source は `platform/ci-cd/github-actions` で、platform 全体の集約適用ではありません。
 
 ## ストレージ
 
 | StorageClass | 宣言元 | 注意点 |
 |---|---|---|
-| `local-storage` | [core](../manifests/core/storage-classes/local-storage-class.yaml) | no-provisioner、WaitForFirstConsumer、Retain |
-| `local-ssd-storage` | [core](../manifests/core/storage-classes/local-ssd-storage-class.yaml) | no-provisioner、WaitForFirstConsumer。reclaimPolicy は明示なし |
 | `local-path` | [local-path](../manifests/infrastructure/storage/local-path/) | ノードローカル。Grafana / Loki / Alloy などで使用 |
 | `nfs-external` | [NFS Application](../manifests/bootstrap/applications/infrastructure/nfs-subdir-external-provisioner.yaml) | 動的作成、Delete、archiveOnDelete。共有 NFS を使用 |
 | `nfs-postgresql` | [core](../manifests/core/storage-classes/nfs-postgresql.yaml) | 同じ NFS provisioner、Retain、DB / pgBackRest 用 |
 
 要求容量は NFS ディレクトリごとの上限や予約を保証しません。Retain も別媒体へのバックアップではありません。
-[core/kustomization.yaml](../manifests/core/kustomization.yaml) には両 local StorageClass と `nfs-postgresql` が登録されています。
-
-[infrastructure/gitops/harbor/node-mutations](../manifests/infrastructure/gitops/harbor/node-mutations/) は
-ノードの hosts / containerd を変更する補助資産です。通常の Harbor source は `platform/harbor` であり、
-このディレクトリを標準同期へ追加しないでください。
+[core/kustomization.yaml](../manifests/core/kustomization.yaml) には `nfs-postgresql` が登録されています。
+未使用だった no-provisioner の `local-storage` / `local-ssd-storage` は 2026-11-10 に撤去しました。
 
 配置検証の根拠は [gitops-check.py](../automation/scripts/ci/gitops-check.py)、
 [policy-check.py](../automation/scripts/ci/policy-check.py)、[contract-check.py](../automation/scripts/ci/contract-check.py) です。
