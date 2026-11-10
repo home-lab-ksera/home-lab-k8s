@@ -34,6 +34,18 @@ class API:
         except urllib.error.HTTPError as exc:
             raise APIError(method, path, exc.code) from None
 
+    def manifest_config(self, repository, digest):
+        """manifestのconfig digest。圧縮だけ異なる同一imageの判定に使う。indexはNone。"""
+        accept = ('application/vnd.oci.image.manifest.v1+json,'
+                  'application/vnd.docker.distribution.manifest.v2+json')
+        req = urllib.request.Request(self.url.rsplit('/api/', 1)[0] + f'/v2/{repository}/manifests/{digest}',
+                                     headers={'Authorization': self.authorization, 'Accept': accept})
+        try:
+            with urllib.request.urlopen(req, context=self.context, timeout=30) as res:
+                return (json.loads(res.read()).get('config') or {}).get('digest')
+        except urllib.error.HTTPError as exc:
+            raise APIError('GET', f'/v2/{repository}/manifests/{digest}', exc.code) from None
+
     def pages(self, path):
         result = []
         for page in range(1, 1001):
@@ -56,8 +68,12 @@ def image_digest(image, repository):
     return image.rsplit('@', 1)[1]
 
 
-def observe(app, items, repository, artifacts):
-    """旧実行中Pod/Jobと全templateを照合。indexの実行manifestも検証する。"""
+def observe(app, items, repository, artifacts, config_of=None):
+    """旧実行中Pod/Jobと全templateを照合。indexの実行manifestも検証する。
+
+    containerdは同じconfigのimageに複数のrepoDigestを持ち、imageIDにはその1つしか返さない。
+    再pushで圧縮だけ異なるmanifestが増えた場合に備え、digest不一致時はconfig digestで同一性を確認する。
+    """
     status = app.get('status', {})
     if (status.get('sync', {}).get('status') != 'Synced'
             or status.get('health', {}).get('status') != 'Healthy'
@@ -107,12 +123,19 @@ def observe(app, items, repository, artifacts):
             for name, root in by_name.items():
                 if root:
                     actual = next((c.get('imageID', '').rsplit('@', 1)[-1] for c in statuses if c['name'] == name), '')
-                    if actual not in roots[root]:
+                    if actual not in roots[root] and not same_image(config_of, actual, roots[root]):
                         raise ValueError('実行imageIDがmanifestと不一致')
             healthy += 1
     if len(desired) != 1 or not healthy or not running or running != desired:
         raise ValueError('正常稼働版を一意に確認できない')
     return next(iter(desired))
+
+
+def same_image(config_of, actual, expected):
+    if not config_of or not re.fullmatch(r'sha256:[a-f0-9]{64}', actual or ''):
+        return False
+    configs = {c for d in expected if (c := config_of(d))}
+    return bool(configs) and config_of(actual) in configs
 
 
 def tags(artifacts):
@@ -210,6 +233,8 @@ def reconcile(client, config, applications, items, dry_run=False):
     repos = client.pages(f'/projects/{project}/repositories')
     names = {r['name'].split('/', 1)[1] for r in repos}
     unknown = names - config['repositories'].keys()
+    # 未登録repoは保持処理の対象外（全保持）。Job全体は失敗させず、repo単位の状態として通知する。
+    statuses = {name: '未登録repo（全保持）' for name in unknown}
     if unknown:
         emit(preserved_unknown=sorted(unknown))
         blocked.extend(sorted(unknown))
@@ -224,15 +249,22 @@ def reconcile(client, config, applications, items, dry_run=False):
                 archived.append(name)
                 delete_count += max(0, len(artifacts) - 3)
                 emit(repository=name, status='archived-latest-3')
+                statuses[name] = None
                 continue
             if settings.get('preserve'):
                 emit(repository=name, status='preserved-by-config')
+                statuses[name] = None
                 continue
             if not artifacts or any(a.get('type') != 'IMAGE' for a in artifacts):
                 raise ValueError('artifactなし、または非IMAGEを検出')
             override = settings.get('rollbackDigest')
+            cache = {}
+            def config_of(d, repository=project + '/' + name):
+                if d not in cache:
+                    cache[d] = client.manifest_config(repository, d)
+                return cache[d]
             try:
-                healthy = observe(applications[settings['application']], items, project + '/' + name, artifacts)
+                healthy = observe(applications[settings['application']], items, project + '/' + name, artifacts, config_of)
             except ValueError:
                 # 失敗中でも、Gitで明示した既知の正常版へのrollbackは実行する。
                 if override and override in (existing.get('retain-current'), existing.get('retain-previous')):
@@ -257,8 +289,10 @@ def reconcile(client, config, applications, items, dry_run=False):
             eligible.append(name)
             delete_count += len(artifacts) - len(keep)
             emit(repository=name, healthy=healthy, roles=existing, keep=sorted(keep), status='eligible')
+            statuses[name] = None
         except (ValueError, KeyError) as exc:
             blocked.append(name)
+            statuses[name] = str(exc)
             emit(repository=name, status='blocked', reason=str(exc))
     policy = retention_policy(info['project_id'], eligible, archived)
     if not dry_run:
@@ -272,7 +306,7 @@ def reconcile(client, config, applications, items, dry_run=False):
             execute(client, policy_id, True)
             execute(client, policy_id, False)
     emit(eligible=eligible, blocked=blocked, delete_candidates=delete_count, dry_run=dry_run)
-    return not blocked
+    return statuses
 
 
 @contextmanager
@@ -301,6 +335,31 @@ def lock(kube):
     finally:
         lease['spec']['holderIdentity'] = ''
         kube.request('PUT', path, lease)
+
+
+METRICS_URL = 'http://victoria-metrics.observability.svc:8428/api/v1/import/prometheus'
+
+
+def label(value):
+    return value.replace('\\', '\\\\').replace('"', '\\"').replace('\n', ' ')
+
+
+def metrics(statuses, now):
+    """repo単位の状態。blockedは1、正常・保持設定は0。reasonはblocked時のみ。"""
+    lines = []
+    for name, reason in sorted(statuses.items()):
+        lines.append(f'harbor_maintenance_repository_blocked{{repository="{label(name)}",reason="{label(reason or "")}"}} '
+                     f'{1 if reason else 0}')
+    lines.append(f'harbor_maintenance_last_run_timestamp_seconds {int(now)}')
+    return '\n'.join(lines) + '\n'
+
+
+def push_metrics(body):
+    # 送信失敗はJob失敗にし、HarborMaintenanceStalledで検知する。
+    req = urllib.request.Request(METRICS_URL, method='POST', data=body.encode(), headers={'Content-Type': 'text/plain'})
+    with urllib.request.urlopen(req, timeout=30) as res:
+        if res.status >= 300:
+            raise RuntimeError(f'メトリクス送信失敗: HTTP {res.status}')
 
 
 def main():
@@ -342,7 +401,9 @@ def run(client, kube, config):
                 row['kind'] = singular
             items.extend(rows)
     configure_gc(client)
-    ok = reconcile(client, config, {a['metadata']['name']: a for a in apps}, items)
+    # repoごとのblockedはJobを失敗させない。Job失敗はHarbor全体の保守（API・保持・GC・quota）の異常に限る。
+    statuses = reconcile(client, config, {a['metadata']['name']: a for a in apps}, items)
+    ok = True
     info = client.request('GET', '/projects/' + config['project'])
     quotas = client.request('GET', '/quotas?reference=project&reference_id=' + str(info['project_id']))
     if len(quotas) != 1:
@@ -362,6 +423,7 @@ def run(client, kube, config):
     if not successful or (datetime.now(timezone.utc) - datetime.fromisoformat(successful[0]['update_time'].replace('Z', '+00:00'))).total_seconds() > 36 * 3600:
         emit(status='failed', reason='GCが36時間以上成功していない')
         ok = False
+    push_metrics(metrics(statuses, time.time()))
     if not ok:
         raise SystemExit(1)
 

@@ -99,6 +99,64 @@ class MaintenanceTests(unittest.TestCase):
         self.assertTrue(json.loads(p['rules'][2]['tag_selectors'][0]['extras'])['untagged'])
         self.assertEqual(m.retention_policy(2, [])['rules'][0]['tag_selectors'][0]['pattern'], '**')
 
+class SameImageTests(unittest.TestCase):
+    """再pushで圧縮だけ異なるmanifestが増え、containerdが旧repoDigestをimageIDに返す場合。"""
+    def recompressed(self, configs):
+        args = fixture()
+        args[1][1]['status']['containerStatuses'][0]['imageID'] = 'docker-pullable://test@' + digest(3)
+        return args, configs.get
+
+    def test_recompressed_manifest_with_same_config_is_accepted(self):
+        args, config_of = self.recompressed({digest(1): 'sha256:cfg', digest(3): 'sha256:cfg'})
+        self.assertEqual(m.observe(*args, config_of), digest(1))
+
+    def test_different_config_or_unknown_manifest_is_rejected(self):
+        for configs in ({digest(1): 'sha256:new', digest(3): 'sha256:old'}, {digest(1): 'sha256:new'}, {}):
+            args, config_of = self.recompressed(configs)
+            with self.assertRaises(ValueError, msg=configs): m.observe(*args, config_of)
+        with self.assertRaises(ValueError): m.observe(*self.recompressed({})[0])
+
+
+class IsolationTests(unittest.TestCase):
+    def reconcile(self, observe):
+        from unittest.mock import patch
+        artifacts = [{'digest': digest(1), 'type': 'IMAGE', 'push_time': '2026-10-28',
+                      'tags': [{'name': n} for n in ('latest', 'deploy', 'retain-current')]}]
+        class Harbor:
+            def request(self, method, path, payload=None):
+                if method == 'GET' and path == '/projects/sandbox':
+                    return {'project_id': 2, 'metadata': {'retention_id': 1}}
+                if method == 'PUT' and path == '/retentions/1':
+                    self.policy = payload
+                    return None
+                raise AssertionError((method, path))
+            def pages(self, path):
+                if path.endswith('/executions'): return []
+                if path.endswith('/repositories'): return [{'name': 'sandbox/' + n} for n in ('ok', 'bad', 'new')]
+                if '/artifacts?' in path: return artifacts
+                raise AssertionError(path)
+        client = Harbor()
+        config = {'project': 'sandbox', 'repositories': {'ok': {'application': 'ok'}, 'bad': {'application': 'bad'}}}
+        with patch.object(m, 'observe', side_effect=observe), patch.object(m, 'emit'), patch.object(m, 'execute'):
+            return m.reconcile(client, config, {'ok': {'name': 'ok'}, 'bad': {'name': 'bad'}}, []), client.policy
+
+    def test_blocked_and_unregistered_repos_are_reported_without_affecting_others(self):
+        def observe(app, *args):
+            if app['name'] == 'bad': raise ValueError('workloadの切替完了待ち')
+            return digest(1)
+        statuses, policy = self.reconcile(observe)
+        self.assertEqual(statuses, {'ok': None, 'bad': 'workloadの切替完了待ち', 'new': '未登録repo（全保持）'})
+        # blocked・未登録repoは保持処理の対象（eligible）に入らず、全保持のまま。
+        self.assertEqual(policy['rules'][0]['scope_selectors']['repository'][0]['pattern'], 'ok')
+
+    def test_metrics_report_blocked_reason_and_last_run(self):
+        body = m.metrics({'ok': None, 'bad': '理由"x"'}, 1700000000.5)
+        self.assertEqual(body.splitlines(), [
+            'harbor_maintenance_repository_blocked{repository="bad",reason="理由\\"x\\""} 1',
+            'harbor_maintenance_repository_blocked{repository="ok",reason=""} 0',
+            'harbor_maintenance_last_run_timestamp_seconds 1700000000'])
+
+
 class ExclusionTests(unittest.TestCase):
     def test_archive_is_bounded_and_not_in_fallback(self):
         p = m.retention_policy(2, ['active'], ['archive'])
@@ -183,7 +241,8 @@ class NoOpTests(unittest.TestCase):
                 raise AssertionError(path)
         client = Harbor()
         with patch.object(m, 'observe', return_value=digest(1)), patch.object(m, 'emit'), patch.object(m, 'execute') as execute:
-            self.assertTrue(m.reconcile(client, {'project': 'sandbox', 'repositories': {'test': {'application': 'test'}}}, {'test': {}}, []))
+            self.assertEqual(m.reconcile(client, {'project': 'sandbox', 'repositories': {'test': {'application': 'test'}}}, {'test': {}}, []),
+                             {'test': None})
             return execute.call_args_list
 
     def test_stable_repositories_do_not_create_harbor_execution_history(self):
