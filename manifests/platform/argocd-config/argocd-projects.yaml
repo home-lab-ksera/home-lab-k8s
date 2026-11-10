@@ -60,17 +60,11 @@ spec:
     - https://github.com/home-lab-ksera/home-lab-k8s.git
     - https://charts.external-secrets.io
     - https://argoproj.github.io/argo-helm
-    - ghcr.io/actions/actions-runner-controller-charts
-    - oci://ghcr.io/actions/actions-runner-controller-charts
   destinations:
     - server: https://kubernetes.default.svc
       namespace: argocd
     - server: https://kubernetes.default.svc
       namespace: external-secrets-system
-    - server: https://kubernetes.default.svc
-      namespace: arc-systems
-    - server: https://kubernetes.default.svc
-      namespace: arc-runners
     - server: https://kubernetes.default.svc
       namespace: harbor
     - server: https://kubernetes.default.svc
