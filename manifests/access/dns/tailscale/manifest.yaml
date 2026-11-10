@@ -6,7 +6,7 @@ metadata:
   namespace: tailscale
   annotations:
     contracts.k8s-myhome.local/service-ip: network.serviceIPs.gateway
-    contracts.k8s-myhome.local/access-surfaces: harbor-internal,cooklog-internal,hitomi-upload-viewer-internal,api-hub-internal,rsshub-internal,observability-internal,grafana-internal,argocd-internal,s3-internal,rustfs-console-internal,blog-internal
+    contracts.k8s-myhome.local/access-surfaces: nature-remo-internal,harbor-internal,cooklog-internal,hitomi-upload-viewer-internal,api-hub-internal,rsshub-internal,observability-internal,grafana-internal,argocd-internal,s3-internal,rustfs-console-internal,blog-internal
 data:
   Corefile: |
     internal.qroksera.com:53 {
@@ -20,6 +20,7 @@ data:
             192.168.122.100 rustfs.internal.qroksera.com
             192.168.122.100 blog.internal.qroksera.com
             192.168.122.100 cooklog.internal.qroksera.com
+            192.168.122.100 nature-remo.internal.qroksera.com
             192.168.122.100 hitomi-upload-viewer.internal.qroksera.com
             192.168.122.100 api-hub.internal.qroksera.com
             192.168.122.100 rsshub.internal.qroksera.com

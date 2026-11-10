@@ -1,9 +1,37 @@
-# Nature Remo を Tailscale 内に公開する
+# Nature Remo の内部URLとTailscale公開
 
 Local API を利用する家電リモコン Web アプリです。
 Nature のクラウド障害時の代替操作が目的です。保存済み信号を LAN 経由で送信し、Cloud API への接続やトークンを必要としません。
 アプリのソースは [home-lab-ksera/nature-remo](https://github.com/home-lab-ksera/nature-remo)（private）、GitOps の定義はこのリポジトリに置きます。
 初回イメージは `build-975d107`、Kustomize で digest を固定しています。
+
+## 利用URLと接続制限
+
+通常の内部URLは **https://nature-remo.internal.qroksera.com** です。
+CoreDNSとTailnet Split DNSで `192.168.122.100` に解決し、GatewayでTLSを終端します。
+`/` が操作画面、`/healthz` が生存確認、`/api/state` が設定・保存済みボタンの読み取りAPIです。
+Webアプリは同じoriginの相対URLでAPIへ接続するため、アプリのURL設定変更は不要です。
+
+アプリ自身に利用者認証はありません。NGINX Gateway Fabric 2.8のAccessPolicyで、
+LAN (`192.168.10.0/24`)、クラスタノード (`192.168.122.0/24`)、
+Pod / subnet-router (`10.244.0.0/16`)、Tailnet (`100.64.0.0/10`) の送信元だけを許可します。
+それ以外は403です。`internal`というDNS名自体がアクセス制御になるわけではありません。
+許可ネットワーク内の端末・Podはアプリを操作できるため、これらを信頼する構成です。
+既存のTailscale Ingress URLも維持し、そちらは引き続きTailnet ACL/grantsで制御します。
+
+Gatewayの `externalTrafficPolicy: Local` と、HTTPヘッダーで送信元IPを上書きしない現行設定を前提とします。
+外部プロキシやSNATを追加する場合は、Internetからの通信が許可ネットワークのIPに見えないか再確認してください。
+AccessPolicyはRouteより先のsync-waveで適用します。CIは必須policyの削除、宛先変更、許可範囲変更を検出します。
+
+内部DNSを利用する端末ではSplit DNS (`192.168.122.101`) に `internal.qroksera.com` を問い合わせます。
+確認例（IPを直接指定してDNSを迂回するcurlではありません）:
+
+```bash
+dig @192.168.122.101 nature-remo.internal.qroksera.com A +short
+curl --fail https://nature-remo.internal.qroksera.com/healthz
+```
+
+LAN端末でもこのDNSゾーンの転送設定が必要です。Tailscale接続端末では既存のSplit DNS設定を使います。
 
 ## 確認した実機
 
@@ -83,7 +111,8 @@ Ingress の ADDRESS に表示される `nature-remo.<tailnet>.ts.net` を使っ�
 Tailscale に接続した端末から `https://nature-remo.<tailnet>.ts.net` を開きます。
 初回の TLS 証明書発行には時間がかかる場合があります。実際の URL は Ingress の結果を確認してください。
 
-HTTP の Service は ClusterIP のみです。NetworkPolicy は tailscale namespace から8080番への接続を許可します。
+HTTP の Service は ClusterIP のみです。NetworkPolicy は tailscale namespaceと、
+nginx-gateway namespaceの共有Gateway Podから8080番への接続を許可します。
 core の既定 deny と DNS 許可を前提とし、Remo への TCP 80 は上記の IP 個別指定で許可します。
 
 ヘルスチェックは Web サーバーの生存を示します。実機の接続状態は登録画面の受信待ちで確認してください。

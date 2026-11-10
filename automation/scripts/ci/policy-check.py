@@ -20,7 +20,7 @@ BOOTSTRAP_APPS = MANIFESTS / "bootstrap/applications"
 
 YAML_SUFFIXES = {".yaml", ".yml"}
 WORKLOAD_KINDS = {"Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob", "Pod"}
-ACCESS_KINDS = {"HTTPRoute", "Gateway", "Ingress", "ClientSettingsPolicy", "BackendTLSPolicy", "ReferenceGrant"}
+ACCESS_KINDS = {"HTTPRoute", "Gateway", "Ingress", "ClientSettingsPolicy", "BackendTLSPolicy", "ReferenceGrant", "AccessPolicy"}
 
 SCAN_TEXT_DIRS = ["manifests", "automation", ".github"]
 SCAN_TEXT_FILES = ["AGENTS.md", "README.md", "Makefile"]

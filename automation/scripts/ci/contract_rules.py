@@ -13,7 +13,7 @@ from jsonschema import Draft202012Validator
 from contract_inventory import InventoryError, identity, label, read_yaml
 
 ANNOTATION = "contracts.k8s-myhome.local/access-surface"
-POLICY_KINDS = {"ClientSettingsPolicy", "BackendTLSPolicy", "ReferenceGrant"}
+POLICY_KINDS = {"ClientSettingsPolicy", "BackendTLSPolicy", "ReferenceGrant", "AccessPolicy"}
 OPERATOR_KINDS = {"NginxProxy", "GatewayClass", "Connector", "PostgresCluster", "AutoscalingRunnerSet"}
 
 
@@ -188,6 +188,24 @@ def check(cluster, access, resources):
                     backend = path.get("backend", {}).get("service", {})
                     referenced_backends.add((ident[2], backend.get("name"), backend.get("port", {}).get("number")))
             continue
+        if "accessPolicy" in surface:
+            ref = surface["accessPolicy"]
+            policy = get("gateway.nginx.org", "AccessPolicy", ref["namespace"], ref["name"])
+            targets = [{"group": "gateway.networking.k8s.io", "kind": "HTTPRoute", "name": r["name"]}
+                       for r in surface["routes"]]
+            if (not policy or policy.get("spec", {}).get("action") != "Allow"
+                    or policy["spec"].get("targetRefs") != targets
+                    or any(r["namespace"] != ref["namespace"] for r in surface["routes"])):
+                issues.append(f"CT-008: required IP access policy missing or targets differ for {sid}")
+            else:
+                rules = policy["spec"].get("rules", [])
+                try:
+                    if not rules or any(r.get("source", {}).get("type") != "IPAddress"
+                                        or ipaddress.ip_network(r["source"]["ipAddress"]["address"]).prefixlen == 0
+                                        for r in rules):
+                        raise ValueError
+                except (KeyError, TypeError, ValueError):
+                    fail("CT-008", policy, "IP allowlist must contain explicit bounded source ranges")
         gateway_id = ("gateway.networking.k8s.io", "Gateway", surface["gateway"]["namespace"], surface["gateway"]["name"])
         expected_gateways.add(gateway_id)
         gateway = index.get(gateway_id)
@@ -320,7 +338,7 @@ def check(cluster, access, resources):
             continue
         group = ident[0]
         supported_gateway = {"HTTPRoute", "Gateway", "GatewayClass", "ReferenceGrant", "BackendTLSPolicy"}
-        supported_nginx = {"NginxProxy", "NginxGateway", "ClientSettingsPolicy"}
+        supported_nginx = {"NginxProxy", "NginxGateway", "ClientSettingsPolicy", "AccessPolicy"}
         if ((group == "gateway.networking.k8s.io" and kind not in supported_gateway)
                 or (group == "gateway.nginx.org" and kind not in supported_nginx)
                 or (group == "tailscale.com" and kind != "Connector")):

@@ -336,6 +336,37 @@ spec:
         name: s3-internal
         listener: https-s3-internal
         profile: s3-internal
+    nature-remo-internal:
+      hostname: nature-remo.internal.qroksera.com
+      exposure: internal
+      gatewayListener: https-nature-remo-internal
+      publish:
+        coreDNS: true
+        tailscaleSplitDNS: true
+      type: gateway-http
+      gateway:
+        namespace: nginx-gateway
+        name: nginx-gateway
+        className: nginx
+      tls:
+        certificate: nature-remo-internal
+        secret: nature-remo-internal-tls
+        issuer:
+          group: cert-manager.io
+          kind: ClusterIssuer
+          name: letsencrypt-cloudflare
+      routes:
+      - namespace: sandbox
+        name: nature-remo-internal
+        listener: https-nature-remo-internal
+        profile: nature-remo-internal
+      - namespace: sandbox
+        name: nature-remo-internal-redirect
+        listener: http
+        profile: argocd-external-redirect
+      accessPolicy:
+        namespace: sandbox
+        name: nature-remo-internal
     nature-remo-tailnet:
       type: tailscale-ingress
       exposure: internal
@@ -631,6 +662,18 @@ spec:
         path:
           type: PathPrefix
           value: /home-camera-recordings/
+    nature-remo-internal:
+    - backendRefs:
+      - group: ''
+        kind: Service
+        name: nature-remo
+        port: 80
+        weight: 1
+        namespace: sandbox
+      matches:
+      - path:
+          type: PathPrefix
+          value: /
   policies:
   - identity:
       group: gateway.nginx.org
@@ -668,3 +711,38 @@ spec:
         group: gateway.networking.k8s.io
         kind: HTTPRoute
         name: harbor-internal
+  - identity:
+      group: gateway.nginx.org
+      kind: AccessPolicy
+      namespace: sandbox
+      name: nature-remo-internal
+    spec:
+      targetRefs:
+      - group: gateway.networking.k8s.io
+        kind: HTTPRoute
+        name: nature-remo-internal
+      - group: gateway.networking.k8s.io
+        kind: HTTPRoute
+        name: nature-remo-internal-redirect
+      action: Allow
+      rules:
+      - name: home-lan
+        source:
+          type: IPAddress
+          ipAddress:
+            address: 192.168.10.0/24
+      - name: cluster-nodes
+        source:
+          type: IPAddress
+          ipAddress:
+            address: 192.168.122.0/24
+      - name: cluster-pods-and-subnet-router
+        source:
+          type: IPAddress
+          ipAddress:
+            address: 10.244.0.0/16
+      - name: tailnet
+        source:
+          type: IPAddress
+          ipAddress:
+            address: 100.64.0.0/10

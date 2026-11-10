@@ -304,3 +304,26 @@ spec:
               operator: In
               values:
               - rustfs
+    - name: https-nature-remo-internal
+      hostname: nature-remo.internal.qroksera.com
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            group: ""
+            name: nature-remo-internal-tls
+            namespace: nginx-gateway
+      allowedRoutes:
+        kinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
+        namespaces:
+          from: Selector
+          selector:
+            matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: In
+              values:
+              - sandbox

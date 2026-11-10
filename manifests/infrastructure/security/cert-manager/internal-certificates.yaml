@@ -207,3 +207,22 @@ spec:
     - digital signature
     - key encipherment
     - server auth
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: nature-remo-internal
+  namespace: nginx-gateway
+spec:
+  secretName: nature-remo-internal-tls
+  duration: 8760h # 1年
+  renewBefore: 720h # 30日前から更新
+  issuerRef:
+    name: letsencrypt-cloudflare
+    kind: ClusterIssuer
+  dnsNames:
+    - nature-remo.internal.qroksera.com
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth

@@ -170,6 +170,24 @@
                         "profile"
                       ]
                     }
+                  },
+                  "accessPolicy": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "namespace": {
+                        "type": "string",
+                        "minLength": 1
+                      },
+                      "name": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "required": [
+                      "namespace",
+                      "name"
+                    ]
                   }
                 },
                 "required": [

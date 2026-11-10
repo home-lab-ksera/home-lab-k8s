@@ -1,3 +1,98 @@
+apiVersion: gateway.nginx.org/v1alpha1
+kind: AccessPolicy
+metadata:
+  name: nature-remo-internal
+  namespace: sandbox
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  targetRefs:
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: nature-remo-internal
+    - group: gateway.networking.k8s.io
+      kind: HTTPRoute
+      name: nature-remo-internal-redirect
+  action: Allow
+  rules:
+    - name: home-lan
+      source:
+        type: IPAddress
+        ipAddress:
+          address: 192.168.10.0/24
+    - name: cluster-nodes
+      source:
+        type: IPAddress
+        ipAddress:
+          address: 192.168.122.0/24
+    - name: cluster-pods-and-subnet-router
+      source:
+        type: IPAddress
+        ipAddress:
+          address: 10.244.0.0/16
+    - name: tailnet
+      source:
+        type: IPAddress
+        ipAddress:
+          address: 100.64.0.0/10
+---
+# nature-remo内部公開用HTTPRoute（HTTP→HTTPSリダイレクト）
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: nature-remo-internal-redirect
+  namespace: sandbox
+  annotations:
+    contracts.k8s-myhome.local/access-surface: nature-remo-internal
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: nginx-gateway
+      namespace: nginx-gateway
+      sectionName: http
+  hostnames:
+    - nature-remo.internal.qroksera.com
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301
+      matches:
+        - path:
+            type: PathPrefix
+            value: /
+---
+# nature-remo内部公開用HTTPRoute（HTTPS）
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: nature-remo-internal
+  namespace: sandbox
+  annotations:
+    contracts.k8s-myhome.local/access-surface: nature-remo-internal
+spec:
+  parentRefs:
+    - group: gateway.networking.k8s.io
+      kind: Gateway
+      name: nginx-gateway
+      namespace: nginx-gateway
+      sectionName: https-nature-remo-internal
+  hostnames:
+    - nature-remo.internal.qroksera.com
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - group: ""
+          kind: Service
+          name: nature-remo
+          port: 80
+          weight: 1
+---
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -39,6 +134,16 @@ spec:
         - namespaceSelector:
             matchLabels:
               kubernetes.io/metadata.name: tailscale
+      ports:
+        - protocol: TCP
+          port: 8080
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: nginx-gateway
+          podSelector:
+            matchLabels:
+              gateway.networking.k8s.io/gateway-name: nginx-gateway
       ports:
         - protocol: TCP
           port: 8080

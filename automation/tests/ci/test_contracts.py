@@ -164,6 +164,50 @@ class ContractTests(unittest.TestCase):
         self.find('Ingress')['metadata']['annotations']['tailscale.com/funnel'] = 'true'
         self.assert_rule('CT-012')
 
+    def attach_access_policy(self):
+        surface = self.access['spec']['surfaces']['api-hub-internal']
+        surface['accessPolicy'] = {'namespace': 'sandbox', 'name': 'internal-clients'}
+        policy = {'apiVersion': 'gateway.nginx.org/v1alpha1', 'kind': 'AccessPolicy',
+                  'metadata': {'namespace': 'sandbox', 'name': 'internal-clients'},
+                  'spec': {'action': 'Allow',
+                           'targetRefs': [{'group': 'gateway.networking.k8s.io', 'kind': 'HTTPRoute', 'name': r['name']} for r in surface['routes']],
+                           'rules': [{'name': 'lan', 'source': {'type': 'IPAddress', 'ipAddress': {'address': '192.168.10.0/24'}}}]}}
+        self.resources.append(policy)
+        self.access['spec']['policies'].append({'identity': ident_dict(policy), 'spec': copy.deepcopy(policy['spec'])})
+        self.assertEqual(self.errors(), [])
+        return policy
+
+    def test_required_access_policy_deleted(self):
+        policy = self.attach_access_policy()
+        self.resources.remove(policy)
+        self.assert_rule('CT-008')
+
+    def test_access_policy_expanded(self):
+        policy = self.attach_access_policy()
+        policy['spec']['rules'][0]['source']['ipAddress']['address'] = '192.168.0.0/16'
+        self.assert_rule('CT-008')
+
+    def test_access_policy_cannot_allow_all_even_when_contract_matches(self):
+        for rule in ({'name': 'all'}, {'name': 'all', 'source': {'type': 'IPAddress', 'ipAddress': {'address': '0.0.0.0/0'}}}):
+            with self.subTest(rule=rule):
+                self.setUp()
+                policy = self.attach_access_policy()
+                policy['spec']['rules'] = [rule]
+                self.access['spec']['policies'][0]['spec'] = copy.deepcopy(policy['spec'])
+                self.assert_rule('CT-008')
+
+    def test_access_policy_must_cover_both_routes(self):
+        policy = self.attach_access_policy()
+        policy['spec']['targetRefs'].pop()
+        self.access['spec']['policies'][0]['spec'] = copy.deepcopy(policy['spec'])
+        self.assert_rule('CT-008')
+
+    def test_access_policy_must_be_allowlist(self):
+        policy = self.attach_access_policy()
+        policy['spec']['action'] = 'Deny'
+        self.access['spec']['policies'][0]['spec'] = copy.deepcopy(policy['spec'])
+        self.assert_rule('CT-008')
+
 
 class InputTests(unittest.TestCase):
     def test_manifest_list_cannot_hide_public_service(self):
