@@ -6,8 +6,6 @@ resources:
   - arc-version-configmap.yaml
   # ARC Controller (ArgoCD Application経由でHelm chartをデプロイ)
   - arc-controller.yaml
-  # ARC RunnerScaleSet (ApplicationSetでGitOps管理)
-  - runners-appset.yaml
   # Runner Pod ServiceAccount（API 権限なし、トークン自動マウントなし）
   - github-actions-rbac.yaml
   # GitHub PAT は platform/secrets/external-secrets/github-actions/ で管理
@@ -25,8 +23,3 @@ replacements:
           name: arc-controller
         fieldPaths:
           - spec.source.targetRevision
-      - select:
-          kind: ApplicationSet
-          name: arc-runners
-        fieldPaths:
-          - spec.template.spec.source.targetRevision
