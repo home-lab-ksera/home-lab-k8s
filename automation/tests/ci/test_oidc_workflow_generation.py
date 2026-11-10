@@ -114,8 +114,10 @@ class OidcWorkflowGenerationTests(unittest.TestCase):
         self.assertIn("steps.publication.outputs.result == 'true'",
                       steps["Promote current build to latest"]["if"])
         for name in ("Push and verify versioned image", "Promote current build to latest"):
-            self.assertIn('docker manifest inspect "$IMAGE"', steps[name]["run"])
-            self.assertIn('[[ "$actual" != "$expected" ]]', steps[name]["run"])
+            # containerd image store（.Id = manifest digest）と従来の store（.Id = config digest）の両方で検証する。
+            self.assertIn('docker buildx imagetools inspect "$IMAGE"', steps[name]["run"])
+            self.assertIn('[[ "$expected" != "$published" && "$expected" != "$config" ]]', steps[name]["run"])
+            self.assertNotIn('docker manifest inspect', steps[name]["run"])
         for step in job["steps"]:
             if "run" in step:
                 subprocess.run(["bash", "-n"], input=step["run"], text=True, check=True)
