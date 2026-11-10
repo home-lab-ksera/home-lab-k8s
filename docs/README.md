@@ -19,6 +19,7 @@
 | バージョンを更新する | [ノード更新](upgrade.md)、[アプリ更新](application-auto-updates.md)、[PostgreSQL 更新](postgresql-updates.md) |
 | Reloader や補助基盤を確認する | [プラットフォーム拡張](platform-extensions.md) |
 | 検証コマンドを調べる | [検証・参照](reference.md) |
+| 自宅・OCI の単一クラスタ拡張を計画する | [拡張計画（未実装）](../tasks/oci-single-cluster-plan.md) |
 
 ## 正本と確認範囲
 
