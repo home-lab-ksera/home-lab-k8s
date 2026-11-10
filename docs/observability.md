@@ -118,6 +118,16 @@ ESC の `alertmanager-slack-webhook-url` → Secret `alertmanager-slack` を参�
 初回集約待ち 30 秒、グループ更新 5 分、未復旧の再通知 4 時間。発火・復旧の両方を送ります。
 Secret が準備できるまで Pod は起動できません。アプリ用の Slack Bot token とは別です。
 
+## デッドマンスイッチ
+
+vmalert の `Watchdog` は常に発火し、Alertmanager は Slack ではなく `heartbeat` receiver へ1分ごとに送ります。
+送信先は ESC の `alertmanager-heartbeat-url` → Secret `alertmanager-heartbeat`（healthchecks.io の Ping URL）です。
+healthchecks.io 側で受信が途絶えると、クラスタ外から通知されます。クラスタ・ホスト・回線の停止、
+vmalert / Alertmanager の停止、vmalert → Alertmanager の経路断のいずれでも途絶します。
+healthchecks.io の check は Period 5 分 / Grace 5 分を目安とし、通知先は Slack やメールなどクラスタ外に依存しない経路にします。
+Secret は optional でマウントするため、未作成でも Alertmanager は起動します（その間は送信のみ失敗）。
+Grafana の発火中アラート表示からは `Watchdog` を除外しています。
+
 [weekly-observability-report](../manifests/platform/observability/weekly-report.yaml) は月曜 09:00 Asia/Tokyo に
 直近 7 日の状態を集計し、同じ Webhook へ送ります。Alertmanager の silence とは独立しています。
 5 分刻みの状態集計と推定再起動回数で、稼働率や確定した障害件数ではありません。

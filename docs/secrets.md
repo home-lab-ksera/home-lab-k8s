@@ -30,7 +30,7 @@ organization `ksera` / project `k8s` / environment `secret`、token の参照先
 | [harbor](../manifests/platform/secrets/external-secrets/harbor/) | `harbor.admin_password`、内部認証、namespace ごとの pull Secret |
 | [networking](../manifests/platform/secrets/external-secrets/networking/) | `dns-01`、`tailscale.client_id` / `client_secret` |
 | [app-runtime](../manifests/platform/secrets/external-secrets/app-runtime/) | `slack`、`rustfs.access_key` / `secret_key` |
-| [observability](../manifests/platform/secrets/external-secrets/observability/) | Slack Webhook、PostgreSQL 共用パスワード、Grafana 初期管理者 generator |
+| [observability](../manifests/platform/secrets/external-secrets/observability/) | Slack Webhook、デッドマンスイッチの Ping URL（`alertmanager-heartbeat-url`）、PostgreSQL 共用パスワード、Grafana 初期管理者 generator |
 | [postgresql](../manifests/platform/secrets/external-secrets/postgresql/) | `postgresql.admin_password` / `postgresql.password` |
 
 ## 反映・ローテーション

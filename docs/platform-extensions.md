@@ -8,7 +8,7 @@
 | 対象 | 追従する設定 |
 |---|---|
 | api-hub | auto annotation による参照設定 |
-| Alertmanager | `alertmanager-slack` |
+| Alertmanager | `alertmanager-slack`、`alertmanager-heartbeat` |
 | Grafana | `grafana-postgresql`、`shared-postgresql-ca` |
 
 Grafana の管理者初期 Secret は自動再起動対象ではありません。

@@ -1,4 +1,15 @@
 groups:
+  - name: home-lab-meta
+    interval: 30s
+    rules:
+      # デッドマンスイッチ。常に発火し、Alertmanager の heartbeat receiver だけが受け取る。
+      # 外部（healthchecks.io）で受信が途絶えたら、監視経路・クラスタ・ホスト・回線のいずれかの停止を意味する。
+      - alert: Watchdog
+        expr: vector(1)
+        labels:
+          severity: none
+        annotations:
+          summary: "監視経路の生存確認用。常に発火します"
   - name: home-lab-node-storage
     interval: 1m
     rules:

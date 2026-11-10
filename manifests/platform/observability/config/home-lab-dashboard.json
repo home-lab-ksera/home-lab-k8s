@@ -269,7 +269,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(ALERTS{alertstate=\"firing\"}) or vector(0)",
+          "expr": "sum(ALERTS{alertstate=\"firing\",alertname!=\"Watchdog\"}) or vector(0)",
           "legendFormat": "{{namespace}} / {{pod}}",
           "range": false,
           "instant": true,
@@ -814,7 +814,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "ALERTS{alertstate=\"firing\"}",
+          "expr": "ALERTS{alertstate=\"firing\",alertname!=\"Watchdog\"}",
           "legendFormat": "{{namespace}} / {{pod}}",
           "range": false,
           "instant": true,

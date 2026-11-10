@@ -17,7 +17,7 @@ metadata:
   name: alertmanager
   namespace: observability
   annotations:
-    secret.reloader.stakater.com/reload: alertmanager-slack
+    secret.reloader.stakater.com/reload: alertmanager-slack,alertmanager-heartbeat
 spec:
   revisionHistoryLimit: 3
   replicas: 1
@@ -65,12 +65,20 @@ spec:
             - name: slack-webhook
               mountPath: /etc/alertmanager/secrets
               readOnly: true
+            - name: heartbeat
+              mountPath: /etc/alertmanager/heartbeat
+              readOnly: true
             - name: data
               mountPath: /alertmanager
       volumes:
         - name: slack-webhook
           secret:
             secretName: alertmanager-slack
+        # 未作成でも Alertmanager を起動する（送信時のみ失敗する）。
+        - name: heartbeat
+          secret:
+            secretName: alertmanager-heartbeat
+            optional: true
         - name: config
           configMap:
             name: observability-alertmanager-config
