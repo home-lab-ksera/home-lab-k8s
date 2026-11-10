@@ -109,6 +109,11 @@ resource "libvirt_domain" "control_plane" {
     mode = "host-model"
   }
 
+  # provider が持たない libvirt 設定（memballoon の free page reporting）を補う。
+  xml {
+    xslt = file("${path.module}/libvirt-domain.xsl")
+  }
+
   cloudinit = libvirt_cloudinit_disk.control_plane_init.id
 
   network_interface {
@@ -143,6 +148,11 @@ resource "libvirt_domain" "worker" {
 
   cpu {
     mode = "host-model"
+  }
+
+  # provider が持たない libvirt 設定（memballoon の free page reporting）を補う。
+  xml {
+    xslt = file("${path.module}/libvirt-domain.xsl")
   }
 
   cloudinit = libvirt_cloudinit_disk.worker_init[count.index].id
