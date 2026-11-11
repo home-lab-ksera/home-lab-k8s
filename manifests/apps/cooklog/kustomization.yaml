@@ -7,4 +7,4 @@ images:
   - name: harbor.qroksera.com/sandbox/cooklog
     newTag: deploy
     newName: harbor.qroksera.com/sandbox/cooklog
-    digest: sha256:dd5b42643eef6381e5d6b7600dfe8d70fded877cd96b67b6956b2557b524a5c3
+    digest: sha256:44dda7311a9df33dd08b56a819f59aec7a56981389450610ec06eac17270afa4
