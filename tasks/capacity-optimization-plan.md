@@ -296,4 +296,13 @@ worker2 の requests 合計 4.7GiB は実容量 4.9GiB に近いため、Phase 2
 
 変更前の実測は application-controller 141m / 404Mi、repo-server 13m / 131Mi。
 application-controller のログは10分で6,808行（debug 5,451、info 1,357）、約1.4MB だった。
-反映後の値は同じ方法で測り、この節に追記する。
+反映後は再起動から約10分後に同じ方法で測った。
+
+| 項目 | 変更前 | 変更後 |
+|---|---|---|
+| controller ログ（10分） | 6,808行 / 約1.4MB（debug 5,451） | 634行 / 約155KB（全て info） |
+| controller CPU | 67m（変更前1時間の平均） | 46m（再起動後8分の平均） |
+| controller メモリ | 404Mi | 300Mi（再起動直後のため今後増える可能性あり） |
+| repo-server CPU | 7m（変更前1時間の平均） | 25m（再起動後8分の平均、キャッシュ再構築を含むため参考値） |
+
+全 Application は Synced / Healthy のまま。CPU は短時間の値のため、1週間後に1時間平均で再確認する。
