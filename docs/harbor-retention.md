@@ -1,6 +1,7 @@
 # Harborの自動保守と3世代保持
 
-Harborは維持し、`harbor/harbor-maintenance` CronJobが5分ごとに配布と保持を調停します。
+Harborは維持し、`harbor/harbor-maintenance` CronJobが10分ごとに配布と保持を調停します。
+`latest` から `deploy` への昇格もこのJobが行うため、CI公開から配布開始までは最大10分待ちます。
 常駐Podは追加しません。実装は [maintenance.py](../manifests/platform/harbor/scripts/maintenance.py)、
 対象・切り戻し設定は [maintenance.json](../manifests/platform/harbor/maintenance.json) です。
 

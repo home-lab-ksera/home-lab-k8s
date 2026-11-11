@@ -69,7 +69,8 @@ metadata:
   namespace: harbor
 spec:
   suspend: false
-  schedule: "*/5 * * * *"
+  # latest→deploy の昇格も担うため、配布遅延の上限になる。HarborRepositoryBlocked の 15 分窓より短く保つ。
+  schedule: "*/10 * * * *"
   timeZone: Asia/Tokyo
   concurrencyPolicy: Forbid
   startingDeadlineSeconds: 120

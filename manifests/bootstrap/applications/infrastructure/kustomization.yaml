@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - kube-network-policies.yaml
+  - metrics-server.yaml
   - local-path-provisioner.yaml
   - nfs-subdir-external-provisioner.yaml
   - metallb.yaml

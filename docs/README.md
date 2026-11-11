@@ -20,6 +20,7 @@
 | Reloader や補助基盤を確認する | [プラットフォーム拡張](platform-extensions.md) |
 | 検証コマンドを調べる | [検証・参照](reference.md) |
 | 自宅・OCI の単一クラスタ拡張を計画する | [拡張計画（未実装）](../tasks/oci-single-cluster-plan.md) |
+| ホスト容量・2VM化・オフサイトバックアップ・CI統合を計画する | [全体最適化計画（未実装）](../tasks/capacity-optimization-plan.md) |
 
 ## 正本と確認範囲
 
