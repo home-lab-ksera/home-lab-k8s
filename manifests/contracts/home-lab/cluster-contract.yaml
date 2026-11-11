@@ -142,6 +142,31 @@ spec:
             requests:
               cpu: 250m
               memory: 512Mi
+        - affinity:
+            nodeAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+                nodeSelectorTerms:
+                - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values:
+                    - k8s-worker2
+          dataVolumeClaimSpec:
+            accessModes:
+            - ReadWriteOnce
+            resources:
+              requests:
+                storage: 10Gi
+            storageClassName: local-path
+          name: main-local
+          replicas: 1
+          resources:
+            limits:
+              cpu: '1'
+              memory: 1Gi
+            requests:
+              cpu: 250m
+              memory: 512Mi
       runtimeChecks:
       - 生成後のService種別・port・ownerReference、PodのhostNetwork/hostPortを確認する。
     - identity:

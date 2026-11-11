@@ -24,6 +24,30 @@ spec:
         resources:
           requests:
             storage: 10Gi
+    # 移行先。local-path はノード固定のため、2VM 化後も残る worker2 に置く。
+    - name: main-local
+      replicas: 1
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/hostname
+                    operator: In
+                    values: [k8s-worker2]
+      resources:
+        requests:
+          cpu: 250m
+          memory: 512Mi
+        limits:
+          cpu: "1"
+          memory: 1Gi
+      dataVolumeClaimSpec:
+        storageClassName: local-path
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 10Gi
   users:
     - name: postgres
     - name: app
