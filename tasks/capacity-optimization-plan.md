@@ -2,6 +2,8 @@
 
 作成日: 2026-11-10
 
+改訂日: 2026-11-11（オフサイトの対象を再取得できない業務データに限定し、etcd をローカル保存へ変更）
+
 状態: Phase 0 を2026-11-11に実施（[実施記録](#11-phase-0-実施記録2026-11-11)）。Phase 1 以降は未着手。
 以下の判断は2026-11-10に確定した。
 
@@ -26,7 +28,7 @@
 | 基盤の軽量化 | 不要コンポーネントの停止と定期処理の間引きで、基盤の常駐メモリと CPU を下げる |
 | 2VM化 | worker1 を撤去し、control-plane をスケジュール可能にする。ゲスト1台分の RSS・vCPU・DaemonSet を削減する |
 | データ配置 | PostgreSQL データを NFS（HDD, sync）から VM ディスク（NVMe）へ移す |
-| オフサイトバックアップ | pgBackRest repo2 と etcd snapshot を OCI Object Storage へ送る |
+| オフサイトバックアップ | 再取得できない業務データ（PostgreSQL、Nature Remo の信号）だけを OCI Object Storage へ送る |
 | CI統合 | 8リポジトリの publish workflow を共通化し、依存更新と Image Updater 由来の CI 実行を減らす |
 
 対象外: Kubernetes をホスト直接実行へ変える（C案）、Flannel の置換、ArgoCD の Application 分割方針の変更、
@@ -68,7 +70,8 @@ Harbor 自体の撤去、監視基盤の置換。
 | VM | CP 2vCPU/4GiB、worker×2 4vCPU/6GiB | CP 2vCPU/5GiB（スケジュール可能）、worker2 4vCPU/8GiB。合計 6vCPU / 13GiB |
 | ホスト残メモリ | 約0.2GiB（swap 2.7GiB） | 2GiB 以上、swap 使用 256MiB 未満 |
 | PostgreSQL データ | nfs-postgresql（NFS/HDD） | local-path（VM ディスク/NVMe）。repo1 は NFS、repo2 は OCI |
-| etcd バックアップ | 更新前のみ | 日次 snapshot を NFS と OCI へ保存、7世代保持 |
+| etcd バックアップ | 更新前のみ | 日次 snapshot を NFS へ保存、7世代保持（オフサイト対象外） |
+| Nature Remo 信号 | NFS PVC のみ | 日次で OCI へ複製、30世代保持 |
 | Harbor | Trivy 有効、maintenance 5分毎 | Trivy 無効、maintenance 1時間毎。スキャンは Actions の trivy-action |
 | ArgoCD | 7 Deployment | applicationset-controller 停止。reconciliation 300s |
 | Metrics API | なし | metrics-server（kubelet serving 証明書を利用） |
@@ -86,7 +89,7 @@ VM サイズの根拠: 2VM 化後の常駐は CP 側に control-plane 2.3GiB＋A
 | 0-b | GitOps 小修正（maintenance 間隔、failed Job 整理、topologySpread、metrics-server、kubectl 更新） | 0-a | Metrics API 応答、Probe 失敗イベントが 24h で 0 | 各 PR を revert |
 | 1-a | 基盤の軽量化（Trivy 無効、applicationset 停止、reconciliation 延長） | 0-b | Harbor push / pull と ArgoCD 同期が従来どおり | PR revert。Trivy PVC は archive から復元 |
 | 1-b | Image Updater 由来 CI の抑制 | なし | 自動 commit で重い job が走らない | PR revert |
-| 1-c | オフサイトバックアップ（repo2 OCI、etcd snapshot CronJob） | OCI の Customer Secret Key を ESC へ登録 | repo2 への full backup 成功と `pgbackrest info` の確認、etcd snapshot のオブジェクト存在確認 | repo2 定義と CronJob を削除。repo1 は影響なし |
+| 1-c | オフサイトバックアップ（pgBackRest repo2、Nature Remo 複製 CronJob）とローカル etcd snapshot CronJob | OCI の Customer Secret Key を ESC へ登録 | repo2 への full backup 成功と `pgbackrest info` の確認、`buttons.json` と etcd snapshot の保存確認 | repo2 定義と CronJob を削除。repo1 は影響なし |
 | 1-d | PostgreSQL を local-path へ移行 | 1-c の repo2 バックアップ成功 | 新 instance set で稼働、旧 PVC は Retain で保持 | 旧 instance set へ switchover |
 | 2-a | Terraform の worker を `for_each` 化（`moved` ブロック、plan に差分なし） | 1-a | `terraform plan` が No changes | 変更を revert |
 | 2-b | 2VM 化（CP 再サイズと untaint、worker1 drain・削除） | 2-a、repo1/repo2 の直近バックアップ成功 | 全 Application Healthy、ホスト MemAvailable 2GiB 以上 | worker1 を Terraform で再作成し再 join |
@@ -153,7 +156,29 @@ cups、cups-browsed、bluetooth、ModemManager、avahi-daemon、fwupd、wpa_supp
 
 ### 6.4 オフサイトバックアップ（OCI Object Storage）
 
+#### 対象の判断（2026-11-11）
+
+オフサイトは「ホストを失ったときに、再取得も再生成もできない業務データ」だけを対象とする。
+サイズは2026-11-11の実測値。
+
+| データ | 大きさ | オフサイト | 理由 |
+|---|---|---|---|
+| PostgreSQL（media / hitomi / api_hub / camera / registry） | DB計約92MB、pgBackRest full 約10MB | 対象 | media は取得元 URL と既読等の台帳で、RustFS を再取得可能にしている。hitomi は重複判定の履歴で、失うと既存記事を新着として再通知する。api_hub は配送履歴 |
+| Nature Remo `buttons.json` | 数KB（現在0件） | 対象 | Nature クラウド障害時の代替操作に使う信号の正本で、再取得できない |
+| RustFS（`pdfs` 297GB、`home-camera-recordings` 30GB） | 約327GB | 対象外 | 全 bucket が30日 lifecycle の再取得用キャッシュ。カメラ録画も30日で消える前提で扱う |
+| Harbor イメージ | 2.4GiB | 対象外 | 各アプリリポジトリから CI で再ビルドできる |
+| 監視（VictoriaMetrics、Loki、Grafana） | 約0.3GiB | 対象外 | 時系列とログは失ってよい。ダッシュボードは Git から配布 |
+| cookLog Slack キュー | 空 | 対象外 | 一時キュー。記事は GitHub に push される |
+| etcd | snapshot 約100MB | 対象外 | ホスト喪失時は `make all` で再構築し GitOps で再構成する。秘密値は Pulumi ESC にある。snapshot はアップグレード切り戻し用にローカルへ残す |
+| `oci-always-free` 状態 PVC | 252KB | 対象外 | Git 管理外の手動 Job。所有者が別途管理する |
+
+etcd を戻さずに再構築すると、Tailscale operator のデバイスは新しく作られ、古いデバイスが Tailnet に残る。
+再構築後に管理画面で古いデバイスを削除する手順を [bootstrap.md](../docs/bootstrap.md) に追記する。
+
+#### 実装
+
 - OCI の bucket（既存 `bucket-standard` を流用するか `home-lab-backup` を新設）と Customer Secret Key を用意し、Pulumi ESC へ登録、[external-secrets/postgresql](../manifests/platform/secrets/external-secrets/postgresql/) で `pgbackrest-s3` Secret を生成する。
+  Nature Remo 用には同じ鍵から `sandbox` namespace に別 Secret を生成する。bucket 内の prefix は `pgbackrest/` と `nature-remo/` に分ける。
 - [postgrescluster.yaml](../manifests/platform/shared-postgresql/postgrescluster.yaml) に repo2 を追加する。
 
 ```yaml
@@ -168,11 +193,17 @@ repos:
       differential: "0 19 * * 1-6"
 ```
 
-  `global` に `repo2-retention-full: "2"`、`repo2-s3-uri-style: path` を置き、`configuration` に Secret の `s3.conf`（`repo2-s3-key`、`repo2-s3-key-secret`）を指定する。
-- etcd snapshot: `kube-system` に日次 CronJob を追加する。control-plane の toleration と `hostPath` で `/etc/kubernetes/pki/etcd` と `/var/lib/etcd` を読み、
-  etcd image の `etcdctl snapshot save` の後、`public.ecr.aws/aws-cli/aws-cli` で OCI へ `aws s3 cp` し、NFS PVC にも同じファイルを置く。保持は双方 7 世代。
-- Always Free の Object Storage は 20GB。PostgreSQL は数十 MB、etcd snapshot は 100MB 程度なので十分だが、CronJob 側で世代削除を行う。
-- 復元試験は [信頼性改善計画 7 節](cluster-reliability-improvement-plan.md#7-復元手順の定期検証) の手順を repo2 と OCI 上の snapshot で実施する。
+  `global` に `repo2-retention-full: "2"`、`repo2-s3-uri-style: path`、`repo2-path: /pgbackrest` を置き、`configuration` に Secret の `s3.conf`（`repo2-s3-key`、`repo2-s3-key-secret`）を指定する。
+- Nature Remo: `sandbox` に日次 CronJob を追加し、`nature-remo-data` PVC を読み取り専用で mount して `buttons.json` を
+  `nature-remo/buttons-<日付>.json` へ `aws s3 cp` する。PVC は RWO のため、nature-remo Pod と同じノードに置く `podAffinity` を付ける。
+  内容が前日と同じ場合も保存し、30世代を超えたものを削除する。0件の間も実行して経路を検証する。
+  NetworkPolicy は OCI の S3 endpoint への egress のみを許可する。
+- etcd snapshot（ローカルのみ）: `kube-system` に日次 CronJob を追加する。control-plane の toleration と `hostPath` で `/etc/kubernetes/pki/etcd` を読み、
+  etcd image の `etcdctl snapshot save` で NFS PVC へ保存する。保持は7世代。アップグレード時の切り戻しと、control-plane VM 単体の障害に使う。
+- Always Free の Object Storage は 20GB。対象は合計 100MB 未満の見込みで、WAL を含めても十分収まる。
+- 監視: `PostgreSQLBackupStale` を repo2 にも適用し、Nature Remo 複製の CronJob 失敗をアラートに追加する。
+- 復元試験は [信頼性改善計画 7 節](cluster-reliability-improvement-plan.md#7-復元手順の定期検証) の PostgreSQL 手順を repo2 で実施する。
+  Nature Remo は OCI から取得した `buttons.json` を隔離した Pod で読み込めることを確認する。
 
 ### 6.5 PostgreSQL を local-path へ移行
 
@@ -254,8 +285,8 @@ repo1 / repo2 の直近 full backup 成功を確認してから、次の順で�
 | Probe | readiness / startup 失敗イベントが 7 日で 0 | `kubectl get events -A --field-selector type=Warning` |
 | Metrics API | `kubectl top nodes` / `pods` が応答 | 管理端末 |
 | 2VM | Node 2 台 Ready、48 Application Healthy、CP で workload が稼働 | `kubectl get nodes,applications -A` |
-| バックアップ | repo2 の full / diff が週次・日次で成功、etcd snapshot が OCI と NFS に 7 世代 | `pgbackrest info`、OCI bucket 一覧 |
-| 復元 | repo2 からの隔離復元と etcd snapshot からの復元が成功 | 信頼性改善計画 7 節の手順 |
+| バックアップ | repo2 の full / diff が週次・日次で成功、Nature Remo の複製が OCI に日次で保存、etcd snapshot が NFS に 7 世代 | `pgbackrest info`、OCI bucket 一覧、NFS の snapshot 一覧 |
+| 復元 | repo2 からの PostgreSQL 隔離復元と、OCI 上の `buttons.json` の読み込みが成功 | 信頼性改善計画 7 節の手順 |
 | CI | Deploy Process Validation の月間 run が半減、publish workflow が共通化 | `gh run list` |
 | 依存更新 | 9 リポジトリで Renovate PR が作成され、Node 20 / nginx 1.27 / Go / Rust の乖離が解消 | 各リポジトリの PR |
 
