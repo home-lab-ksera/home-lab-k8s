@@ -13,6 +13,11 @@ data:
   # admin アカウントで API トークン発行を許可
   accounts.admin: apiKey, login
 
+  # Git・クラスタ差分の定期確認間隔（既定は約3分）。controller の CPU を下げるため延ばす。
+  # Git webhook は未設定のため、Image Updater の書き戻しから配布開始までも最大この間隔待つ。
+  # 環境変数で読み込むため、変更後は application-controller と repo-server の再起動が必要。
+  timeout.reconciliation: 300s
+
   # OCI Helmレジストリの利用を有効化
   helm.oci.enabled: "true"
 

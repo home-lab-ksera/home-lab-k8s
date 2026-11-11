@@ -6,3 +6,5 @@ metadata:
 data:
   # TLS は Gateway で終端する。bootstrap 後も GitOps で維持する。
   server.insecure: "true"
+  # 手作業の patch で debug が残っていたため明示する（2026-11-11、ログの8割が debug だった）。
+  controller.log.level: info
