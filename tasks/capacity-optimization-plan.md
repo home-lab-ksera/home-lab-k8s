@@ -138,9 +138,14 @@ cups、cups-browsed、bluetooth、ModemManager、avahi-daemon、fwupd、wpa_supp
 
 ### 6.2 ArgoCD
 
-- ApplicationSet は 0 件のため、`argocd-applicationset-controller` を kustomize patch で `replicas: 0` にする。
-- `argocd-cm` の `timeout.reconciliation` を 300s にする。Image Updater の git write-back が同期を起こすため、反映遅延は実害がない。
+2026-11-11 に定期確認間隔の延長を実施した（実施記録は 12 節）。
+
+- `argocd-cm` の `timeout.reconciliation` を 300s にする。Git webhook は未設定で、ArgoCD は Git の変更もこの定期確認で検出する。
+  そのため Image Updater の書き戻しから配布開始まで最大約5分かかる（変更前は約3分）。Harbor maintenance の最大10分と合わせ、CI 公開から配布まで最大約15分。
+- `argocd-cmd-params-cm` に `controller.log.level: info` を明示する。Git 外の `kubectl patch` で debug が残り、application-controller のログの8割を占めていた。
+- applicationset-controller の停止は見送り。ApplicationSet は0件だが、使用量は 25Mi / 3m で効果がない。
 - dex（GitHub SSO）と notifications（Slack webhook）は使用中のため残す。
+- 将来、配布遅延を縮めたい場合は GitHub webhook を検討する。ArgoCD は内部 URL のみで公開しているため、GitHub から届く経路が別途必要。
 
 ### 6.3 Image Updater 由来 CI の抑制
 
@@ -286,3 +291,9 @@ repo1 の直近 full backup 成功を確認してから、次の順で実施す�
 
 balloon 後も kubelet の allocatable は宣言値（worker 各 5.7GiB）のままで、scheduler は縮小を認識しない。
 worker2 の requests 合計 4.7GiB は実容量 4.9GiB に近いため、Phase 2 まで新しい常駐 workload を追加しない。
+
+## 12. ArgoCD 定期確認間隔の実施記録（2026-11-11）
+
+変更前の実測は application-controller 141m / 404Mi、repo-server 13m / 131Mi。
+application-controller のログは10分で6,808行（debug 5,451、info 1,357）、約1.4MB だった。
+反映後の値は同じ方法で測り、この節に追記する。
