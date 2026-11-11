@@ -72,7 +72,8 @@ Namespace/PVCのフィルタには依存せず、emptyDir・イメージキャ�
 kubelet は各ノードの InternalIP:10250 に直接接続し、ServiceAccount とクラスタ CA で認証・検証します。
 権限は `nodes/metrics` の `get` と探索用の Node / Pod 読み取りだけで、`nodes/proxy` は付与しません。
 初回導入・既存クラスタの切り替えには [kubelet 証明書の準備と検証](kubelet-metrics.md) が必要です。
-CPU / memory の metrics と `kubectl top` が使う Metrics API は別で、この構成に metrics-server は含まれていません。
+`kubectl top` が使う Metrics API は [metrics-server](../manifests/bootstrap/applications/infrastructure/metrics-server.yaml) が提供します。
+解像度は60秒で、HPA には使っていません。同じ kubelet 証明書を検証して接続し、`--kubelet-insecure-tls` は使いません。
 
 [Alloy](../manifests/platform/observability/config/config.alloy) は Pod ログに
 namespace / pod / container / node / cluster を付けます。Grafana Explore の Loki では例えば次を検索します。

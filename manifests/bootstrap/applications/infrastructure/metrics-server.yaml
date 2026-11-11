@@ -1,0 +1,48 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: metrics-server
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    # kubelet serving 証明書（wave 1）の発行後に起動する。
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  project: infrastructure
+  source:
+    repoURL: https://kubernetes-sigs.github.io/metrics-server
+    targetRevision: 3.14.0
+    chart: metrics-server
+    helm:
+      values: |
+        # kubectl top 用の Metrics API のみを提供する。HPA は未使用のため解像度は 60 秒とする。
+        # kubelet の serving 証明書はクラスタ CA 署名・InternalIP SAN のため、
+        # --kubelet-insecure-tls は使わない（docs/kubelet-metrics.md）。
+        defaultArgs:
+          - --cert-dir=/tmp
+          - --kubelet-preferred-address-types=InternalIP
+          - --kubelet-use-node-status-port
+          - --metric-resolution=60s
+        resources:
+          requests:
+            cpu: 20m
+            memory: 64Mi
+          limits:
+            cpu: 200m
+            memory: 128Mi
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
