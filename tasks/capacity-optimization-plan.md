@@ -306,3 +306,30 @@ application-controller のログは10分で6,808行（debug 5,451、info 1,357�
 | repo-server CPU | 7m（変更前1時間の平均） | 25m（再起動後8分の平均、キャッシュ再構築を含むため参考値） |
 
 全 Application は Synced / Healthy のまま。CPU は短時間の値のため、1週間後に1時間平均で再確認する。
+
+## 13. Harbor Trivy 無効化と自動 commit の CI 抑制の実施記録（2026-11-11）
+
+| 項目 | 結果 |
+|---|---|
+| Harbor Trivy | `harbor-trivy` StatefulSet・Service・Secret と専用の外向き NetworkPolicy を撤去（#142）。自動スキャン・定期スキャン・脆弱性による pull 拒否は元々未設定 |
+| スキャナー登録 | Harbor core の再起動時に、DB の Trivy 登録が自動で削除された |
+| Trivy PVC | `data-harbor-trivy-0` を削除。NFS に `archived-harbor-data-harbor-trivy-0-*`（1.6GB）が残り、所有者が Trivy のコンテナユーザーのため管理者が `sudo` で削除する |
+| CI 側スキャン | 8 リポジトリの公開 workflow と add-runner のテンプレートに、digest 固定の Trivy 0.76.1 コンテナで push 前に scan する手順を追加。報告のみで公開は止めない |
+| `[skip ci]` | Image Updater の commit テンプレートに追加。反映後の自動 commit 7件で、home-lab-k8s の workflow は1回も起動しなかった |
+
+初回 scan の結果（HIGH / CRITICAL、修正版があるもののみ）:
+
+| イメージ | 件数 |
+|---|---|
+| blog、cooklog | 69（CRITICAL 3）。nginx 1.27 の古い base image が原因と見られる |
+| cooklog-slack | 20 |
+| rsshub-private | 25 |
+| hitomi | 1 |
+| api-hub、hitomi-pdf-batch、hitomi-upload-viewer | 検出対象なし |
+
+Rust の静的バイナリだけを含むイメージは、Trivy が依存関係を読み取れず scan できない。これは Harbor の Trivy でも同じだった。
+依存関係を確認するには、リポジトリの `Cargo.lock` を `trivy fs` で scan するか、`cargo-auditable` でビルドする必要がある。
+
+マージ直後の公開4件は、GitHub-hosted runner が Ubuntu のミラーを DNS で解決できず `apt-get` で失敗した。
+3回目の再実行（約3時間後）で成功した。今回の変更とは無関係。
+hitomi-pdf-batch と viewer は再ビルドで同じ digest になったため、配布は発生しなかった。
