@@ -33,8 +33,9 @@ PR・手動実行は build までで、公開は生成時に取得した既定�
 [Image Updater](../manifests/platform/ci-cd/image-updater/sandbox-images.yaml) が約2分間隔で
 許可した9アプリの `deploy` の digest を検知し、このリポジトリの `main` にある各
 `manifests/apps/<app>/kustomization.yaml` に書き戻します。ArgoCD Application の revision は `HEAD` のままです。
+書き戻しの commit message には `[skip ci]` を付け、digest だけの変更で検証 workflow を起動しません。
 Harbor への接続は内部 URL、マニフェスト内のイメージ名は従来の `harbor.qroksera.com/sandbox/...` を使います。
-5分間隔のHarbor保守Jobが直前の配布成功を確認して`latest`を`deploy`へ進めます。
+10分間隔のHarbor保守Jobが直前の配布成功を確認して`latest`を`deploy`へ進めます。
 更新方式は公式の [Git write-back](https://argocd-image-updater.readthedocs.io/en/stable/basics/update-methods/) と
 [digest strategy](https://argocd-image-updater.readthedocs.io/en/stable/basics/update-strategies/#digest---update-to-the-most-recent-pushed-version-of-a-tag) を利用します。
 

@@ -27,9 +27,6 @@ persistence:
     redis:
       size: 1Gi
       storageClass: nfs-external
-    trivy:
-      size: 5Gi
-      storageClass: nfs-external
 
 database:
   type: external
@@ -64,15 +61,10 @@ nginx:
       cpu: 200m
       memory: 128Mi
 
+# 脆弱性スキャンは各アプリの GitHub Actions（trivy-action）で行う。
+# 常駐 Pod と NFS 上の脆弱性 DB（約1.6GiB）を削減するため無効化（2026-11-11）。
 trivy:
-  enabled: true
-  resources:
-    requests:
-      cpu: 50m
-      memory: 256Mi
-    limits:
-      cpu: 300m
-      memory: 512Mi
+  enabled: false
 
 core:
   existingSecret: harbor-internal-secret

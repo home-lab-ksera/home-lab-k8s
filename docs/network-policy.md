@@ -29,7 +29,6 @@
 | home-camera | 192.168.10.4:554/TCP と RTSP の RTP/RTCP 用 UDP 1024–65535（同カメラからの受信も許可） |
 | Harbor 内部（cleanup Job 含む） | 同 namespace の Harbor Pod の TCP 8080 / 5000 / 8082 / 6379 |
 | Harbor | shared-postgresql:5432 |
-| Harbor Trivy | 外部 HTTP/HTTPS（脆弱性 DB 更新） |
 
 外部 HTTP/HTTPS は IPv4 の private / loopback / link-local / CGNAT 宛を除外しています。
 標準 NetworkPolicy は FQDN や HTTP の宛先を制限できないため、許可された HTTPS を使った情報持ち出しは防げません。
@@ -82,7 +81,7 @@ Git 修正の反映後に撤去します。controller 全停止は全ポリシ�
 - Gateway から api-hub / blog / cooklog / viewer / RSSHub と Harbor にアクセスできる。
 - hitomi-pdf から `https://rsshub.internal.qroksera.com/twivideo/ranking` を取得できる。
 - api-hub の S3 操作、RSSHub のキャッシュ、hitomi の Selenium 操作、カメラ収録が成功する。
-- Harbor の DB 接続と Trivy 更新が成功する。
+- Harbor の DB 接続が成功する。
 - 無関係な sandbox Pod から hitomi Pod の WebDriver:4444、Redis、API Server、LAN への通信が失敗する。
 - 許可されていない Pod の外向き TCP 443 と、許可された Pod の外向き TCP 22 が失敗する。
 - api-hub Service が ClusterIP であり、ノードの旧 32001/TCP から到達できない。
