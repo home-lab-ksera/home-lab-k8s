@@ -1,15 +1,15 @@
-# 全体最適化計画：ホスト容量・基盤の軽量化・2VM化・オフサイトバックアップ・CI統合
+# 全体最適化計画：ホスト容量・基盤の軽量化・2VM化・CI統合
 
 作成日: 2026-11-10
 
-改訂日: 2026-11-11（オフサイトの対象を再取得できない業務データに限定し、etcd をローカル保存へ変更）
+改訂日: 2026-11-11（バックアップ強化（旧 1-c）を取り下げ。経緯は [6.4](#64-バックアップ強化取り下げ)）
 
 状態: Phase 0 を2026-11-11に実施（[実施記録](#11-phase-0-実施記録2026-11-11)）。Phase 1 以降は未着手。
 以下の判断は2026-11-10に確定した。
 
 - Phase 2 は B案（control-plane をスケジュール可能にし worker を1台へ減らす2VM構成）を採用する。
 - Harbor の Trivy を無効化し、脆弱性スキャンは GitHub Actions 側へ移す。
-- オフサイトバックアップ先は OCI Object Storage（S3互換 API）とする。
+- バックアップ強化（OCI Object Storage へのオフサイト、etcd 日次 snapshot）は行わない。既存の pgBackRest repo1 を維持する。
 
 [信頼性改善計画](cluster-reliability-improvement-plan.md)、[台帳CI計画](contract-ci-security-plan.md)、
 [OCI単一クラスタ計画](oci-single-cluster-plan.md) は置き換えない。本計画はそれらの前段として
@@ -28,7 +28,6 @@
 | 基盤の軽量化 | 不要コンポーネントの停止と定期処理の間引きで、基盤の常駐メモリと CPU を下げる |
 | 2VM化 | worker1 を撤去し、control-plane をスケジュール可能にする。ゲスト1台分の RSS・vCPU・DaemonSet を削減する |
 | データ配置 | PostgreSQL データを NFS（HDD, sync）から VM ディスク（NVMe）へ移す |
-| オフサイトバックアップ | 再取得できない業務データ（PostgreSQL、Nature Remo の信号）だけを OCI Object Storage へ送る |
 | CI統合 | 8リポジトリの publish workflow を共通化し、依存更新と Image Updater 由来の CI 実行を減らす |
 
 対象外: Kubernetes をホスト直接実行へ変える（C案）、Flannel の置換、ArgoCD の Application 分割方針の変更、
@@ -69,9 +68,7 @@ Harbor 自体の撤去、監視基盤の置換。
 |---|---|---|
 | VM | CP 2vCPU/4GiB、worker×2 4vCPU/6GiB | CP 2vCPU/5GiB（スケジュール可能）、worker2 4vCPU/8GiB。合計 6vCPU / 13GiB |
 | ホスト残メモリ | 約0.2GiB（swap 2.7GiB） | 2GiB 以上、swap 使用 256MiB 未満 |
-| PostgreSQL データ | nfs-postgresql（NFS/HDD） | local-path（VM ディスク/NVMe）。repo1 は NFS、repo2 は OCI |
-| etcd バックアップ | 更新前のみ | 日次 snapshot を NFS へ保存、7世代保持（オフサイト対象外） |
-| Nature Remo 信号 | NFS PVC のみ | 日次で OCI へ複製、30世代保持 |
+| PostgreSQL データ | nfs-postgresql（NFS/HDD） | local-path（VM ディスク/NVMe）。バックアップは既存の repo1（NFS）のまま |
 | Harbor | Trivy 有効、maintenance 5分毎 | Trivy 無効、maintenance 1時間毎。スキャンは Actions の trivy-action |
 | ArgoCD | 7 Deployment | applicationset-controller 停止。reconciliation 300s |
 | Metrics API | なし | metrics-server（kubelet serving 証明書を利用） |
@@ -89,10 +86,10 @@ VM サイズの根拠: 2VM 化後の常駐は CP 側に control-plane 2.3GiB＋A
 | 0-b | GitOps 小修正（maintenance 間隔、failed Job 整理、topologySpread、metrics-server、kubectl 更新） | 0-a | Metrics API 応答、Probe 失敗イベントが 24h で 0 | 各 PR を revert |
 | 1-a | 基盤の軽量化（Trivy 無効、applicationset 停止、reconciliation 延長） | 0-b | Harbor push / pull と ArgoCD 同期が従来どおり | PR revert。Trivy PVC は archive から復元 |
 | 1-b | Image Updater 由来 CI の抑制 | なし | 自動 commit で重い job が走らない | PR revert |
-| 1-c | オフサイトバックアップ（pgBackRest repo2、Nature Remo 複製 CronJob）とローカル etcd snapshot CronJob | OCI の Customer Secret Key を ESC へ登録 | repo2 への full backup 成功と `pgbackrest info` の確認、`buttons.json` と etcd snapshot の保存確認 | repo2 定義と CronJob を削除。repo1 は影響なし |
-| 1-d | PostgreSQL を local-path へ移行 | 1-c の repo2 バックアップ成功 | 新 instance set で稼働、旧 PVC は Retain で保持 | 旧 instance set へ switchover |
+| ~~1-c~~ | 取り下げ（[6.4](#64-バックアップ強化取り下げ)） | - | - | - |
+| 1-d | PostgreSQL を local-path へ移行 | 移行直前の repo1 full backup 成功 | 新 instance set で稼働、旧 PVC は Retain で保持 | 旧 instance set へ switchover |
 | 2-a | Terraform の worker を `for_each` 化（`moved` ブロック、plan に差分なし） | 1-a | `terraform plan` が No changes | 変更を revert |
-| 2-b | 2VM 化（CP 再サイズと untaint、worker1 drain・削除） | 2-a、repo1/repo2 の直近バックアップ成功 | 全 Application Healthy、ホスト MemAvailable 2GiB 以上 | worker1 を Terraform で再作成し再 join |
+| 2-b | 2VM 化（CP 再サイズと untaint、worker1 drain・削除） | 2-a、repo1 の直近バックアップ成功 | 全 Application Healthy、ホスト MemAvailable 2GiB 以上 | worker1 を Terraform で再作成し再 join |
 | 3-a | 共通 publish workflow と trivy-action | 1-a | 8 リポジトリが共通 workflow を呼び、Harbor へ publish できる | 各リポジトリの旧 workflow へ戻す |
 | 3-b | Renovate preset の共通化 | 3-a | 9 リポジトリで PR が作成される | 各リポジトリの設定を削除 |
 | 3-c | branch 整理・保護、RSSHub-private の upstream 同期 | なし | 未マージ branch の判断記録、main の保護設定 | なし |
@@ -154,56 +151,31 @@ cups、cups-browsed、bluetooth、ModemManager、avahi-daemon、fwupd、wpa_supp
 - 上記が使えない場合は、`github.event.head_commit.message` が `build: automatic update of` で始まる push では `kustomize build` と kubeconform のみ実行し、PostgreSQL runtime など重い job を skip する。
 - git write-back 自体は監査性のため維持する。`method: argocd` へは変えない。
 
-### 6.4 オフサイトバックアップ（OCI Object Storage）
+### 6.4 バックアップ強化（取り下げ）
 
-#### 対象の判断（2026-11-11）
+2026-11-11 に検討し、実施しないと判断した。既存の pgBackRest repo1（NFS、週次 full / 日次 diff、full 3世代）と、
+[upgrade-precheck.sh](../automation/scripts/upgrade/upgrade-precheck.sh) の更新前 etcd snapshot はそのまま維持する。
 
-オフサイトは「ホストを失ったときに、再取得も再生成もできない業務データ」だけを対象とする。
-サイズは2026-11-11の実測値。
+検討時に確認したデータの内訳（2026-11-11 実測）:
 
-| データ | 大きさ | オフサイト | 理由 |
-|---|---|---|---|
-| PostgreSQL（media / hitomi / api_hub / camera / registry） | DB計約92MB、pgBackRest full 約10MB | 対象 | media は取得元 URL と既読等の台帳で、RustFS を再取得可能にしている。hitomi は重複判定の履歴で、失うと既存記事を新着として再通知する。api_hub は配送履歴 |
-| Nature Remo `buttons.json` | 数KB（現在0件） | 対象 | Nature クラウド障害時の代替操作に使う信号の正本で、再取得できない |
-| RustFS（`pdfs` 297GB、`home-camera-recordings` 30GB） | 約327GB | 対象外 | 全 bucket が30日 lifecycle の再取得用キャッシュ。カメラ録画も30日で消える前提で扱う |
-| Harbor イメージ | 2.4GiB | 対象外 | 各アプリリポジトリから CI で再ビルドできる |
-| 監視（VictoriaMetrics、Loki、Grafana） | 約0.3GiB | 対象外 | 時系列とログは失ってよい。ダッシュボードは Git から配布 |
-| cookLog Slack キュー | 空 | 対象外 | 一時キュー。記事は GitHub に push される |
-| etcd | snapshot 約100MB | 対象外 | ホスト喪失時は `make all` で再構築し GitOps で再構成する。秘密値は Pulumi ESC にある。snapshot はアップグレード切り戻し用にローカルへ残す |
-| `oci-always-free` 状態 PVC | 252KB | 対象外 | Git 管理外の手動 Job。所有者が別途管理する |
+| データ | 大きさ | 判断 |
+|---|---|---|
+| PostgreSQL（media / hitomi / api_hub / camera / registry） | DB計約92MB、pgBackRest full 約10MB | 失っても業務上の損失は小さい。repo1 のみとする |
+| Nature Remo `buttons.json` | 数KB（登録0件） | 対象なし |
+| RustFS（`pdfs` 297GB、`home-camera-recordings` 30GB） | 約327GB | 全 bucket が30日 lifecycle の再取得用データ |
+| Harbor イメージ | 2.4GiB | 各アプリリポジトリから再ビルドできる |
+| 監視（VictoriaMetrics、Loki、Grafana） | 約0.3GiB | 失ってよい。ダッシュボードは Git から配布 |
+| etcd | snapshot 約100MB | ホスト喪失時は `make all` と GitOps で再構築する。秘密値は Pulumi ESC にある |
 
-etcd を戻さずに再構築すると、Tailscale operator のデバイスは新しく作られ、古いデバイスが Tailnet に残る。
-再構築後に管理画面で古いデバイスを削除する手順を [bootstrap.md](../docs/bootstrap.md) に追記する。
+OCI Always Free の Object Storage は全層合計 20GB で容量は足りるが、API リクエストは月5万回が上限。
+`archive_timeout` が PGO 既定の1分で WAL が1日約1,150本（`pg_stat_archiver` の実測）切り替わるため、
+pgBackRest の WAL 送信だけで上限を超える見込みだった。必要性が低いことと合わせて取り下げた。
 
-#### 実装
+再検討する場合の前提:
 
-- OCI の bucket（既存 `bucket-standard` を流用するか `home-lab-backup` を新設）と Customer Secret Key を用意し、Pulumi ESC へ登録、[external-secrets/postgresql](../manifests/platform/secrets/external-secrets/postgresql/) で `pgbackrest-s3` Secret を生成する。
-  Nature Remo 用には同じ鍵から `sandbox` namespace に別 Secret を生成する。bucket 内の prefix は `pgbackrest/` と `nature-remo/` に分ける。
-- [postgrescluster.yaml](../manifests/platform/shared-postgresql/postgrescluster.yaml) に repo2 を追加する。
-
-```yaml
-repos:
-  - name: repo2
-    s3:
-      bucket: <bucket>
-      endpoint: <namespace>.compat.objectstorage.<region>.oraclecloud.com
-      region: <region>
-    schedules:
-      full: "0 19 * * 0"
-      differential: "0 19 * * 1-6"
-```
-
-  `global` に `repo2-retention-full: "2"`、`repo2-s3-uri-style: path`、`repo2-path: /pgbackrest` を置き、`configuration` に Secret の `s3.conf`（`repo2-s3-key`、`repo2-s3-key-secret`）を指定する。
-- Nature Remo: `sandbox` に日次 CronJob を追加し、`nature-remo-data` PVC を読み取り専用で mount して `buttons.json` を
-  `nature-remo/buttons-<日付>.json` へ `aws s3 cp` する。PVC は RWO のため、nature-remo Pod と同じノードに置く `podAffinity` を付ける。
-  内容が前日と同じ場合も保存し、30世代を超えたものを削除する。0件の間も実行して経路を検証する。
-  NetworkPolicy は OCI の S3 endpoint への egress のみを許可する。
-- etcd snapshot（ローカルのみ）: `kube-system` に日次 CronJob を追加する。control-plane の toleration と `hostPath` で `/etc/kubernetes/pki/etcd` を読み、
-  etcd image の `etcdctl snapshot save` で NFS PVC へ保存する。保持は7世代。アップグレード時の切り戻しと、control-plane VM 単体の障害に使う。
-- Always Free の Object Storage は 20GB。対象は合計 100MB 未満の見込みで、WAL を含めても十分収まる。
-- 監視: `PostgreSQLBackupStale` を repo2 にも適用し、Nature Remo 複製の CronJob 失敗をアラートに追加する。
-- 復元試験は [信頼性改善計画 7 節](cluster-reliability-improvement-plan.md#7-復元手順の定期検証) の PostgreSQL 手順を repo2 で実施する。
-  Nature Remo は OCI から取得した `buttons.json` を隔離した Pod で読み込めることを確認する。
+- Nature Remo に信号を登録したら、`buttons.json` は再取得できない唯一のデータになる。その時点で日次複製を再検討する。
+- オフサイトに repo2 を使う場合は `archive_timeout` を15分程度に延ばし、API リクエスト数を見積もり直す。
+- etcd を戻さずに再構築すると、Tailscale operator のデバイスが新しく作られ、古いデバイスが Tailnet に残る。再構築後に管理画面で削除する。
 
 ### 6.5 PostgreSQL を local-path へ移行
 
@@ -212,7 +184,7 @@ pgdata は 22MB で、NFS export の `sync` と HDD の fsync 遅延を受ける
 - PGO の instance set 追加で移行する。`instances` に `main-local`（`storageClassName: local-path`）を追加し、streaming replication が追いついたら `patronictl switchover` で primary を移し、旧 `main` を削除する。
 - local-path はノード固定になる。Phase 2 後の worker2 に置く（CP には置かない）。
 - 旧 PVC は `nfs-postgresql` の Retain で残る。復元試験が成功した後に削除する。
-- `make phase2` は VM と local-path データを失う。[bootstrap.md](../docs/bootstrap.md) と [shared-postgresql.md](../docs/shared-postgresql.md) に「再構築前に repo1/repo2 の full backup を確認する」手順を追加する。
+- `make phase2` は VM と local-path データを失う。[bootstrap.md](../docs/bootstrap.md) と [shared-postgresql.md](../docs/shared-postgresql.md) に「再構築前に repo1 の full backup を確認する」手順を追加する。
 
 ## 7. Phase 2: 2VM 化（B案）
 
@@ -227,7 +199,7 @@ worker2 には local-path の PV（loki-data、grafana-data、alloy-data）と�
 
 ### 7.2 切替手順（2-b）
 
-repo1 / repo2 の直近 full backup 成功を確認してから、次の順で実施する。
+repo1 の直近 full backup 成功を確認してから、次の順で実施する。
 
 1. `kubectl drain k8s-worker1 --ignore-daemonsets --delete-emptydir-data`。Pod が worker2 で Ready になることを確認する。
 2. `kubectl delete node k8s-worker1`。
@@ -285,8 +257,7 @@ repo1 / repo2 の直近 full backup 成功を確認してから、次の順で�
 | Probe | readiness / startup 失敗イベントが 7 日で 0 | `kubectl get events -A --field-selector type=Warning` |
 | Metrics API | `kubectl top nodes` / `pods` が応答 | 管理端末 |
 | 2VM | Node 2 台 Ready、48 Application Healthy、CP で workload が稼働 | `kubectl get nodes,applications -A` |
-| バックアップ | repo2 の full / diff が週次・日次で成功、Nature Remo の複製が OCI に日次で保存、etcd snapshot が NFS に 7 世代 | `pgbackrest info`、OCI bucket 一覧、NFS の snapshot 一覧 |
-| 復元 | repo2 からの PostgreSQL 隔離復元と、OCI 上の `buttons.json` の読み込みが成功 | 信頼性改善計画 7 節の手順 |
+| バックアップ | local-path 移行後も repo1 の full / diff が週次・日次で成功 | `pgbackrest info`、`PostgreSQLBackupStale` が発火しない |
 | CI | Deploy Process Validation の月間 run が半減、publish workflow が共通化 | `gh run list` |
 | 依存更新 | 9 リポジトリで Renovate PR が作成され、Node 20 / nginx 1.27 / Go / Rust の乖離が解消 | 各リポジトリの PR |
 
@@ -294,8 +265,7 @@ repo1 / repo2 の直近 full backup 成功を確認してから、次の順で�
 
 - libvirt memballoon と `virsh setmem --live`: libvirt ドキュメント。`freePageReporting` が有効でもページキャッシュは返却されない。
 - terraform-provider-libvirt の `memory` 変更時の挙動（再起動）と `for_each` / `moved`。
-- PGO v6 の instance set 追加・switchover、pgBackRest の S3 repo 設定（`repo2-s3-*`、`uri-style`）。
-- OCI Object Storage の S3 互換 API endpoint と Customer Secret Key。
+- PGO v6 の instance set 追加・switchover。
 - ArgoCD Image Updater v1.3.1 の ImageUpdater CRD（commit message / write-back）。
 - metrics-server と kubelet serving 証明書の要件。
 - GitHub reusable workflow の `secrets: inherit`、`id-token` の継承、public リポジトリから private リポジトリへの呼び出し制約。
