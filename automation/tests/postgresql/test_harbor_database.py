@@ -44,7 +44,7 @@ class HarborDatabaseTest(unittest.TestCase):
 
     def test_database_is_external_and_other_storage_is_preserved(self):
         self.assertNotIn(('StatefulSet', 'harbor-database'), self.resources)
-        for name in ['harbor-redis', 'harbor-trivy']:
+        for name in ['harbor-redis']:
             for claim in self.resources['StatefulSet', name]['spec']['volumeClaimTemplates']:
                 self.assertEqual(claim['spec']['storageClassName'], 'nfs-external')
 

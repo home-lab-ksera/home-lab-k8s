@@ -27,6 +27,7 @@ RustFS の memory p95 は約 1210 MiB。request は 1536Mi、limit は観測最�
 CPU は request を設定し、転送の瞬間的な負荷を制限しない。
 Harbor registry の CPU limit は、従来の未適用値 200m より余裕のある 500m とする。
 Harbor core / Trivy は既存設定を維持し、portal / jobservice の memory request だけを減らす。
+Trivy は2026-11-11に無効化した（[全体最適化計画 6.1](../tasks/capacity-optimization-plan.md#61-harbor-trivy-の無効化)）。
 
 Harbor 1.19.4 は `registry.registry.resources`、`registry.controller.resources`、
 `redis.internal.resources` を参照する。旧 `registry.resources` と `chartmuseum.resources` は

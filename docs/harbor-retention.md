@@ -37,6 +37,9 @@ CronJobだけのアプリを追加した場合は正常判定の追加が必要�
 未知repoは全保持し、repo単位の保留（`HarborRepositoryBlocked`）として通知します。
 新アプリはImage Updaterとmaintenance.jsonを一緒に登録してください。Image Updater対象外のrepoは`"preserve": true`で登録します。
 
+脆弱性スキャンは Harbor ではなく、各アプリの公開 workflow が push 前のイメージに対して行います。
+Harbor の UI には脆弱性情報を表示しません（2026-11-11 に Trivy を無効化）。
+
 ## 自動処理と容量
 
 1. Leaseと`concurrencyPolicy: Forbid`で多重実行を防止。前回のHarbor保持処理が実行中ならタグを変更しません。

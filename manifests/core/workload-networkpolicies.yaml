@@ -456,35 +456,6 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-public-web
-  namespace: harbor
-spec:
-  podSelector:
-    matchLabels:
-      app: harbor
-      component: trivy
-  policyTypes:
-  - Egress
-  egress:
-  - to:
-    - ipBlock:
-        cidr: 0.0.0.0/0
-        except:
-        - 10.0.0.0/8
-        - 172.16.0.0/12
-        - 192.168.0.0/16
-        - 127.0.0.0/8
-        - 169.254.0.0/16
-        - 100.64.0.0/10
-    ports:
-    - protocol: TCP
-      port: 80
-    - protocol: TCP
-      port: 443
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
   name: allow-harbor-components
   namespace: harbor
 spec:
