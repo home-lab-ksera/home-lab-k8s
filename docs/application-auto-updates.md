@@ -12,11 +12,26 @@ PR を作成して検証し、**マージは手動**です。Kubernetes / contai
 | Harbor / RustFS 同梱 chart | 手動 Application Version Updates workflow |
 | ArgoCD / Gateway API の配布 URL | 手動 updater |
 | private Harbor のアプリ | アプリ側 workflow。[アプリ配布](app-delivery.md) |
+| アプリリポジトリの依存（言語パッケージ・Dockerfile・Actions） | Mend Renovate App。下の「アプリリポジトリ」 |
 
 Renovate は charts / upstream / tasks / automation を走査対象から外し、ローカル source の `HEAD` と自作 `latest` を維持します。
 GitHub Actions 自体の更新 manager は有効にしていません。
 通常は公開から 3 日待ち、同時 PR 3 件・時間あたり 2 件、major は Dependency Dashboard 承認後に PR を作ります。
 PGO の OCI metadata に公開日時がない場合は timestamp-optional の例外があります。
+
+## アプリリポジトリ
+
+8 つのアプリリポジトリは org に入れた Mend Renovate App（GitHub Marketplace）が更新します。このリポジトリは対象外で、上の workflow が更新します。
+各リポジトリの `renovate.json` は共通 preset [.github/renovate/app.json](../.github/renovate/app.json) を参照します。
+
+```json
+{ "extends": ["github>home-lab-ksera/home-lab-k8s//.github/renovate/app"] }
+```
+
+preset は週1回（月曜 4時前 JST）、major 以外をリポジトリごとに1つの PR にまとめ、major は Dependency Dashboard の承認後に PR を作ります。
+公開から 3 日待ち、マージは手動です。App が作る PR では各リポジトリの CI が通常どおり起動します。
+共通 publish workflow（`@main`）と Harbor の自作イメージは更新対象から外します。
+RSSHub-private は npm と GitHub Actions を dependabot が更新しているため、Renovate は Dockerfile だけを扱います。
 
 ## GitHub 側の実行と検証
 

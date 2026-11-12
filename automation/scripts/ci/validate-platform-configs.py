@@ -32,7 +32,8 @@ def main():
     workflow = (ROOT / ".github/workflows/renovate.yml").read_text()
     image = re.search(r"ghcr\.io/renovatebot/renovate:[\w.\-]+", workflow).group()
     run("--entrypoint", "renovate-config-validator", "-v", f"{ROOT}:/repo:ro",
-        image, "--strict", "/repo/renovate.json", "/repo/.github/renovate-runner.json")
+        image, "--strict", "/repo/renovate.json", "/repo/.github/renovate-runner.json",
+        "/repo/.github/renovate/app.json")
 
 
 if __name__ == "__main__":
