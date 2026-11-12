@@ -71,6 +71,9 @@ APPARMOR
     mkdir -p "$SETUP_CI_DIR/infrastructure"
     cp "$ROOT_DIR"/automation/infrastructure/*.tf "$SETUP_CI_DIR/infrastructure/"
     cp -r "$ROOT_DIR/automation/infrastructure/cloud-init" "$SETUP_CI_DIR/infrastructure/"
+    # main.tf が file() / provisioner で参照する同梱ファイル。
+    cp "$ROOT_DIR/automation/infrastructure/libvirt-domain.xsl" "$SETUP_CI_DIR/infrastructure/"
+    cp -r "$ROOT_DIR/automation/infrastructure/apiserver-security" "$SETUP_CI_DIR/infrastructure/"
     ssh-keygen -q -t ed25519 -N '' -f "$SETUP_CI_DIR/id_ed25519"
     python3 - <<'PY'
 import json
