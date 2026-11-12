@@ -1,0 +1,50 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "home-lab-ksera のアプリリポジトリ共通設定。各 renovate.json から github>home-lab-ksera/home-lab-k8s//.github/renovate/app で参照する",
+  "extends": [
+    "config:recommended",
+    "schedule:weekly"
+  ],
+  "timezone": "Asia/Tokyo",
+  "automerge": false,
+  "prConcurrentLimit": 3,
+  "prHourlyLimit": 2,
+  "minimumReleaseAge": "3 days",
+  "packageRules": [
+    {
+      "description": "major 以外はリポジトリごとに1つの PR にまとめる",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest",
+        "pin"
+      ],
+      "groupName": "non-major dependencies",
+      "groupSlug": "non-major"
+    },
+    {
+      "description": "major 更新は Dependency Dashboard で承認してから PR を作る",
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "共通 publish workflow は @main で追従する",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "home-lab-ksera/home-lab-k8s"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "Harbor の自作イメージは publish workflow と Image Updater が管理する",
+      "matchPackageNames": [
+        "/^harbor\\.(internal\\.)?qroksera\\.com\\//"
+      ],
+      "enabled": false
+    }
+  ]
+}
