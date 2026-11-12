@@ -141,7 +141,8 @@ set -euo pipefail
 kubectl wait --for=condition=Ready nodes --all --timeout=240s
 test "$(kubectl get nodes --no-headers | wc -l)" -eq 2
 # 2VM 構成では control-plane も workload を受ける。taint と LB 除外 label が残っていないことを確認する。
-test -z "$(kubectl get node k8s-control-plane -o jsonpath='{.spec.taints}')"
+# 再起動直後の not-ready などの一時的な taint は対象にしない。
+test -z "$(kubectl get node k8s-control-plane -o jsonpath='{.spec.taints[?(@.key=="node-role.kubernetes.io/control-plane")].effect}')"
 test -z "$(kubectl get node k8s-control-plane -o jsonpath='{.metadata.labels.node\.kubernetes\.io/exclude-from-external-load-balancers}')"
 kubectl -n kube-system rollout status deployment/coredns --timeout=120s
 kubectl create namespace setup-smoke --dry-run=client -o yaml | kubectl apply -f -
