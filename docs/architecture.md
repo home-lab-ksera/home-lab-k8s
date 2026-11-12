@@ -23,9 +23,10 @@ flowchart TD
 | 対象 | 宣言 |
 |---|---|
 | control-plane | `k8s-control-plane` / `192.168.122.10` |
-| workers | `k8s-worker1` / `.11`、`k8s-worker2` / `.12`（同じ `192.168.122.0/24`） |
-| VM 既定リソース | control-plane 2 vCPU / 4096 MiB、worker 各 4 vCPU / 6144 MiB、CPU mode は `host-model`、memballoon は free page reporting 有効（[ホスト容量](host-capacity.md)） |
-| VM ディスク | control-plane 50GiB、worker 各60GiB（[既存VMの拡張](worker-disk.md)） |
+| workers | `k8s-worker2` / `.12`（同じ `192.168.122.0/24`）。worker1 は 2026-11-12 に撤去 |
+| スケジュール | control-plane も taint なしで workload を受ける。MetalLB の広告対象にするため `exclude-from-external-load-balancers` label も外す |
+| VM 既定リソース | control-plane 2 vCPU / 5120 MiB、worker2 4 vCPU / 8192 MiB、CPU mode は `host-model`、memballoon は free page reporting 有効（[ホスト容量](host-capacity.md)） |
+| VM ディスク | control-plane 50GiB、worker 60GiB（[既存VMの拡張](worker-disk.md)） |
 | Pod / Service CIDR | `10.244.0.0/16` / `10.96.0.0/12` |
 | MetalLB | `192.168.122.100-192.168.122.150`、L2 |
 | Gateway / Split DNS | `192.168.122.100` / `192.168.122.101` |

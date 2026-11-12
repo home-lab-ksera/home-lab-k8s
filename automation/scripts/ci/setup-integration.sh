@@ -81,7 +81,7 @@ config = {
     'ssh_public_key': (base / 'id_ed25519.pub').read_text().strip(),
     'ssh_private_key_path': str(base / 'id_ed25519'),
     'control_plane_memory': 3072, 'control_plane_vcpu': 2,
-    'worker_memory': 2048, 'worker_vcpu': 2,
+    'workers': {'k8s-worker2': {'ip': '192.168.122.12', 'memory': 2048, 'vcpu': 2}},
     'enable_nfs_mount': False,
 }
 (base / 'infrastructure/ci.auto.tfvars.json').write_text(json.dumps(config))
@@ -99,7 +99,7 @@ PY
     sg libvirt -c 'exec timeout --kill-after=10s 80s terraform -chdir="$SETUP_CI_DIR/infrastructure" plan -detailed-exitcode -input=false -no-color'
     ;;
   reboot)
-    for ip in 192.168.122.11 192.168.122.12 192.168.122.10; do
+    for ip in 192.168.122.12 192.168.122.10; do
       before="$(ssh_vm "$ip" 'cat /proc/sys/kernel/random/boot_id')"
       [[ "$before" =~ ^[0-9a-f-]{36}$ ]] || { echo "Invalid boot ID: $ip" >&2; exit 1; }
       # SSH切断を成功扱いせず、予約が成功した後にboot IDの変化を待つ。
@@ -136,7 +136,10 @@ REMOTE
     ssh_vm 192.168.122.10 'bash -se' <<'REMOTE'
 set -euo pipefail
 kubectl wait --for=condition=Ready nodes --all --timeout=240s
-test "$(kubectl get nodes --no-headers | wc -l)" -eq 3
+test "$(kubectl get nodes --no-headers | wc -l)" -eq 2
+# 2VM 構成では control-plane も workload を受ける。taint と LB 除外 label が残っていないことを確認する。
+test -z "$(kubectl get node k8s-control-plane -o jsonpath='{.spec.taints}')"
+test -z "$(kubectl get node k8s-control-plane -o jsonpath='{.metadata.labels.node\.kubernetes\.io/exclude-from-external-load-balancers}')"
 kubectl -n kube-system rollout status deployment/coredns --timeout=120s
 kubectl create namespace setup-smoke --dry-run=client -o yaml | kubectl apply -f -
 # 前回SucceededのPodを見て誤って成功しないよう、毎回新規に通信を実行する。
@@ -150,7 +153,7 @@ metadata:
   labels:
     app: setup-smoke
 spec:
-  nodeName: k8s-worker1
+  nodeName: k8s-control-plane
   containers:
     - name: http
       image: busybox:1.37.0
@@ -204,7 +207,7 @@ REMOTE
       > "$SETUP_CI_DIR/diagnostics/image-permissions.txt" 2>&1 || true
     sudo journalctl -k --no-pager | awk '/apparmor="DENIED"/ && /libvirt/ && /\/var\/lib\/libvirt\/images\//' \
       > "$SETUP_CI_DIR/diagnostics/apparmor-denials.txt" || true
-    for ip in 192.168.122.10 192.168.122.11 192.168.122.12; do
+    for ip in 192.168.122.10 192.168.122.12; do
       # join token や認証情報を含む可能性がある全ログ・state は保存しない。
       timeout 25 ssh -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
         -o ConnectTimeout=5 -i "$SETUP_CI_DIR/id_ed25519" "k8suser@$ip" \

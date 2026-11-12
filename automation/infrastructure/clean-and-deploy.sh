@@ -131,7 +131,6 @@ cat > terraform.tfvars << EOF
 vm_user = "k8suser"
 ssh_public_key = "$SSH_PUB_KEY"
 control_plane_ip = "192.168.122.10"
-worker_ips = ["192.168.122.11", "192.168.122.12"]
 network_gateway = "192.168.122.1"
 EOF
 
@@ -201,7 +200,7 @@ if [[ $? -eq 0 ]]; then
     log_status "SSH接続テスト中..."
     sleep 20  # ネットワーク設定の反映を待機
     
-    for ip in 192.168.122.10 192.168.122.11 192.168.122.12; do
+    for ip in 192.168.122.10 192.168.122.12; do
         if ping -c 3 "$ip" >/dev/null 2>&1; then
             log_status "✓ $ip への接続OK"
             # SSH接続テスト
@@ -219,7 +218,6 @@ if [[ $? -eq 0 ]]; then
     echo ""
     echo "=== VM接続情報 ==="
     echo "Control Plane: ssh k8suser@192.168.122.10"
-    echo "Worker Node 1: ssh k8suser@192.168.122.11"
     echo "Worker Node 2: ssh k8suser@192.168.122.12"
     echo ""
     echo "=== Phase 2&3統合デプロイ完了 ==="

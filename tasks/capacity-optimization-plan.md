@@ -88,8 +88,8 @@ VM サイズの根拠: 2VM 化後の常駐は CP 側に control-plane 2.3GiB＋A
 | 1-b | Image Updater 由来 CI の抑制 | なし | 自動 commit で重い job が走らない | PR revert |
 | ~~1-c~~ | 取り下げ（[6.4](#64-バックアップ強化取り下げ)） | - | - | - |
 | 1-d | PostgreSQL を local-path へ移行（実施済み、[14](#14-postgresql-の-local-path-移行の実施記録2026-11-12)） | 移行直前の repo1 full backup 成功 | 新 instance set で稼働、旧 PVC は Retain で保持 | 旧 instance set へ switchover |
-| 2-a | Terraform の worker を `for_each` 化（`moved` ブロック、plan に差分なし） | 1-a | `terraform plan` が No changes | 変更を revert |
-| 2-b | 2VM 化（CP 再サイズと untaint、worker1 drain・削除） | 2-a、repo1 の直近バックアップ成功 | 全 Application Healthy、ホスト MemAvailable 2GiB 以上 | worker1 を Terraform で再作成し再 join |
+| 2-a | Terraform の worker を `for_each` 化（実施済み、方針変更あり。[15](#15-2vm-化の実施記録2026-11-12)） | 1-a | `terraform plan` が No changes | 変更を revert |
+| 2-b | 2VM 化（CP 再サイズと untaint、worker1 drain・削除）（実施済み、[15](#15-2vm-化の実施記録2026-11-12)） | 2-a、repo1 の直近バックアップ成功 | 全 Application Healthy、ホスト MemAvailable 2GiB 以上 | worker1 を Terraform で再作成し再 join |
 | 3-a | 共通 publish workflow と trivy-action | 1-a | 8 リポジトリが共通 workflow を呼び、Harbor へ publish できる | 各リポジトリの旧 workflow へ戻す |
 | 3-b | Renovate preset の共通化 | 3-a | 9 リポジトリで PR が作成される | 各リポジトリの設定を削除 |
 | 3-c | branch 整理・保護、RSSHub-private の upstream 同期 | なし | 未マージ branch の判断記録、main の保護設定 | なし |
@@ -194,6 +194,11 @@ pgdata は 22MB で、NFS export の `sync` と HDD の fsync 遅延を受ける
 ## 7. Phase 2: 2VM 化（B案）
 
 ### 7.1 Terraform の `for_each` 化（2-a）
+
+> 2026-11-12 の実施で前提が誤りと判明した。稼働中の state は旧リポジトリ（ホストの `~/k8s_myHome`）にあり、
+> 現行コードで plan すると、手で変えた CPU mode・xslt・cloud-init の差分で全 VM が置換になる。
+> `make phase2` は state を削除して作り直すため、稼働中の state を保つ意味もない。
+> そのため `moved` ブロックは作らず、稼働中の VM は virsh で変更し、Terraform は再構築用の定義として 2VM 構成へ改めた。
 
 [main.tf](../automation/infrastructure/main.tf) は worker を `count = 2`、VM 全体を `count = 3` で定義しており、count を減らすと index の大きい worker2 が消える。
 worker2 には local-path の PV（loki-data、grafana-data、alloy-data）と全 sandbox Pod があるため、残すのは worker2 でなければならない。
@@ -348,4 +353,51 @@ kind の runtime 試験（`postgresql-runtime.py`）は、本番のノード名�
 
 旧 PV は repo1 からの復元試験（[restore-test.yaml](../automation/examples/postgresql/restore-test.yaml)）が成功した後に削除する。
 NFS 上の実体 `database-shared-postgresql-main-9lm4-pgdata-pvc-6a622301-…` は PV を消しても残るため、PV の削除後に管理者が NFS 側で消す。
+
+## 15. 2VM 化の実施記録（2026-11-12）
+
+### 方針の変更
+
+7.1 の注記のとおり、稼働中の VM には `terraform apply` を使わず、virsh と kubectl で変更した。
+Terraform（`for_each = var.workers`、CP 5120MiB、`taints: []`、kubelet drop-in）は次回 `make phase2` のための定義である。
+worker1 は削除せず、停止・autostart 無効で VM 定義とディスクを残した（切り戻し用）。
+
+### 手順と結果（UTC）
+
+| 時刻 | 操作 | 結果 |
+|---|---|---|
+| 00:27 | 手動 full backup `20261112-002718F` | 成功（1-d の事後確認を兼ねる） |
+| 00:42 | CP の `NoSchedule` taint を外し、worker1 を drain | 13 Pod が CP、残りが worker2 へ移動。2分程度で Ready |
+| 00:45 | worker1 を `virsh shutdown`、autostart 無効、Node 削除 | ホスト available 5.8GiB |
+| 00:47 | worker2 を `setmaxmem` / `setmem --config` で 8GiB にして再起動 | Harbor core が初期化途中で止まり、Pod 再作成で復旧。sandbox の ImagePullBackOff は Pod 削除で解消 |
+| 00:58 | CP に kubelet drop-in（systemReserved、evictionHard）を追加 | allocatable 3.9GiB → 3.1GiB（4GiB 時） |
+| 01:00 | CP を 5GiB にして再起動 | API 停止は数分。allocatable 4.0GiB |
+| 01:05 | CP から `exclude-from-external-load-balancers` label を削除 | Gateway の LoadBalancer IP が再び応答 |
+
+### 障害: Gateway の LoadBalancer IP が無応答（約23分）
+
+drain で `nginx-gateway-nginx` が CP へ移った。Service は `externalTrafficPolicy: Local` で、
+MetalLB は kubeadm が CP に付ける `node.kubernetes.io/exclude-from-external-load-balancers` label のある Node から広告しない。
+このため `192.168.122.100` を広告する Node がなくなり、00:42〜01:05 の間 Gateway 経由の通信が止まった。
+この間にアプリの publish はなかった。再構築時に同じことが起きないよう、Terraform の kubeadm init 後に label を外す。
+
+### 確認
+
+| 項目 | 基準 | 結果 |
+|---|---|---|
+| Node | 2台 Ready | k8s-control-plane、k8s-worker2 |
+| Application | 全 Synced / Healthy | 達成 |
+| ホスト available | 2GiB 以上 | 2.6GiB |
+| ホスト swap | 256MiB 未満 | 93MiB |
+| ホスト CPU PSI some avg300 | 10% 未満 | 7.4%（変更前 23%） |
+| qemu RSS | - | worker2 6.4GiB、CP 4.9GiB |
+
+CP は cpu requests 98%（1770m / 1800m）、memory working set 91%（allocatable 比）で余裕が少ない。
+新しい Pod は worker2 へ入る。1週間後に CP の memory PSI と eviction の有無を確認し、
+必要なら ArgoCD など重い Pod の配置を見直す。
+
+### 残作業
+
+- worker1 の VM 定義とディスクは、1週間ほど問題がなければ `virsh undefine --remove-all-storage` で削除する。
+- ホストの `~/k8s_myHome`（旧リポジトリと stale な Terraform state）は使わない。次回 `make phase2` は home-lab-k8s から実行する。
 

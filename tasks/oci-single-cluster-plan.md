@@ -37,7 +37,7 @@ control-plane 移行時の一時的な状態保全は、切り戻しのために
 | 項目 | 現状 |
 |---|---|
 | control-plane | `k8s-control-plane` / `192.168.122.10` |
-| worker | `k8s-worker1` / `192.168.122.11`、`k8s-worker2` / `192.168.122.12` |
+| worker | `k8s-worker2` / `192.168.122.12`。control-plane も workload を受ける（2026-11-12 に 2VM 化） |
 | API endpoint | `192.168.122.10:6443` |
 | CNI | Flannel。NetworkPolicy の実行は別 DaemonSet |
 | Pod / Service CIDR | `10.244.0.0/16` / `10.96.0.0/12` |
@@ -57,18 +57,16 @@ flowchart TB
     AMD2[AMD-2: 用途がある場合のみ追加]
   end
   subgraph Home[自宅]
-    W1[既存 worker1]
     W2[既存 worker2]
     W3[旧 control-plane: worker に転用]
     Data[NFS / 録画 / 大容量データ]
   end
   API --> A1
-  A1 <-->|VPN| W1
   A1 <-->|VPN| W2
   A1 <-->|VPN| W3
   A1 -.-> AMD1
   A1 -.-> AMD2
-  W1 --> Data
+  W3 --> Data
   W2 --> Data
 ```
 

@@ -26,12 +26,11 @@ k8s_ssh_control() {
 
 # ワーカーノードへのSSH
 k8s_ssh_worker() {
-    local worker_num="${1:-1}"
+    local worker_num="${1:-2}"
     local cmd="${2:-}"
     local host
     
     case $worker_num in
-        1) host="${WORKER_1_IP:-192.168.122.11}" ;;
         2) host="${WORKER_2_IP:-192.168.122.12}" ;;
         *) echo "Invalid worker number: $worker_num" >&2; return 1 ;;
     esac
@@ -48,7 +47,6 @@ k8s_ssh_all_nodes() {
     local cmd="$1"
     local nodes=(
         "${CONTROL_PLANE_IP:-192.168.122.10}"
-        "${WORKER_1_IP:-192.168.122.11}"
         "${WORKER_2_IP:-192.168.122.12}"
     )
     
@@ -82,7 +80,6 @@ k8s_scp_all_nodes() {
     local dst="$2"
     local nodes=(
         "${CONTROL_PLANE_IP:-192.168.122.10}"
-        "${WORKER_1_IP:-192.168.122.11}"
         "${WORKER_2_IP:-192.168.122.12}"
     )
     

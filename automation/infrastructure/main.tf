@@ -22,6 +22,11 @@ terraform {
 locals {
   kubernetes_minor   = regex("^v[0-9]+\\.[0-9]+", var.kubernetes_version)
   kubernetes_package = "${trimprefix(var.kubernetes_version, "v")}-1.1"
+  # cloud-init を生成するノード。key はホスト名。
+  nodes = merge(
+    { "k8s-control-plane" = var.control_plane_ip },
+    { for name, worker in var.workers : name => worker.ip }
+  )
 }
 
 # ランダムIDでユニークなリソース名を生成
@@ -52,20 +57,20 @@ resource "libvirt_volume" "control_plane_disk" {
 
 # Worker Node ディスク
 resource "libvirt_volume" "worker_disk" {
-  count          = 2
-  name           = "k8s-worker${count.index + 1}-${random_id.cluster.hex}.qcow2"
+  for_each       = var.workers
+  name           = "${each.key}-${random_id.cluster.hex}.qcow2"
   base_volume_id = libvirt_volume.ubuntu_base.id
   pool           = "default"
   # 動画spool（最大5GiB + 空き4GiB）とpublish runnerの一時領域を確保する。
-  size           = 64424509440 # 60GiB。既存VMの拡張は docs/worker-disk.md を参照。
+  size = 64424509440 # 60GiB。既存VMの拡張は docs/worker-disk.md を参照。
 }
 
 # 簡素化されたcloud-init設定
 data "template_file" "user_data" {
-  count    = 3
+  for_each = local.nodes
   template = file("${path.module}/cloud-init/user-data.yaml")
   vars = {
-    vm_hostname      = count.index == 0 ? "k8s-control-plane" : "k8s-worker${count.index}"
+    vm_hostname      = each.key
     username         = var.vm_user
     ssh_key          = var.ssh_public_key
     enable_nfs_mount = var.enable_nfs_mount
@@ -73,10 +78,10 @@ data "template_file" "user_data" {
 }
 
 data "template_file" "network_config" {
-  count    = 3
+  for_each = local.nodes
   template = file("${path.module}/cloud-init/network-config.yaml")
   vars = {
-    ip_address = count.index == 0 ? var.control_plane_ip : var.worker_ips[count.index - 1]
+    ip_address = each.value
     gateway    = var.network_gateway
   }
 }
@@ -85,17 +90,17 @@ data "template_file" "network_config" {
 resource "libvirt_cloudinit_disk" "control_plane_init" {
   name           = "k8s-control-plane-init-${random_id.cluster.hex}.iso"
   pool           = "default"
-  user_data      = data.template_file.user_data.0.rendered
-  network_config = data.template_file.network_config.0.rendered
+  user_data      = data.template_file.user_data["k8s-control-plane"].rendered
+  network_config = data.template_file.network_config["k8s-control-plane"].rendered
 }
 
 # Worker Node cloud-init
 resource "libvirt_cloudinit_disk" "worker_init" {
-  count          = 2
-  name           = "k8s-worker${count.index + 1}-init-${random_id.cluster.hex}.iso"
+  for_each       = var.workers
+  name           = "${each.key}-init-${random_id.cluster.hex}.iso"
   pool           = "default"
-  user_data      = data.template_file.user_data[count.index + 1].rendered
-  network_config = data.template_file.network_config[count.index + 1].rendered
+  user_data      = data.template_file.user_data[each.key].rendered
+  network_config = data.template_file.network_config[each.key].rendered
 }
 
 # Control Plane VM
@@ -141,10 +146,10 @@ resource "libvirt_domain" "control_plane" {
 
 # Worker Node VMs
 resource "libvirt_domain" "worker" {
-  count  = 2
-  name   = "k8s-worker${count.index + 1}-${random_id.cluster.hex}"
-  memory = var.worker_memory
-  vcpu   = var.worker_vcpu
+  for_each = var.workers
+  name     = "${each.key}-${random_id.cluster.hex}"
+  memory   = each.value.memory
+  vcpu     = each.value.vcpu
 
   cpu {
     mode = "host-model"
@@ -155,7 +160,7 @@ resource "libvirt_domain" "worker" {
     xslt = file("${path.module}/libvirt-domain.xsl")
   }
 
-  cloudinit = libvirt_cloudinit_disk.worker_init[count.index].id
+  cloudinit = libvirt_cloudinit_disk.worker_init[each.key].id
 
   network_interface {
     network_name   = "default"
@@ -164,7 +169,7 @@ resource "libvirt_domain" "worker" {
   }
 
   disk {
-    volume_id = libvirt_volume.worker_disk[count.index].id
+    volume_id = libvirt_volume.worker_disk[each.key].id
   }
 
   console {
@@ -265,6 +270,32 @@ resource "null_resource" "k8s_control_plane_setup" {
     ]
   }
 
+  # control-plane は workload も載せるため、静的 Pod 用の予約と eviction 閾値を drop-in で足す。
+  # /var/lib/kubelet/config.yaml は kubeadm upgrade で再生成されるため使わない。
+  # drop-in の evictionHard は既定値を丸ごと置き換えるため、既定の項目も並べる。
+  provisioner "remote-exec" {
+    inline = [
+      "set -eu",
+      "sudo mkdir -p /etc/kubernetes/kubelet.conf.d",
+      "echo 'KUBELET_EXTRA_ARGS=--config-dir=/etc/kubernetes/kubelet.conf.d' | sudo tee /etc/default/kubelet",
+      <<-EOF
+        sudo tee /etc/kubernetes/kubelet.conf.d/50-control-plane-reserved.conf > /dev/null <<EOL
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+systemReserved:
+  cpu: 200m
+  memory: 512Mi
+evictionHard:
+  memory.available: 300Mi
+  nodefs.available: 10%
+  nodefs.inodesFree: 5%
+  imagefs.available: 15%
+  imagefs.inodesFree: 5%
+EOL
+      EOF
+    ]
+  }
+
   # kubeadm設定ファイル作成
   provisioner "remote-exec" {
     inline = [
@@ -276,6 +307,9 @@ kind: InitConfiguration
 localAPIEndpoint:
   advertiseAddress: ${var.control_plane_ip}
   bindPort: 6443
+nodeRegistration:
+  # 2VM 構成では control-plane にも workload を置く。
+  taints: []
 ---
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: ClusterConfiguration
@@ -304,6 +338,8 @@ EOL
       "mkdir -p /home/${var.vm_user}/.kube",
       "sudo cp -i /etc/kubernetes/admin.conf /home/${var.vm_user}/.kube/config",
       "sudo chown ${var.vm_user}:${var.vm_user} /home/${var.vm_user}/.kube/config",
+      # kubeadm が付けるこの label があると、MetalLB は control-plane から LoadBalancer IP を広告しない。
+      "kubectl label node k8s-control-plane node.kubernetes.io/exclude-from-external-load-balancers-",
       "kubeadm token create --print-join-command > /tmp/worker-join-command.txt"
     ]
   }
@@ -320,12 +356,12 @@ EOL
 
 # Worker Nodeセットアップ
 resource "null_resource" "k8s_worker_setup" {
-  count      = length(var.worker_ips)
+  for_each   = var.workers
   depends_on = [null_resource.k8s_control_plane_setup]
 
   connection {
     type        = "ssh"
-    host        = var.worker_ips[count.index]
+    host        = each.value.ip
     user        = var.vm_user
     private_key = file(var.ssh_private_key_path)
   }
@@ -391,24 +427,24 @@ resource "null_resource" "k8s_worker_setup" {
 
 # joinコマンドを取得してWorker Nodeに配布
 resource "null_resource" "worker_join" {
-  count      = length(var.worker_ips)
+  for_each   = var.workers
   depends_on = [null_resource.k8s_worker_setup]
 
   # joinコマンドをControl Planeから取得してローカルに保存
   provisioner "local-exec" {
-    command = "ssh -o StrictHostKeyChecking=no -i ${var.ssh_private_key_path} ${var.vm_user}@${var.control_plane_ip} 'cat /tmp/worker-join-command.txt' > /tmp/worker-join-${random_id.cluster.hex}-${count.index}.sh && chmod 600 /tmp/worker-join-${random_id.cluster.hex}-${count.index}.sh"
+    command = "ssh -o StrictHostKeyChecking=no -i ${var.ssh_private_key_path} ${var.vm_user}@${var.control_plane_ip} 'cat /tmp/worker-join-command.txt' > /tmp/worker-join-${random_id.cluster.hex}-${each.key}.sh && chmod 600 /tmp/worker-join-${random_id.cluster.hex}-${each.key}.sh"
   }
 
   # joinコマンドをWorker Nodeにコピー
   provisioner "file" {
     connection {
       type        = "ssh"
-      host        = var.worker_ips[count.index]
+      host        = each.value.ip
       user        = var.vm_user
       private_key = file(var.ssh_private_key_path)
     }
 
-    source      = "/tmp/worker-join-${random_id.cluster.hex}-${count.index}.sh"
+    source      = "/tmp/worker-join-${random_id.cluster.hex}-${each.key}.sh"
     destination = "/tmp/worker-join-command.sh"
   }
 
@@ -416,7 +452,7 @@ resource "null_resource" "worker_join" {
   provisioner "remote-exec" {
     connection {
       type        = "ssh"
-      host        = var.worker_ips[count.index]
+      host        = each.value.ip
       user        = var.vm_user
       private_key = file(var.ssh_private_key_path)
     }

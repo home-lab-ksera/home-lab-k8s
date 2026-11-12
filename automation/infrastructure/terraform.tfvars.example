@@ -9,21 +9,11 @@ ssh_public_key = "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC... your-ssh-public-key
 
 # VM IPアドレス設定
 control_plane_ip = "192.168.122.10"
-worker1_ip       = "192.168.122.11"
-worker2_ip       = "192.168.122.12"
-
-# ネットワーク設定
-network_gateway = "192.168.122.1"
-dns_servers     = ["8.8.8.8", "8.8.4.4"]
-
-# NFSサーバーIP（通常はホストマシンのlibvirt network gateway）
-nfs_server_ip = "192.168.122.1"
+network_gateway  = "192.168.122.1"
 
 # VM仕様設定（デフォルト値をオーバーライドする場合）
-# control_plane_memory    = 8192   # 8GB
-# control_plane_vcpu      = 4
-# control_plane_disk_size = 53687091200  # 50GB
-
-# worker_memory    = 4096  # 4GB  
-# worker_vcpu      = 2
-# worker_disk_size = 32212254720  # 30GB
+# control_plane_memory = 5120
+# control_plane_vcpu   = 2
+# workers = {
+#   "k8s-worker2" = { ip = "192.168.122.12", memory = 8192, vcpu = 4 }
+# }

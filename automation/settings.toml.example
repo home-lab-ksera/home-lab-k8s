@@ -28,7 +28,6 @@ containerd_canary_node = "k8s-worker2"
 [network]
 # Kubernetes ノードIP
 control_plane_ip = "192.168.122.10"
-worker_1_ip = "192.168.122.11"
 worker_2_ip = "192.168.122.12"
 
 [host_setup]
