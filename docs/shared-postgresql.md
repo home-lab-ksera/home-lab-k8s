@@ -95,9 +95,10 @@ psql "host=shared-postgresql-primary.database.svc hostaddr=127.0.0.1 port=15432 
 
 ## バックアップ
 
-DB PVC は 10Gi、pgBackRest repo1 は 20Gi を要求し、どちらも `nfs-postgresql` / Retain です。
-NFS の宣言先は `192.168.122.1:/mnt/k8s-storage/nfs-share`。
-DB と backup repo が同じ NFS にあるため、その媒体の喪失に備える別の保管が必要です。
+DB PVC（instance set `main-local`）は 10Gi の `local-path` で、k8s-worker2 の VM ディスクに固定されます。
+pgBackRest repo1 は 20Gi の `nfs-postgresql` / Retain で、NFS の宣言先は `192.168.122.1:/mnt/k8s-storage/nfs-share` です。
+DB は VM ディスク、backup はホストの HDD RAID1 にあり、片方の喪失はもう片方から戻せます。
+`local-path` の reclaim policy は Delete のため、PVC を消すと DB の実データも消えます。
 
 PostgresCluster は full `0 18 * * 0`、differential `0 18 * * 1-6`、full 3 世代保持を指定しています。
 CR には timezone 指定がないため、生成 CronJob と controller のタイムゾーンを確認します。
@@ -124,6 +125,9 @@ Job 成功と backup の識別子・成功時刻を照合します。資格情�
 Terraform の VM CPU mode は `host-model` です。
 
 再構築前に PV の NFS server/path、PVC/volumeName、DB 世代、backup 一覧、ESC などの認証情報を保全します。
+DB の実データは worker2 の VM ディスクにあり、VM を削除すると失われます。
+`make phase2` や worker2 の作り直しの前に、手動 full backup を実行し、`pgbackrest info` で成功を確認します（[バックアップ](#バックアップ)）。
+復旧は repo1 からの復元になります。
 **NFS の旧ファイルが存在するだけでは、新クラスタが自動的にそこへ接続するとは限りません。**
 
 1. Harbor など利用側の書き込みを停止し、GitOps が復旧設定を戻さない状態にします。

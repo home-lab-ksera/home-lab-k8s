@@ -32,9 +32,9 @@ AppProject ファイルのみ、後者は Kustomize で本体・設定のみを�
 
 | StorageClass | 宣言元 | 注意点 |
 |---|---|---|
-| `local-path` | [local-path](../manifests/infrastructure/storage/local-path/) | ノードローカル。Grafana / Loki / Alloy などで使用 |
+| `local-path` | [local-path](../manifests/infrastructure/storage/local-path/) | ノードローカル。Grafana / Loki / Alloy / PostgreSQL（DB 本体）などで使用 |
 | `nfs-external` | [NFS Application](../manifests/bootstrap/applications/infrastructure/nfs-subdir-external-provisioner.yaml) | 動的作成、Delete、archiveOnDelete。共有 NFS を使用 |
-| `nfs-postgresql` | [core](../manifests/core/storage-classes/nfs-postgresql.yaml) | 同じ NFS provisioner、Retain、DB / pgBackRest 用 |
+| `nfs-postgresql` | [core](../manifests/core/storage-classes/nfs-postgresql.yaml) | 同じ NFS provisioner、Retain、pgBackRest repo1 用（DB 本体は local-path） |
 
 要求容量は NFS ディレクトリごとの上限や予約を保証しません。Retain も別媒体へのバックアップではありません。
 [core/kustomization.yaml](../manifests/core/kustomization.yaml) には `nfs-postgresql` が登録されています。

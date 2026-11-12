@@ -56,7 +56,8 @@ make phase5
 ```
 
 `phase2` は名前に `k8s` を含む VM、関連イメージ、Terraform 状態などを削除します。
-既存クラスタを再構築する場合は、先に PV/PVC の対応、DB とオブジェクトのバックアップ、外部認証情報を保全し、
+PostgreSQL の DB は worker2 の VM ディスク（local-path）にあり、VM と一緒に消えます。
+既存クラスタを再構築する場合は、先に repo1 への手動 full backup の成功を確認し、PV/PVC の対応、オブジェクトのバックアップ、外部認証情報を保全し、
 [PostgreSQL の復旧](shared-postgresql.md#再起動と再構築) を確認してください。
 NFS にファイルが残ることと、新クラスタが正しいデータを再利用できることは別です。
 
