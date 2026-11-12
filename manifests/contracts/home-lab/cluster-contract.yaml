@@ -126,22 +126,6 @@ spec:
       reason: PGO生成Service・instance・proxyの宣言。
       fields:
         instances:
-        - dataVolumeClaimSpec:
-            accessModes:
-            - ReadWriteOnce
-            resources:
-              requests:
-                storage: 10Gi
-            storageClassName: nfs-postgresql
-          name: main
-          replicas: 1
-          resources:
-            limits:
-              cpu: '1'
-              memory: 1Gi
-            requests:
-              cpu: 250m
-              memory: 512Mi
         - affinity:
             nodeAffinity:
               requiredDuringSchedulingIgnoredDuringExecution:
