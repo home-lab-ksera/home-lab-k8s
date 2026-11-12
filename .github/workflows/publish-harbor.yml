@@ -1,0 +1,226 @@
+# アプリリポジトリから呼ぶ共通 publish workflow（docs/app-delivery.md）。
+# build → smoke → Trivy（報告のみ）は常に実行し、既定ブランチへの push だけ
+# Tailscale OIDC で Harbor へ接続して versioned tag と latest を公開する。
+#
+# 呼び出し側の例:
+#   publish:
+#     needs: test
+#     uses: home-lab-ksera/home-lab-k8s/.github/workflows/publish-harbor.yml@main
+#     permissions:
+#       contents: read
+#       id-token: write
+#     secrets: inherit
+#     with:
+#       image_name: nature-remo
+
+name: Publish to Harbor
+
+on:
+  workflow_call:
+    inputs:
+      image_name:
+        description: Harbor の sandbox project 内のリポジトリ名。ローカルでは `<image_name>:ci` として扱う
+        required: true
+        type: string
+      context:
+        description: docker build の context
+        required: false
+        type: string
+        default: "."
+      dockerfile:
+        description: Dockerfile のパス（リポジトリルートからの相対）
+        required: false
+        type: string
+        default: Dockerfile
+      test_target:
+        description: 本ビルドの前に実行する Dockerfile の test target。空なら実行しない
+        required: false
+        type: string
+        default: ""
+      smoke_command:
+        description: ビルド後に実行するコマンド。`<image_name>:ci` を検査する。空なら実行しない
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: harbor-publish-${{ github.repository }}-${{ github.ref }}-${{ inputs.image_name }}
+      cancel-in-progress: false
+    env:
+      HARBOR_URL: harbor.internal.qroksera.com
+      HARBOR_PROJECT: sandbox
+      IMAGE_NAME: ${{ inputs.image_name }}
+      # OIDC の信頼条件に合わせ、既定ブランチへの push のみ公開する。
+      PUBLISH: ${{ github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v4
+
+    - name: Build test target
+      if: inputs.test_target != ''
+      uses: docker/build-push-action@v7
+      with:
+        context: ${{ inputs.context }}
+        file: ${{ inputs.dockerfile }}
+        target: ${{ inputs.test_target }}
+        cache-from: type=gha,scope=${{ inputs.image_name }}
+        cache-to: type=gha,scope=${{ inputs.image_name }},mode=max
+
+    - name: Build image
+      uses: docker/build-push-action@v7
+      with:
+        context: ${{ inputs.context }}
+        file: ${{ inputs.dockerfile }}
+        tags: ${{ inputs.image_name }}:ci
+        load: true
+        cache-from: type=gha,scope=${{ inputs.image_name }}
+        cache-to: type=gha,scope=${{ inputs.image_name }},mode=max
+
+    - name: Smoke test image
+      if: inputs.smoke_command != ''
+      env:
+        SMOKE_COMMAND: ${{ inputs.smoke_command }}
+      run: bash -euo pipefail -c "$SMOKE_COMMAND"
+
+    - name: Scan image with Trivy (report only)
+      # 報告のみ。Harbor の Trivy は無効化済み。DB 取得失敗などでも公開は止めない。
+      continue-on-error: true
+      run: |
+        docker run --rm -v /var/run/docker.sock:/var/run/docker.sock:ro \
+          aquasec/trivy:0.76.1@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c \
+          image --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --exit-code 0 --no-progress \
+          "$IMAGE_NAME:ci"
+
+    - name: Check required secrets are available
+      if: env.PUBLISH == 'true'
+      env:
+        TS_OAUTH_CLIENT_ID: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+        TS_AUDIENCE: ${{ secrets.TS_AUDIENCE }}
+        HARBOR_USERNAME: ${{ secrets.HARBOR_USERNAME }}
+        HARBOR_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
+      run: |
+        set -euo pipefail
+        for name in TS_OAUTH_CLIENT_ID TS_AUDIENCE HARBOR_USERNAME HARBOR_PASSWORD; do
+          if [[ -z "${!name}" ]]; then
+            echo "::error::Required secret is unavailable: $name"
+            exit 1
+          fi
+        done
+
+    - name: Connect to Tailscale with GitHub OIDC
+      if: env.PUBLISH == 'true'
+      uses: tailscale/github-action@064b10558093f38325e838ddea35486bdc6b1d5c # v4
+      with:
+        oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+        audience: ${{ secrets.TS_AUDIENCE }}
+        tags: tag:ci-harbor
+        # subnet route の受け入れは Action が自動設定する。
+        args: --accept-dns=false
+        hostname: ${{ inputs.image_name }}-ci-${{ github.run_id }}-${{ github.run_attempt }}
+
+    - name: Resolve Harbor and verify HTTPS connectivity
+      if: env.PUBLISH == 'true'
+      run: |
+        set -euo pipefail
+        printf '192.168.122.100 %s\n' "$HARBOR_URL" | sudo tee -a /etc/hosts > /dev/null
+        # 新しい端末の経路・アクセス設定が反映されるまで待つ。
+        for attempt in {1..6}; do
+          status=$(curl --silent --show-error --connect-timeout 10 --max-time 15 \
+            --output /dev/null --write-out '%{http_code}' "https://$HARBOR_URL/v2/") || status=000
+          if [[ "$status" == 200 || "$status" == 401 ]]; then
+            echo "Harbor registry reached over verified HTTPS (HTTP $status)."
+            exit 0
+          fi
+          echo "Harbor not ready (HTTP $status, attempt $attempt/6)."
+          sleep 5
+        done
+        echo "::error::Cannot reach Harbor over Tailscale. Check subnet route approval and grants."
+        exit 1
+
+    - name: Log in to Harbor
+      if: env.PUBLISH == 'true'
+      env:
+        HARBOR_USERNAME: ${{ secrets.HARBOR_USERNAME }}
+        HARBOR_PASSWORD: ${{ secrets.HARBOR_PASSWORD }}
+      run: |
+        set -euo pipefail
+        umask 077
+        export DOCKER_CONFIG="$RUNNER_TEMP/harbor-auth"
+        mkdir -p "$DOCKER_CONFIG"
+        printf '%s' "$HARBOR_PASSWORD" | docker login "$HARBOR_URL" \
+          --username "$HARBOR_USERNAME" --password-stdin
+
+    - name: Push and verify versioned image
+      if: env.PUBLISH == 'true'
+      run: |
+        set -euo pipefail
+        export DOCKER_CONFIG="$RUNNER_TEMP/harbor-auth"
+        VERSION="build-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT-$GITHUB_SHA"
+        IMAGE="$HARBOR_URL/$HARBOR_PROJECT/$IMAGE_NAME:$VERSION"
+        docker tag "$IMAGE_NAME:ci" "$IMAGE"
+        docker push "$IMAGE"
+        expected=$(docker image inspect "$IMAGE_NAME:ci" --format '{{.Id}}')
+        # containerd image store では .Id がタグの manifest digest、従来の image store では config digest になる。
+        published=$(docker buildx imagetools inspect "$IMAGE" --format '{{json .Manifest}}' | python3 -c 'import json, sys; print(json.load(sys.stdin)["digest"])')
+        config=$(docker buildx imagetools inspect "$IMAGE" --raw | python3 -c 'import json, sys; print(json.load(sys.stdin).get("config", {}).get("digest", ""))')
+        if [[ "$expected" != "$published" && "$expected" != "$config" ]]; then
+          echo "::error::Published image config digest does not match the build (local=$expected manifest=$published config=$config)."
+          exit 1
+        fi
+        {
+          echo '### Harbor publication via Tailscale OIDC'
+          # Markdown のバッククォートはコマンド置換せず、そのまま出力する。
+          # shellcheck disable=SC2016
+          printf '\nImage: `%s`\n' "$IMAGE"
+          # shellcheck disable=SC2016
+          printf '\nVerified image digest: `%s`\n' "$published"
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Check publication is still the default branch head
+      if: env.PUBLISH == 'true'
+      id: publication
+      uses: actions/github-script@v7
+      with:
+        result-encoding: string
+        script: |
+          const {data: repo} = await github.rest.repos.get(context.repo);
+          if (context.ref !== `refs/heads/${repo.default_branch}`) return false;
+          const {data: head} = await github.rest.repos.getCommit({...context.repo, ref: repo.default_branch});
+          return head.sha === context.sha;
+
+    - name: Promote current build to latest
+      if: env.PUBLISH == 'true' && steps.publication.outputs.result == 'true'
+      run: |
+        set -euo pipefail
+        export DOCKER_CONFIG="$RUNNER_TEMP/harbor-auth"
+        IMAGE="$HARBOR_URL/$HARBOR_PROJECT/$IMAGE_NAME:latest"
+        docker tag "$IMAGE_NAME:ci" "$IMAGE"
+        docker push "$IMAGE"
+        expected=$(docker image inspect "$IMAGE_NAME:ci" --format '{{.Id}}')
+        # containerd image store では .Id がタグの manifest digest、従来の image store では config digest になる。
+        published=$(docker buildx imagetools inspect "$IMAGE" --format '{{json .Manifest}}' | python3 -c 'import json, sys; print(json.load(sys.stdin)["digest"])')
+        config=$(docker buildx imagetools inspect "$IMAGE" --raw | python3 -c 'import json, sys; print(json.load(sys.stdin).get("config", {}).get("digest", ""))')
+        if [[ "$expected" != "$published" && "$expected" != "$config" ]]; then
+          echo "::error::Latest image config digest does not match the build (local=$expected manifest=$published config=$config)."
+          exit 1
+        fi
+        # shellcheck disable=SC2016
+        printf '\nPromoted and verified: `%s`\n' "$IMAGE" >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Cleanup
+      if: always() && env.PUBLISH == 'true'
+      run: rm -rf "$RUNNER_TEMP/harbor-auth"
