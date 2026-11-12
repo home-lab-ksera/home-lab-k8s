@@ -114,6 +114,12 @@ resource "libvirt_domain" "control_plane" {
     mode = "host-model"
   }
 
+  # libvirt は起動時に host-model を具体的な CPU モデルへ展開し、mode を custom として返す。
+  # 毎回の plan で差分にならないよう比較から外す。
+  lifecycle {
+    ignore_changes = [cpu]
+  }
+
   # provider が持たない libvirt 設定（memballoon の free page reporting）を補う。
   xml {
     xslt = file("${path.module}/libvirt-domain.xsl")
@@ -153,6 +159,12 @@ resource "libvirt_domain" "worker" {
 
   cpu {
     mode = "host-model"
+  }
+
+  # libvirt は起動時に host-model を具体的な CPU モデルへ展開し、mode を custom として返す。
+  # 毎回の plan で差分にならないよう比較から外す。
+  lifecycle {
+    ignore_changes = [cpu]
   }
 
   # provider が持たない libvirt 設定（memballoon の free page reporting）を補う。
