@@ -89,38 +89,13 @@ class OidcWorkflowGenerationTests(unittest.TestCase):
         triggers = data.get("on", data.get(True))
         self.assertEqual(triggers["push"]["branches"], [branch])
         self.assertIn("workflow_dispatch", triggers)
-        self.assertEqual(list(data["jobs"]), ["build-image"])
-        job = data["jobs"]["build-image"]
-        self.assertEqual(job["runs-on"], "ubuntu-latest")
+        self.assertEqual(list(data["jobs"]), ["publish"])
+        job = data["jobs"]["publish"]
+        self.assertEqual(job["uses"], "home-lab-ksera/home-lab-k8s/.github/workflows/publish-harbor.yml@main")
         self.assertEqual(job["permissions"]["id-token"], "write")
-        self.assertEqual(job["env"]["IMAGE_NAME"], "test.repo")
-        self.assertNotIn("upload-artifact", text)
-        self.assertNotIn("download-artifact", text)
-        self.assertNotIn("/etc/harbor-auth", text)
+        self.assertEqual(job["secrets"], "inherit")
+        self.assertEqual(job["with"]["image_name"], "test.repo")
         self.assertNotIn("@@", text)
-        steps = {step["name"]: step for step in job["steps"]}
-        for name in ("Check required secrets are available",
-                     "Connect to Tailscale with GitHub OIDC",
-                     "Log in to Harbor", "Push and verify versioned image",
-                     "Check publication is still the default branch head"):
-            self.assertEqual(steps[name]["if"],
-                             f"github.event_name == 'push' && github.ref == 'refs/heads/{branch}'")
-        tailscale = steps["Connect to Tailscale with GitHub OIDC"]
-        self.assertRegex(tailscale["uses"], r"tailscale/github-action@[a-f0-9]{40}$")
-        self.assertEqual(tailscale["with"]["args"], "--accept-dns=false")
-        self.assertEqual(tailscale["with"]["tags"], "tag:ci-harbor")
-        self.assertIn("head.sha === context.sha",
-                      steps["Check publication is still the default branch head"]["with"]["script"])
-        self.assertIn("steps.publication.outputs.result == 'true'",
-                      steps["Promote current build to latest"]["if"])
-        for name in ("Push and verify versioned image", "Promote current build to latest"):
-            # containerd image store（.Id = manifest digest）と従来の store（.Id = config digest）の両方で検証する。
-            self.assertIn('docker buildx imagetools inspect "$IMAGE"', steps[name]["run"])
-            self.assertIn('[[ "$expected" != "$published" && "$expected" != "$config" ]]', steps[name]["run"])
-            self.assertNotIn('docker manifest inspect', steps[name]["run"])
-        for step in job["steps"]:
-            if "run" in step:
-                subprocess.run(["bash", "-n"], input=step["run"], text=True, check=True)
         lint = subprocess.run(["actionlint", "-shellcheck=", "-pyflakes=", str(path)],
                               text=True, capture_output=True)
         self.assertEqual(lint.returncode, 0, lint.stdout + lint.stderr)
@@ -243,6 +218,47 @@ class OidcWorkflowGenerationTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(sum(c["args"][0] == "secret" for c in self.calls()), 8)
         self.check_workflow("main")
+
+
+class PublishHarborWorkflowTests(unittest.TestCase):
+    """呼び出し側が共有する公開 workflow の安全条件。"""
+
+    def test_publish_steps_are_gated_and_verified(self):
+        path = ROOT / ".github/workflows/publish-harbor.yml"
+        data = yaml.safe_load(path.read_text())
+        triggers = data.get("on", data.get(True))
+        self.assertIn("workflow_call", triggers)
+        job = data["jobs"]["publish"]
+        self.assertEqual(job["permissions"]["id-token"], "write")
+        self.assertEqual(job["env"]["PUBLISH"],
+                         "${{ github.event_name == 'push' && github.ref == "
+                         "format('refs/heads/{0}', github.event.repository.default_branch) }}")
+        steps = {step["name"]: step for step in job["steps"]}
+        for name in ("Check required secrets are available",
+                     "Connect to Tailscale with GitHub OIDC",
+                     "Log in to Harbor", "Push and verify versioned image",
+                     "Check publication is still the default branch head"):
+            self.assertEqual(steps[name]["if"], "env.PUBLISH == 'true'")
+        tailscale = steps["Connect to Tailscale with GitHub OIDC"]
+        self.assertRegex(tailscale["uses"], r"tailscale/github-action@[a-f0-9]{40}$")
+        self.assertEqual(tailscale["with"]["args"], "--accept-dns=false")
+        self.assertEqual(tailscale["with"]["tags"], "tag:ci-harbor")
+        self.assertIn("head.sha === context.sha",
+                      steps["Check publication is still the default branch head"]["with"]["script"])
+        self.assertIn("steps.publication.outputs.result == 'true'",
+                      steps["Promote current build to latest"]["if"])
+        for name in ("Push and verify versioned image", "Promote current build to latest"):
+            # containerd image store（.Id = manifest digest）と従来の store（.Id = config digest）の両方で検証する。
+            self.assertIn('docker buildx imagetools inspect "$IMAGE"', steps[name]["run"])
+            self.assertIn('[[ "$expected" != "$published" && "$expected" != "$config" ]]', steps[name]["run"])
+        # 外部入力はコマンドへ直接展開せず、環境変数で渡す。
+        self.assertNotIn("${{ inputs.smoke_command }}", steps["Smoke test image"]["run"])
+        for step in job["steps"]:
+            if "run" in step:
+                subprocess.run(["bash", "-n"], input=step["run"], text=True, check=True)
+        lint = subprocess.run(["actionlint", "-shellcheck=", "-pyflakes=", str(path)],
+                              text=True, capture_output=True)
+        self.assertEqual(lint.returncode, 0, lint.stdout + lint.stderr)
 
 
 if __name__ == "__main__":

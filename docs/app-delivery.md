@@ -22,13 +22,31 @@ Nature Remo の初回配布と手動ビルドは [ローカル操作アプリの
 
 ## sandbox 配布
 
-[workflow 生成スクリプト](../automation/scripts/github-actions/add-runner.sh) は `STRATEGY=latest` のみを受け付けます。
-同じ GitHub-hosted runner で build → Tailscale OIDC 接続 → Harbor へ Docker push を行います。
-Docker イメージの artifact 転送、クラスタ内 runner、Kubernetes Secret のマウントは不要です。
+build と公開は共通 workflow [publish-harbor.yml](../.github/workflows/publish-harbor.yml) が行い、
+各アプリリポジトリは自前のテスト job と、その呼び出しだけを持ちます。
+
+```yaml
+  publish:
+    needs: test
+    uses: home-lab-ksera/home-lab-k8s/.github/workflows/publish-harbor.yml@main
+    permissions:
+      contents: read
+      id-token: write
+    secrets: inherit
+    with:
+      image_name: my-app        # Harbor の sandbox/<image_name>
+      # dockerfile: apps/x/Dockerfile   context: .   test_target: test
+      # smoke_command: bash scripts/smoke.sh my-app:ci
+```
+
+同じ GitHub-hosted runner で buildx による build（GitHub Actions cache、scope は `image_name`）→ smoke → Trivy（報告のみ）→
+Tailscale OIDC 接続 → Harbor へ push を行います。Docker イメージの artifact 転送、クラスタ内 runner、Kubernetes Secret のマウントは不要です。
 `build-<run-id>-<attempt>-<commit-sha>` タグを公開し、default branch HEAD と一致する版だけ `latest` へ昇格します。
-両タグの image config digest がローカルのビルド結果と一致することも検証します。公開処理は repo / ref 単位で直列化します。
-PR・手動実行は build までで、公開は生成時に取得した既定ブランチへの push に限定します。
-アプリ固有のテストは Tailscale 接続より前に追加し、別 job のテストは build job の `needs` に指定してください。
+両タグの image config digest がローカルのビルド結果と一致することも検証します。公開処理は repo / ref / image 単位で直列化します。
+PR・手動実行は build と scan までで、公開は既定ブランチ（`github.event.repository.default_branch`）への push に限定します。
+OIDC token の `sub` は呼び出し側の repo / ref になるため、Tailscale の trust credential は従来の条件のままで使えます。
+共通 workflow は `@main` で参照するため、変更は全アプリの次回 publish に効きます。変更時は1リポジトリで公開を確認してから広げます。
+[workflow 生成スクリプト](../automation/scripts/github-actions/add-runner.sh) はこの呼び出し側の雛形を生成します（`STRATEGY=latest` のみ）。
 
 [Image Updater](../manifests/platform/ci-cd/image-updater/sandbox-images.yaml) が約2分間隔で
 許可した9アプリの `deploy` の digest を検知し、このリポジトリの `main` にある各
@@ -53,7 +71,8 @@ Git に digest が残るため、履歴から配布イメージを特定でき�
 
 ## 既存 CI からの移行
 
-生成した workflow を各アプリリポジトリへ反映します。独自のテスト、Dockerfile、複数イメージ構成は維持してください。
+生成した workflow を各アプリリポジトリへ commit します。独自のテストは呼び出し側の job として残し、
+複数イメージは `publish` job を image ごとに並べるか matrix で呼びます。
 既存 workflow と重複して同じイメージを公開しないように統合します。
 
 CI には Harbor の `sandbox` project の pull / push 専用 Robot Account を使います。
