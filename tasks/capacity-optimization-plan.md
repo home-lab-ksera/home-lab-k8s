@@ -87,7 +87,7 @@ VM サイズの根拠: 2VM 化後の常駐は CP 側に control-plane 2.3GiB＋A
 | 1-a | 基盤の軽量化（Trivy 無効、applicationset 停止、reconciliation 延長） | 0-b | Harbor push / pull と ArgoCD 同期が従来どおり | PR revert。Trivy PVC は archive から復元 |
 | 1-b | Image Updater 由来 CI の抑制 | なし | 自動 commit で重い job が走らない | PR revert |
 | ~~1-c~~ | 取り下げ（[6.4](#64-バックアップ強化取り下げ)） | - | - | - |
-| 1-d | PostgreSQL を local-path へ移行 | 移行直前の repo1 full backup 成功 | 新 instance set で稼働、旧 PVC は Retain で保持 | 旧 instance set へ switchover |
+| 1-d | PostgreSQL を local-path へ移行（実施済み、[14](#14-postgresql-の-local-path-移行の実施記録2026-11-12)） | 移行直前の repo1 full backup 成功 | 新 instance set で稼働、旧 PVC は Retain で保持 | 旧 instance set へ switchover |
 | 2-a | Terraform の worker を `for_each` 化（`moved` ブロック、plan に差分なし） | 1-a | `terraform plan` が No changes | 変更を revert |
 | 2-b | 2VM 化（CP 再サイズと untaint、worker1 drain・削除） | 2-a、repo1 の直近バックアップ成功 | 全 Application Healthy、ホスト MemAvailable 2GiB 以上 | worker1 を Terraform で再作成し再 join |
 | 3-a | 共通 publish workflow と trivy-action | 1-a | 8 リポジトリが共通 workflow を呼び、Harbor へ publish できる | 各リポジトリの旧 workflow へ戻す |
@@ -333,3 +333,19 @@ Rust の静的バイナリだけを含むイメージは、Trivy が依存関係
 マージ直後の公開4件は、GitHub-hosted runner が Ubuntu のミラーを DNS で解決できず `apt-get` で失敗した。
 3回目の再実行（約3時間後）で成功した。今回の変更とは無関係。
 hitomi-pdf-batch と viewer は再ビルドで同じ digest になったため、配布は発生しなかった。
+
+## 14. PostgreSQL の local-path 移行の実施記録（2026-11-12）
+
+| 項目 | 結果 |
+|---|---|
+| 事前 backup | 手動 full `20261111-235054F` 成功 |
+| instance set 追加 | `main-local`（local-path、k8s-worker2 固定）を追加（#144）。replica は約1分で streaming、lag 0 |
+| switchover | 00:16 UTC に `patronictl switchover` で primary を `main-local-4ljr-0` へ移行（timeline 7→8）。app の接続は4 DB すべてで張り直された |
+| 旧 instance set 削除 | `main` を削除（#145）。旧 PV `pvc-6a622301-324a-4ebe-8f06-08d73d177f20` は Retain で Released のまま保持 |
+| 事後確認 | 新 primary で `pgbackrest check` 成功、手動 full `20261112-002718F` 成功。全 Application Synced / Healthy |
+
+kind の runtime 試験（`postgresql-runtime.py`）は、本番のノード名がないため affinity を外し、複数 instance set のうち primary の Pod を選ぶよう修正した。
+
+旧 PV は repo1 からの復元試験（[restore-test.yaml](../automation/examples/postgresql/restore-test.yaml)）が成功した後に削除する。
+NFS 上の実体 `database-shared-postgresql-main-9lm4-pgdata-pvc-6a622301-…` は PV を消しても残るため、PV の削除後に管理者が NFS 側で消す。
+
