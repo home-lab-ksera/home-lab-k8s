@@ -59,6 +59,8 @@ class TestCluster:
         cluster['metadata'] = {'name': name, 'namespace': 'database'}
         spec = cluster['spec']
         for instance in spec['instances']:
+            # kind に本番のノード名はないため、ノード固定は外す。
+            instance.pop('affinity', None)
             instance['dataVolumeClaimSpec']['storageClassName'] = 'standard'
             instance['dataVolumeClaimSpec']['resources']['requests']['storage'] = '1Gi'
         for repo in spec['backups']['pgbackrest']['repos']:
