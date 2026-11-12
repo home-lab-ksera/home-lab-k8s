@@ -59,6 +59,8 @@ class TestCluster:
         cluster['metadata'] = {'name': name, 'namespace': 'database'}
         spec = cluster['spec']
         for instance in spec['instances']:
+            # kind に本番のノード名はないため、ノード固定は外す。
+            instance.pop('affinity', None)
             instance['dataVolumeClaimSpec']['storageClassName'] = 'standard'
             instance['dataVolumeClaimSpec']['resources']['requests']['storage'] = '1Gi'
         for repo in spec['backups']['pgbackrest']['repos']:
@@ -89,7 +91,10 @@ class TestCluster:
                                       f'postgres-operator.crunchydata.com/cluster={name}', '-o', 'json'))['items']
 
     def database_pod(self, name, image=None):
-        for pod in self.pods(name):
+        # instance set が複数あるため、書き込める primary を優先する。
+        pods = sorted(self.pods(name), key=lambda p: p['metadata'].get('labels', {}).get(
+            'postgres-operator.crunchydata.com/role') != 'master')
+        for pod in pods:
             if pod['metadata'].get('deletionTimestamp'):
                 continue
             db = next((c for c in pod['spec']['containers'] if c['name'] == 'database'), None)
