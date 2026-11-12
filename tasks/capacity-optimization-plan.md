@@ -396,6 +396,15 @@ CP は cpu requests 98%（1770m / 1800m）、memory working set 91%（allocatabl
 新しい Pod は worker2 へ入る。1週間後に CP の memory PSI と eviction の有無を確認し、
 必要なら ArgoCD など重い Pod の配置を見直す。
 
+### 再構築定義の検証
+
+setup-integration（使い捨て VM で Terraform → kubeadm → 再起動まで）を新しい定義で実行し、成功した（run 43135354670）。
+途中で次の既存の不備を直した。前回成功（2026-10-15）以降に入った変更が CI に反映されていなかった。
+
+- CI の作業ディレクトリへ `libvirt-domain.xsl` と `apiserver-security/` をコピーしていなかった。
+- ランナーに `xsltproc` がなかった。
+- `host-model` は起動後に libvirt が `custom` として返すため、毎回 plan に差分が出た。`lifecycle.ignore_changes = [cpu]` で比較から外した。
+
 ### 残作業
 
 - worker1 の VM 定義とディスクは、1週間ほど問題がなければ `virsh undefine --remove-all-storage` で削除する。
