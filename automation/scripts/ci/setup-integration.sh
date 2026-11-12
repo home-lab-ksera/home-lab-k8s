@@ -45,7 +45,7 @@ PY
     ;;
   prepare)
     sudo apt-get update
-    sudo apt-get install -y qemu-kvm libvirt-daemon-system libvirt-clients genisoimage
+    sudo apt-get install -y qemu-kvm libvirt-daemon-system libvirt-clients genisoimage xsltproc
     # Ubuntu 24.04 の virt-aa-helper が backing image の許可を生成しない場合に備える。
     # 使い捨てCIのイメージ名だけを許可し、AppArmor自体は有効のままにする。
     sudo mkdir -p /etc/apparmor.d/abstractions/libvirt-qemu.d
