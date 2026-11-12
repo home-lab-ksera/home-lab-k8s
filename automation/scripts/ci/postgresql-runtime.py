@@ -91,7 +91,10 @@ class TestCluster:
                                       f'postgres-operator.crunchydata.com/cluster={name}', '-o', 'json'))['items']
 
     def database_pod(self, name, image=None):
-        for pod in self.pods(name):
+        # instance set が複数あるため、書き込める primary を優先する。
+        pods = sorted(self.pods(name), key=lambda p: p['metadata'].get('labels', {}).get(
+            'postgres-operator.crunchydata.com/role') != 'master')
+        for pod in pods:
             if pod['metadata'].get('deletionTimestamp'):
                 continue
             db = next((c for c in pod['spec']['containers'] if c['name'] == 'database'), None)
