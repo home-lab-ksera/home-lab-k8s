@@ -12,23 +12,22 @@ output "control_plane_ip" {
 
 output "worker_ips" {
   description = "Worker NodeのIPアドレス一覧"
-  value       = var.worker_ips
+  value       = { for name, worker in var.workers : name => worker.ip }
 }
 
 output "ssh_connection_commands" {
   description = "VM接続用SSHコマンド"
-  value = {
-    control_plane = "ssh ${var.vm_user}@${var.control_plane_ip}"
-    worker1       = "ssh ${var.vm_user}@${var.worker_ips[0]}"
-    worker2       = "ssh ${var.vm_user}@${var.worker_ips[1]}"
-  }
+  value = merge(
+    { control_plane = "ssh ${var.vm_user}@${var.control_plane_ip}" },
+    { for name, worker in var.workers : name => "ssh ${var.vm_user}@${worker.ip}" }
+  )
 }
 
 output "vm_names" {
   description = "作成されたVM名"
   value = {
     control_plane = libvirt_domain.control_plane.name
-    workers       = libvirt_domain.worker[*].name
+    workers       = [for domain in libvirt_domain.worker : domain.name]
   }
 }
 
@@ -45,12 +44,12 @@ output "cluster_endpoint" {
 output "deployment_summary" {
   description = "デプロイメント完了情報"
   value = {
-    cluster_name      = "k8s-cluster-${random_id.cluster.hex}"
+    cluster_name       = "k8s-cluster-${random_id.cluster.hex}"
     kubernetes_version = var.kubernetes_version
-    nodes_total       = 1 + length(var.worker_ips)
-    control_plane_ip  = var.control_plane_ip
-    worker_ips        = var.worker_ips
-    pod_network_cidr  = var.pod_network_cidr
-    kubeconfig_cmd    = "scp ${var.vm_user}@${var.control_plane_ip}:/home/${var.vm_user}/.kube/config ~/.kube/config-k8s-cluster"
+    nodes_total        = 1 + length(var.workers)
+    control_plane_ip   = var.control_plane_ip
+    worker_ips         = [for worker in var.workers : worker.ip]
+    pod_network_cidr   = var.pod_network_cidr
+    kubeconfig_cmd     = "scp ${var.vm_user}@${var.control_plane_ip}:/home/${var.vm_user}/.kube/config ~/.kube/config-k8s-cluster"
   }
 }

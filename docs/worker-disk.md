@@ -12,7 +12,7 @@ worker の root ディスクは各60GiB。動画取得の最大5GiB、アプリ�
 
 | VM | Node / SSH | root | 拡張後のfilesystem容量 / 空き（概数） |
 |---|---|---|---|
-| k8s-worker1-3e249c58 | k8s-worker1 / k8suser@192.168.122.11 | /dev/vda1、ext4 | 57.1GiB / 36.0GiB |
+| k8s-worker1-3e249c58 | k8s-worker1 / k8suser@192.168.122.11 | /dev/vda1、ext4 | 57.1GiB / 36.0GiB（2026-11-12 に撤去） |
 | k8s-worker2-3e249c58 | k8s-worker2 / k8suser@192.168.122.12 | /dev/vda1、ext4 | 57.1GiB / 36.1GiB |
 
 仮想ディスク60GiBとfilesystem容量は、boot partitionやext4の管理領域の分だけ異なる。
@@ -37,8 +37,8 @@ kubeletを1台ずつ再起動し、両workerのNode capacity約57.1GiB / allocat
 ホスト上の例（60GiBへの拡張が未実施の場合のみ）:
 
 ```bash
-vm=k8s-worker1-3e249c58
-node_ip=192.168.122.11
+vm=k8s-worker2-3e249c58
+node_ip=192.168.122.12
 virsh -c qemu:///system domblklist "$vm" --details
 virsh -c qemu:///system domblkinfo "$vm" vda
 df -h /var/lib/libvirt/images
@@ -58,7 +58,7 @@ kubeletのみを1台ずつ再起動して再認識させる。containerdやVMは
 
 ```bash
 ssh -n "k8suser@$node_ip" 'sudo -n systemctl restart kubelet; systemctl is-active kubelet containerd'
-kubectl get node k8s-worker1 -o jsonpath='{.status.capacity.ephemeral-storage}{" / "}{.status.allocatable.ephemeral-storage}{"\n"}'
+kubectl get node k8s-worker2 -o jsonpath='{.status.capacity.ephemeral-storage}{" / "}{.status.allocatable.ephemeral-storage}{"\n"}'
 kubectl get nodes
 kubectl get pods -A
 ```

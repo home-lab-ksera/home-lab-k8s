@@ -18,10 +18,18 @@ variable "control_plane_ip" {
   default     = "192.168.122.10"
 }
 
-variable "worker_ips" {
-  description = "Worker NodeのIPアドレスリスト"
-  type        = list(string)
-  default     = ["192.168.122.11", "192.168.122.12"]
+# key はノード名。2VM 構成では k8s-worker2 だけを置く（tasks/capacity-optimization-plan.md 7）。
+# 名前を詰めて k8s-worker1 にしないのは、local-path の PV が k8s-worker2 にノード固定されているため。
+variable "workers" {
+  description = "Worker Node の定義（key: ノード名）"
+  type = map(object({
+    ip     = string
+    memory = number # MiB
+    vcpu   = number
+  }))
+  default = {
+    "k8s-worker2" = { ip = "192.168.122.12", memory = 8192, vcpu = 4 }
+  }
 }
 
 variable "network_gateway" {
@@ -32,29 +40,17 @@ variable "network_gateway" {
 
 # VM仕様設定
 # ホスト（N100 4コア / 15GiB）に対し VM 合計が物理メモリを超えないようにする。
-# control-plane の実使用は約3GiB（2026-11-10 実測）。詳細は docs/host-capacity.md。
+# control-plane は workload も載せるため 5GiB。詳細は docs/host-capacity.md。
 variable "control_plane_memory" {
   description = "Control PlaneのメモリサイズMB"
   type        = number
-  default     = 4096 # 4GB
+  default     = 5120 # 5GB
 }
 
 variable "control_plane_vcpu" {
   description = "Control PlaneのvCPU数"
   type        = number
   default     = 2
-}
-
-variable "worker_memory" {
-  description = "Worker NodeのメモリサイズMB"
-  type        = number
-  default     = 6144 # 6GB
-}
-
-variable "worker_vcpu" {
-  description = "Worker NodeのvCPU数"
-  type        = number
-  default     = 4
 }
 
 # Kubernetesクラスター設定

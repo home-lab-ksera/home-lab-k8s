@@ -10,7 +10,7 @@ metadata:
 rules:
   - apiGroups: [""]
     resources: [nodes]
-    resourceNames: [k8s-control-plane, k8s-worker1, k8s-worker2]
+    resourceNames: [k8s-control-plane, k8s-worker2]
     verbs: [get]
   - apiGroups: [certificates.k8s.io]
     resources: [certificatesigningrequests]

@@ -27,7 +27,6 @@ k8s_user="$(get_config kubernetes user "k8suser")"
 control_plane_ip="$(get_config network control_plane_ip "192.168.122.10")"
 ssh_key_path="$(get_config kubernetes ssh_key_path "")"
 
-worker_1_ip="$(get_config network worker_1_ip "")"
 worker_2_ip="$(get_config network worker_2_ip "")"
 
 if [[ -z "$target_version" ]]; then
@@ -54,15 +53,12 @@ fi
 control_ssh=(ssh "${ssh_opts[@]}" "${k8s_user}@${control_plane_ip}")
 
 worker_ips=()
-if [[ -n "$worker_1_ip" ]]; then
-  worker_ips+=("$worker_1_ip")
-fi
 if [[ -n "$worker_2_ip" ]]; then
   worker_ips+=("$worker_2_ip")
 fi
 
 if [[ ${#worker_ips[@]} -eq 0 ]]; then
-  log_error "worker_1_ip / worker_2_ip が未設定です"
+  log_error "worker_2_ip が未設定です"
   exit 1
 fi
 

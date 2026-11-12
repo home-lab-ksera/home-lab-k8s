@@ -21,7 +21,6 @@ fi
 
 k8s_user="$(get_config kubernetes user "k8suser")"
 control_plane_ip="$(get_config network control_plane_ip "192.168.122.10")"
-worker_1_ip="$(get_config network worker_1_ip "192.168.122.11")"
 worker_2_ip="$(get_config network worker_2_ip "192.168.122.12")"
 ssh_key_path="$(get_config kubernetes ssh_key_path "")"
 
@@ -83,7 +82,6 @@ control_ssh=(ssh "${ssh_opts[@]}" "${k8s_user}@${control_plane_ip}")
 resolve_node_ip() {
   local node_name="$1"
   case "$node_name" in
-    k8s-worker1) echo "$worker_1_ip" ;;
     k8s-worker2) echo "$worker_2_ip" ;;
     k8s-control-plane) echo "$control_plane_ip" ;;
     *)
