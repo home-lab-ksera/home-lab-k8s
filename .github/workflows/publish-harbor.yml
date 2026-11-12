@@ -32,6 +32,11 @@ on:
         required: false
         type: string
         default: Dockerfile
+      build_args:
+        description: docker build の build-arg。1行に1つ `KEY=VALUE` で書く
+        required: false
+        type: string
+        default: ""
       test_target:
         description: 本ビルドの前に実行する Dockerfile の test target。空なら実行しない
         required: false
@@ -76,6 +81,7 @@ jobs:
       with:
         context: ${{ inputs.context }}
         file: ${{ inputs.dockerfile }}
+        build-args: ${{ inputs.build_args }}
         target: ${{ inputs.test_target }}
         cache-from: type=gha,scope=${{ inputs.image_name }}
         cache-to: type=gha,scope=${{ inputs.image_name }},mode=max
@@ -85,6 +91,7 @@ jobs:
       with:
         context: ${{ inputs.context }}
         file: ${{ inputs.dockerfile }}
+        build-args: ${{ inputs.build_args }}
         tags: ${{ inputs.image_name }}:ci
         load: true
         cache-from: type=gha,scope=${{ inputs.image_name }}

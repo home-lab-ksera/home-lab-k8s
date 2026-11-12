@@ -35,7 +35,7 @@ build と公開は共通 workflow [publish-harbor.yml](../.github/workflows/publ
     secrets: inherit
     with:
       image_name: my-app        # Harbor の sandbox/<image_name>
-      # dockerfile: apps/x/Dockerfile   context: .   test_target: test
+      # dockerfile: apps/x/Dockerfile   context: .   test_target: test   build_args: KEY=VALUE
       # smoke_command: bash scripts/smoke.sh my-app:ci
 ```
 
