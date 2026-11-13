@@ -19,6 +19,11 @@ spec:
       restartPolicy: Always
       # 非 root のコンテナが 80 番で待ち受けられるようにする（safe sysctl）。
       securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
         sysctls:
           - name: net.ipv4.ip_unprivileged_port_start
             value: "0"
@@ -28,6 +33,15 @@ spec:
         - name: blog
           image: harbor.qroksera.com/sandbox/blog:0.0.1
           imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          # nginx の pid と一時ファイルの置き場。
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
           resources:
             requests:
               cpu: 10m
@@ -50,6 +64,10 @@ spec:
             periodSeconds: 10
             timeoutSeconds: 5
             failureThreshold: 3
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
 ---
 # blog用Service
 apiVersion: v1
