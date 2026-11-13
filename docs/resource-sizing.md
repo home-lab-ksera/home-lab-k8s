@@ -94,7 +94,9 @@ kubectl -n harbor get deployment harbor-registry -o jsonpath='{.spec.template.sp
 | blog | 11.2 | 0.000546 | 10m | 32Mi / 128Mi | 128Mi / 512Mi |
 | cooklog | 11.2 | 0.000389 | 10m | 32Mi / 128Mi | 128Mi / 512Mi |
 | hitomi-upload-viewer | 1.2 | 0.000218 | 10m | 16Mi / 128Mi | 128Mi / 512Mi |
-| hitomi-monitor 本体 | 159.3 | 0.0581 | 100m | 256Mi / 512Mi | 1Gi / 4Gi |
+| hitomi-monitor 本体 | 159.3 | 0.0581 | 100m | 256Mi / 1Gi | 1Gi / 4Gi |
+
+hitomi-monitor の memory limit は2026-11-13に 1Gi へ上げた。AVIF 画像の変換で一時的に約 520MiB に達し、512Mi で cgroup OOM（Pod 表示は exit 137 / Error）となって同じ作品で毎回停止していた。30秒間隔の working set には現れない短いピーク。
 
 上記には CPU limit を設けず、空き CPU で処理を進められるようにする。
 RustFS・Harbor・既存 Selenium の設定は維持する。
