@@ -8,4 +8,4 @@ images:
   - name: harbor.qroksera.com/sandbox/rsshub-private
     newTag: deploy
     newName: harbor.qroksera.com/sandbox/rsshub-private
-    digest: sha256:543a5e687353e52fee5e6e727f024305fb99cd52fd3ee69aa3ddd5aefc89ab1d
+    digest: sha256:7525e8a082c844983af75a8f4ee4757d2f6b176d71b83c1d41019d81a9730391
