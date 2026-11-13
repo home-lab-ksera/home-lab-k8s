@@ -8,4 +8,4 @@ images:
   - name: harbor.qroksera.com/sandbox/blog
     newTag: deploy
     newName: harbor.qroksera.com/sandbox/blog
-    digest: sha256:573665aa52e588b5959d0ab6411f638d2e6ed40b133c21ea2fa42ddd98444140
+    digest: sha256:72ae17d1c595b36ba5f2aa0dc014e5e4fd9bd1303c3685ca57101f62a35eeebf
