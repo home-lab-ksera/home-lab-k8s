@@ -71,6 +71,10 @@ jobs:
             if "$@" > "$RUNNER_TEMP/$name.log" 2>&1; then
               echo "- ✅ \`$name\`" >> "$GITHUB_STEP_SUMMARY"
             else
+              # summary は API から読めないため、job のログにも出す。
+              echo "::group::$name の出力"
+              cat "$RUNNER_TEMP/$name.log"
+              echo "::endgroup::"
               echo "::warning::$name が問題を報告しました（報告のみ）"
               {
                 echo "- ⚠️ \`$name\`"
