@@ -27,7 +27,7 @@
 - 実行入口は [Makefile](../Makefile)、フェーズの順序は [run.sh](../automation/scripts/run.sh) です。
 - Kubernetes の宣言は [manifests/](../manifests/)。Application の参照先と Kustomize の登録を辿って管理対象を判断します。
 - ローカル設定は [settings.toml.example](../automation/settings.toml.example) を元に作成します。設定ファイルだけで全マニフェストが生成される構造ではありません。
-- 将来計画・意思決定は [tasks/](../tasks/)、過去の更新記録は [archive/](archive/README.md) に分けます。
+- 将来計画・意思決定は [tasks/](../tasks/) に分けます。過去の作業記録は残さず、git 履歴と PR を参照します。
 - CLI の終了成功、静的検証、実クラスタの正常性、バックアップの復元成功は別々に確認します。
 
 構成変更時は関連ページと根拠ファイルへのリンクを更新してください。Application の追加・削除・wave 変更では

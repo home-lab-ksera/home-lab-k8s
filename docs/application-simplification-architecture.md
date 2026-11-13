@@ -34,4 +34,4 @@ GitOps・digest固定・共有PostgreSQL・既存資格情報/監視は維持す
 
 pool合計14はAPI3+media API3/worker2/planner2+hitomi収集2/outbox2。毎時reconcile/明示import/資格情報Job等は最大見積りへ別計上する。Pod数には定期・明示Jobと共有DB/基盤を含めない。cameraの2containerは別プロセスのまま維持する。
 
-実運用と残る取得失敗・最終digestは[実行記録](archive/application-simplification-20261025.md)、復元は[運用手順](application-postgresql-cutover.md)を参照。
+復元は[運用手順](application-postgresql-cutover.md)を参照。

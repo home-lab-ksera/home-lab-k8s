@@ -4,7 +4,6 @@
 - 応答・コードコメントは日本語を優先。
 - 実行フローの正は `Makefile` と `automation/scripts/run.sh`。`automation/*/README.md` には旧手順が残るため、挙動確認はスクリプトを優先する。
 - GitOps が正。Kubernetes リソース変更は原則 `manifests/`、`automation/` はローカル bootstrap / 運用スクリプト用。
-- `opnecode.jsonc` はあるが、`opencode.json` ではない。自動読込前提で扱わない。
 - `tasks/` 配下には構造改革の target-state 計画があり、未実装の path / owner 名が含まれる場合がある。実装や挙動確認では現行 repo の実体を優先し、改革タスク時のみ `tasks/` の target-state 文脈を使う。
 
 ## 重要パス

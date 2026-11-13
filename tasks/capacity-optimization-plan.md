@@ -11,7 +11,6 @@
 - Harbor の Trivy を無効化し、脆弱性スキャンは GitHub Actions 側へ移す。
 - バックアップ強化（OCI Object Storage へのオフサイト、etcd 日次 snapshot）は行わない。既存の pgBackRest repo1 を維持する。
 
-[信頼性改善計画](cluster-reliability-improvement-plan.md)、[台帳CI計画](contract-ci-security-plan.md)、
 [OCI単一クラスタ計画](oci-single-cluster-plan.md) は置き換えない。本計画はそれらの前段として
 ホストの過積載を解消し、2VM 構成を OCI 計画の「自宅 worker 1台」へ接続する。
 
@@ -31,7 +30,7 @@
 | CI統合 | 8リポジトリの publish workflow を共通化し、依存更新と Image Updater 由来の CI 実行を減らす |
 
 対象外: Kubernetes をホスト直接実行へ変える（C案）、Flannel の置換、ArgoCD の Application 分割方針の変更、
-`sandbox` namespace の改名（[台帳CI計画](contract-ci-security-plan.md) の構造改革で扱う）、
+`sandbox` namespace の改名（別途）、
 Harbor 自体の撤去、監視基盤の置換。
 
 ## 2. 実測した現状（2026-11-10 22:00 JST）
@@ -250,7 +249,7 @@ repo1 の直近 full backup 成功を確認してから、次の順で実施す�
 
 - 未マージの `ci/tailscale-oidc`（RSSHub-private）、`fix/expected-upstream-responses`（hitomi-pdf-batch）、cookLog の未 commit テストをマージまたは破棄し、判断を PR に残す。
 - hitomi 17、api-hub 13、hitomi-pdf-batch 13 の branch を棚卸しし、マージ済みと放置を削除する。
-- 9 リポジトリの main に ruleset（PR 必須、CI 必須、force push 禁止）を設定する。[台帳CI計画](contract-ci-security-plan.md) の未設定項目と同時に行う。
+- 9 リポジトリの main に ruleset（PR 必須、CI 必須、force push 禁止）を設定する。
 
 ### 8.4 ドキュメント
 
@@ -442,5 +441,11 @@ setup-integration（使い捨て VM で Terraform → kubeadm → 再起動ま�
 - `automation/*/README.md` は 3 件とも現行の内容で、削除対象はなかった。
 - 空で Git 管理外の `production` / `staging` namespace を削除した。`tools` は Git 管理（default-deny と DNS 許可の NetworkPolicy のみ）で、[hitomi-selenium-sidecar](../docs/hitomi-selenium-sidecar.md) の判断どおり残す。
 - api-hub の `JSONL_LOGGING_BENEFITS.md` 等の `docs/` 移動と hitomi の `docker-*.sh` 整理は各アプリリポジトリの作業として未実施。
-- RSSHub-private の CI は自作 route の範囲（lint・build・typecheck と image の build・smoke）に絞った（RSSHub-private#121）。upstream のテスト一式と Worker は upstream の CI に任せる。
 
+### 3-e 全リポジトリの不要物削除（2026-11-13）
+
+- 過去の作業記録は残さない方針に変え、docs/archive/ と docs/performance/ を削除した。記録は git 履歴と PR に残る。
+- 完了済みの信頼性改善計画・台帳CI計画を削除した。構成整合性（台帳CI）と ARC 撤去は完了。疎通監視（DNS・TLS・Gateway・主要アプリの応答）と PostgreSQL / etcd の隔離復元の定期検証は未実施のまま残る（復元試験は #148）。
+- 読み込まれない `opnecode.jsonc` と、docs/secrets.md と重複する `automation/docs/external-secrets-README.md` を削除した。
+- アプリリポジトリでは、テスト workflow を publish からの `workflow_call` だけにして二重実行をなくし、ruleset の必須 check から単独実行分を外した。api-hub のログ文書・openapi.yaml、hitomi の `docker-*.sh`・compose・api-tests.yml、日付付きの調査記録、home-camera の `k8s/`、blog の hugo 設定と重複ビルド、RSSHub-private の他ホスティング・upstream 運営用ファイルを削除した。
+- RSSHub-private の CI は自作 route の範囲（lint・build・typecheck と image の build・smoke）に絞った（RSSHub-private#121）。upstream のテスト一式と Worker は upstream の CI に任せる。
