@@ -93,7 +93,7 @@ VM サイズの根拠: 2VM 化後の常駐は CP 側に control-plane 2.3GiB＋A
 | 3-a | 共通 publish workflow と trivy-action（実施済み、[16](#16-phase-3-の実施記録2026-11-1213)） | 1-a | 8 リポジトリが共通 workflow を呼び、Harbor へ publish できる | 各リポジトリの旧 workflow へ戻す |
 | 3-b | Renovate preset の共通化（実施済み、[16](#16-phase-3-の実施記録2026-11-1213)） | 3-a | 9 リポジトリで PR が作成される | 各リポジトリの設定を削除 |
 | 3-c | branch 整理・保護、RSSHub-private の upstream 同期（実施済み、[16](#16-phase-3-の実施記録2026-11-1213)） | なし | 未マージ branch の判断記録、main の保護設定 | なし |
-| 3-d | ドキュメント整理 | 2-b | docs/ が現行構成のみを記述し、旧手順の README を撤去 | なし |
+| 3-d | ドキュメント整理（実施済み、[16](#16-phase-3-の実施記録2026-11-1213)） | 2-b | docs/ が現行構成のみを記述し、旧手順の README を撤去 | なし |
 
 Phase 0 は無停止、Phase 1 は Pod 単位の再起動、Phase 2 は control-plane の停止（VM 再起動、数分）を伴う。
 Phase 3 は Phase 1 と並行して進める。
@@ -435,7 +435,12 @@ setup-integration（使い捨て VM で Terraform → kubeadm → 再起動ま�
   同期 PR は upstream の履歴を残すため squash せず merge commit でマージする。
 - dependabot の npm 更新を止め、npm / nix の PR 50件を閉じた。GitHub Actions の更新は dependabot が継続。
 
-### 残り
+### 3-d ドキュメント整理
 
-- 3-d ドキュメント整理。
+- docs/ に混在していた当時の作業記録を docs/archive/ へ移した（host-capacity の 3VM 縮小、kubelet 証明書の移行手順と適用記録、worker ディスク拡張、media 一時ディスクの反映記録）。元の文書は現行構成と手順だけにし、archive へのリンクを残した。
+- 撤去済みの Harbor Trivy と ARC runner の記述を resource-sizing / app-delivery から削除した。
+- `automation/*/README.md` は 3 件とも現行の内容で、削除対象はなかった。
+- 空で Git 管理外の `production` / `staging` namespace を削除した。`tools` は Git 管理（default-deny と DNS 許可の NetworkPolicy のみ）で、[hitomi-selenium-sidecar](../docs/hitomi-selenium-sidecar.md) の判断どおり残す。
+- api-hub の `JSONL_LOGGING_BENEFITS.md` 等の `docs/` 移動と hitomi の `docker-*.sh` 整理は各アプリリポジトリの作業として未実施。
+- RSSHub-private の CI は自作 route の範囲（lint・build・typecheck と image の build・smoke）に絞った（RSSHub-private#121）。upstream のテスト一式と Worker は upstream の CI に任せる。
 
