@@ -1,0 +1,99 @@
+rule_files:
+  - ../../../manifests/platform/observability/config/alert-rules.yaml
+evaluation_interval: 1m
+tests:
+  - name: ホストが正常
+    interval: 1m
+    input_series:
+      - series: up{job="host-node",instance="ksera-T100"}
+        values: 1+0x60
+      - series: node_memory_MemAvailable_bytes{job="host-node",instance="ksera-T100"}
+        values: 2147483648+0x60
+      - series: node_vmstat_pswpin{job="host-node",instance="ksera-T100"}
+        values: 0+60x60
+      - series: node_vmstat_pswpout{job="host-node",instance="ksera-T100"}
+        values: 0+60x60
+      - series: node_pressure_cpu_waiting_seconds_total{job="host-node",instance="ksera-T100"}
+        values: 0+6x60
+    alert_rule_test:
+      - eval_time: 45m
+        alertname: HostMetricsUnavailable
+        exp_alerts: []
+      - eval_time: 45m
+        alertname: HostMemoryLow
+        exp_alerts: []
+      - eval_time: 45m
+        alertname: HostSwapThrashing
+        exp_alerts: []
+      - eval_time: 45m
+        alertname: HostCPUPressure
+        exp_alerts: []
+  - name: ホストのメモリ不足と swap の継続
+    interval: 1m
+    input_series:
+      - series: up{job="host-node",instance="ksera-T100"}
+        values: 1+0x60
+      - series: node_memory_MemAvailable_bytes{job="host-node",instance="ksera-T100"}
+        values: 524288000+0x60
+      - series: node_vmstat_pswpin{job="host-node",instance="ksera-T100"}
+        values: 0+60000x60
+      - series: node_vmstat_pswpout{job="host-node",instance="ksera-T100"}
+        values: 0+60000x60
+    alert_rule_test:
+      - eval_time: 45m
+        alertname: HostMemoryLow
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: host-node
+              instance: ksera-T100
+            exp_annotations:
+              summary: "ホストの利用可能メモリが 768MiB 未満です。VM のメモリ宣言と swap を確認してください"
+      - eval_time: 45m
+        alertname: HostSwapThrashing
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: host-node
+              instance: ksera-T100
+            exp_annotations:
+              summary: "ホストで swap in / out が継続しています（毎秒 500 page 超）"
+  - name: ホストのメトリクスが途絶
+    interval: 1m
+    input_series: []
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: HostMetricsUnavailable
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: host-node
+            exp_annotations:
+              summary: "ホストの node_exporter（192.168.122.1:9100）を収集できません"
+  - name: CronJob 由来の Job の失敗
+    interval: 1m
+    input_series:
+      - series: kube_job_status_failed{namespace="sandbox",job_name="hitomi-monitor-1"}
+        values: 1+0x30
+      - series: kube_job_owner{namespace="sandbox",job_name="hitomi-monitor-1",owner_kind="CronJob",owner_name="hitomi-monitor"}
+        values: 1+0x30
+      - series: kube_job_status_start_time{namespace="sandbox",job_name="hitomi-monitor-1"}
+        values: 0+0x30
+      # 手動 Job は対象外。
+      - series: kube_job_status_failed{namespace="sandbox",job_name="manual"}
+        values: 1+0x30
+      - series: kube_job_owner{namespace="sandbox",job_name="manual",owner_kind="<none>",owner_name="<none>"}
+        values: 1+0x30
+      - series: kube_job_status_start_time{namespace="sandbox",job_name="manual"}
+        values: 0+0x30
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: KubernetesCronJobFailed
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              namespace: sandbox
+              job_name: hitomi-monitor-1
+              owner_name: hitomi-monitor
+            exp_annotations:
+              summary: "CronJob sandbox/hitomi-monitor の Job hitomi-monitor-1 が失敗しました"
