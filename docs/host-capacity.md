@@ -18,7 +18,7 @@ control-plane の kubelet drop-in は `/etc/kubernetes/kubelet.conf.d/50-control
 `/etc/default/kubelet` の `--config-dir` で読み込む。`/var/lib/kubelet/config.yaml` は kubeadm upgrade で再生成されるため使わない。
 経緯は [全体最適化計画](../tasks/capacity-optimization-plan.md) の 15 節。
 
-3VM 構成時の縮小手順と実測は [2026-11-10 の記録](archive/host-capacity-20261110.md) を参照。
+
 
 ## 再測定
 

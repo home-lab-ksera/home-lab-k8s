@@ -72,4 +72,4 @@ NGINX Gateway Fabric を更新する場合は、[Gateway API](../manifests/infra
 CRD の反映を確認してから controller を更新し、Gateway / Route / ClientSettingsPolicy の condition と
 api-hub / Harbor のサイズ制限も検証します。独立した Application の更新完了を wave だけで保証しません。
 
-過去の更新結果は [archive](archive/README.md) に分離しています。
+過去の更新結果は git 履歴と PR を参照します。

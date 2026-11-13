@@ -7,7 +7,7 @@ worker の root ディスクは各60GiB。動画取得の最大5GiB、アプリ�
 
 ## 構築時の容量
 
-2026-10-30 に既存 VM を 30GiB から 60GiB へ拡張した記録は [archive](archive/worker-disk-20261030.md) を参照。
+
 構築時の正本は [main.tf](../automation/infrastructure/main.tf) の `libvirt_volume.worker_disk.size`。
 この宣言変更だけでは既存VMのpartition/filesystemは拡張されない。
 `make all` / `make phase2` / `clean-and-deploy.sh` は再作成を含むため、拡張には使わない。

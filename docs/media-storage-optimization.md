@@ -55,5 +55,3 @@ DB schema変更・S3移動はない。
 - `nix develop --command automation/scripts/ci/validate.sh`: 全体成功（Kustomize/Helm展開、kubeconform含む）。
 
 ローカル一時領域での通常取得と存在確認Jobの手動実行は下記のとおり確認済み。本番性能の前後比較は未実施。
-
-本番反映と移行用設定の撤去の記録は [archive](archive/media-storage-20261029.md) を参照。

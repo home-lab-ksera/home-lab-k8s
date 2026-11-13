@@ -60,8 +60,6 @@ kubectl -n database logs "job/$credentials_job"
 失敗時は Job / Pod の状態とログを確認し、利用側の再開は成功確認後に行う。
 定期 Job には最大30分の待ち時間がある。上記の即時実行と、PGO の反映完了・利用側の再接続は別に確認する。
 
-2026-10-27の[本番反映・待機間隔の実測](performance/20261027/periodic-processing.md)を参照。
-
 ## 管理端末から接続する
 
 `kubectl` と psql を用意します。公開 CA を取得します（秘密鍵・パスワードは出力しません）。

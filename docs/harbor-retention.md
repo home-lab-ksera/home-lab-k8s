@@ -106,4 +106,3 @@ GCは別スケジュールなので、停止する必要がある場合はHarbor
 
 状態遷移・OCI index・実行中Job・失敗・切り戻しは
 [回帰テスト](../automation/tests/ci/test_harbor_maintenance.py)で検証します。
-実環境の反映と検証結果は [反映記録](archive/harbor-retention-20261028.md) に追記します。
