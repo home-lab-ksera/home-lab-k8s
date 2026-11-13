@@ -5,6 +5,12 @@ worker の root ディスクは各60GiB。動画取得の最大5GiB、アプリ�
 `emptyDir.sizeLimit` や `ephemeral-storage.requests` は物理容量を増やさない。
 クラスタ内の publish runner（ARC）は 2026-11-10 に撤去した。
 
+## image とログの上限
+
+worker の kubelet は `/etc/kubernetes/kubelet.conf.d/60-image-gc.conf` で image GC の閾値を 70% / 60%（既定は 85% / 80%）にしている。
+全 VM の journal は `/etc/systemd/journald.conf.d/50-size.conf` で 500MB までに制限している。
+どちらも [main.tf](../automation/infrastructure/main.tf) と [cloud-init](../automation/infrastructure/cloud-init/user-data.yaml) が構築時に配置する。
+
 ## 構築時の容量
 
 

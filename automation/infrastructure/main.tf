@@ -427,6 +427,24 @@ resource "null_resource" "k8s_worker_setup" {
     ]
   }
 
+  # 古い image を早めに回収し、ルートディスクの逼迫を防ぐ（docs/worker-disk.md）。
+  # join 前に置き、kubelet の初回起動から読み込ませる。
+  provisioner "remote-exec" {
+    inline = [
+      "set -eu",
+      "sudo mkdir -p /etc/kubernetes/kubelet.conf.d",
+      "echo 'KUBELET_EXTRA_ARGS=--config-dir=/etc/kubernetes/kubelet.conf.d' | sudo tee /etc/default/kubelet",
+      <<-EOF
+        sudo tee /etc/kubernetes/kubelet.conf.d/60-image-gc.conf > /dev/null <<EOL
+apiVersion: kubelet.config.k8s.io/v1beta1
+kind: KubeletConfiguration
+imageGCHighThresholdPercent: 70
+imageGCLowThresholdPercent: 60
+EOL
+      EOF
+    ]
+  }
+
   # Harbor用ストレージディレクトリ作成
   provisioner "remote-exec" {
     inline = [
