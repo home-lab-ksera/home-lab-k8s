@@ -92,6 +92,32 @@ groups:
           severity: warning
         annotations:
           summary: "ホストのルートディスク空きが 15% 未満です（VM ディスクを含む）"
+  - name: home-lab-endpoints
+    interval: 1m
+    rules:
+      # Alloy 内蔵の blackbox exporter による外形監視（config.alloy）。
+      - alert: EndpointProbeFailed
+        expr: probe_success{job="endpoint-probe"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.target }} への外形監視が5分間失敗しています（DNS・Gateway・TLS・アプリのいずれか）"
+      - alert: EndpointProbeMissing
+        expr: absent(probe_success{job="endpoint-probe"})
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "外形監視の結果が届いていません。Alloy と remote write を確認してください"
+      # cert-manager は期限の30日前に更新する。14日を切るのは更新失敗。
+      - alert: EndpointCertificateExpiring
+        expr: probe_ssl_earliest_cert_expiry{job="endpoint-probe"} - time() < 14 * 86400
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.target }} の証明書の期限が14日未満です"
   - name: home-lab-state
     interval: 30s
     rules:

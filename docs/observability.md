@@ -67,7 +67,7 @@ Secret の削除・再生成を既存ユーザーのパスワードリセット�
 kubelet volume stats、kubelet `/metrics/resource`、annotation 付き Pod の metrics を収集します。
 `/metrics/cadvisor` は60秒間隔で収集し、全ノードのルートディスク `/dev/vda1` の
 `container_fs_limit_bytes` / `container_fs_usage_bytes`（`id="/"`）だけを保存します。
-追加のexporterは使いません。Grafana「03 ストレージ」にノードの空き推定値・使用率を表示します。
+クラスタ内に追加のexporterは置きません。Grafana「03 ストレージ」にノードの空き推定値・使用率を表示します。
 Namespace/PVCのフィルタには依存せず、emptyDir・イメージキャッシュ・ノードログを含みます。
 kubelet は各ノードの InternalIP:10250 に直接接続し、ServiceAccount とクラスタ CA で認証・検証します。
 権限は `nodes/metrics` の `get` と探索用の Node / Pod 読み取りだけで、`nodes/proxy` は付与しません。
@@ -81,6 +81,10 @@ namespace / pod / container / node / cluster を付けます。Grafana Explore �
 ```logql
 {namespace="sandbox", container="api-hub"}
 ```
+
+Alloy は内蔵の blackbox exporter で外形監視も行います。1分ごとに、クラスタ内 DNS → Gateway（TLS）→
+ArgoCD / Harbor / Grafana / blog / cooklog / api-hub / RSSHub / viewer の応答と、Split DNS（`192.168.122.101`）の名前解決を確認し、
+結果を VictoriaMetrics へ remote write します。対象の追加は `config.alloy` の `target` ブロックで行います。
 
 journald・監査ログ・収集前に消えた Pod のログは対象外です。
 Alloy は 167 時間より古いログを転送前に除外し、Loki は Compactor で期限切れを削除します。
@@ -103,11 +107,15 @@ Alloy は 167 時間より古いログを転送前に除外し、Loki は Compac
 | kubelet volume scrape | 失敗・欠損 / 5 分 |
 | ノードのルートディスク | 空き推定値12GiBまたは20%未満 / 10 分、9GiBまたは15%未満 / 5 分 |
 | ノードのルートディスク計測 | Node台帳にあるノードの容量・使用量が欠損、または容量が0 / 5 分 |
+| ホスト（`Host*`） | node_exporter 欠損 / 10 分、利用可能メモリ 768MiB 未満 / 30 分、swap in/out 継続 / 15 分、CPU PSI 25% 超 / 30 分、ルート空き 15% 未満 / 15 分 |
+| CronJob（`KubernetesCronJobFailed`） | 開始から6時間以内の Job が失敗 / 1 分 |
+| 外形監視（`Endpoint*`） | 応答・名前解決の失敗 / 5 分、結果の欠損 / 15 分、証明書の期限 14 日未満 / 1 時間 |
 | pgBackRest（`PostgreSQLBackupStale`） | full / diff のどちらも26時間成功なし、またはメトリクス欠損 / 30 分 |
 | pgBackRest（`PostgreSQLBackupFailed`） | CronJob の直近スケジュール実行が未成功 / 2 時間 |
 
 condition や対象時系列そのものの欠損をすべて検出する構成ではありません。
-HTTPRoute metrics はあっても現行 alert rule はありません。URL の外形監視や DB 復元成功は別途確認します。
+HTTPRoute metrics はあっても現行 alert rule はありません。DB 復元成功は別途確認します。
+外形監視はクラスタ内からの確認で、LAN / Tailnet 端末からの到達（MetalLB の広告、サブネットルータ）は対象外です。
 NFS の volume stats は共有ファイルシステムの容量で、PVC 固有の使用率ではなく、PVC 間で合算できません。
 ノードの空き推定値はcapacity−usageで、非rootユーザーが使える `f_bavail` と完全一致する保証はありません。
 アプリ側の4GiB空き保護は維持します。rootデバイスを変更するときはscrape・alert・dashboardを併せて変更します。
