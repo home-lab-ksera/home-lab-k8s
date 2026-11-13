@@ -459,5 +459,5 @@ setup-integration（使い捨て VM で Terraform → kubeadm → 再起動ま�
 - Renovate App は、8 リポジトリとも Dashboard が未作成のまま。
 - 確認中に、hitomi-monitor が AVIF 変換で cgroup OOM（約 522MB、上限 512Mi）になり、同じ作品で毎回止まっていることがわかった。memory limit を 1Gi に上げた（#155）。Pod の表示は exit 137 / Error で、30秒間隔の working set には現れない。
 - 復元試験: `restore-test.yaml` で repo1 から別クラスタへ復元し、5 DB のテーブル数と行数を本番と比べた。registry だけが -9 行（最後に archive された WAL 以降の書き込み分）で、他は一致した。試験クラスタは削除した。
-- 削除したもの: 旧 PV `pvc-6a622301-…`、試験用の PV 2つ、PV が参照していない NFS ディレクトリ 6つ（今回と 10月の試験の分、旧 PV の分、`harbor-pgo-migration-20261019`）、worker1 VM（ディスク 37GB）、ホストの `~/k8s_myHome`（旧 CA は現行 CA `ca-key-pair` と別物で未使用）。
-- 現行の内部 CA の鍵は、クラスタ内の Secret `cert-manager/ca-key-pair` にしかない。クラスタを作り直すと CA も作り直しになる。
+- 削除したもの: 旧 PV `pvc-6a622301-…`、試験用の PV 2つ、PV が参照していない NFS ディレクトリ 6つ（今回と 10月の試験の分、旧 PV の分、`harbor-pgo-migration-20261019`）、worker1 VM（ディスク 37GB）、ホストの `~/k8s_myHome`（中の旧 CA は未使用）。
+- 内部の証明書はすべて Let's Encrypt（`letsencrypt-cloudflare`）で発行している。2026-03-15 に作られ、Certificate の削除後も残っていた未使用の Secret `cert-manager/ca-key-pair`（旧内部 CA）と `nginx-gateway/wildcard-internal-tls`（8/17 期限切れ）を削除した。どちらも Issuer・Gateway・ノードの信頼ストアから参照されていなかった。
