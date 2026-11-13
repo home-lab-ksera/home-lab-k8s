@@ -1,0 +1,56 @@
+rule_files:
+  - ../../../manifests/platform/observability/config/alert-rules.yaml
+evaluation_interval: 1m
+tests:
+  - name: 正常
+    interval: 1m
+    input_series:
+      - series: probe_success{job="endpoint-probe",target="blog"}
+        values: 1+0x30
+      - series: probe_ssl_earliest_cert_expiry{job="endpoint-probe",target="blog"}
+        values: 5184000+0x30
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: EndpointProbeFailed
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: EndpointProbeMissing
+        exp_alerts: []
+  - name: 応答なしと証明書の期限
+    interval: 1m
+    input_series:
+      - series: probe_success{job="endpoint-probe",target="blog"}
+        values: 0+0x90
+      - series: probe_ssl_earliest_cert_expiry{job="endpoint-probe",target="blog"}
+        values: 864000+0x90
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: EndpointProbeFailed
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: endpoint-probe
+              target: blog
+            exp_annotations:
+              summary: "blog への外形監視が5分間失敗しています（DNS・Gateway・TLS・アプリのいずれか）"
+      - eval_time: 70m
+        alertname: EndpointCertificateExpiring
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: endpoint-probe
+              target: blog
+            exp_annotations:
+              summary: "blog の証明書の期限が14日未満です"
+  - name: 結果が届かない
+    interval: 1m
+    input_series: []
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: EndpointProbeMissing
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: endpoint-probe
+            exp_annotations:
+              summary: "外形監視の結果が届いていません。Alloy と remote write を確認してください"
