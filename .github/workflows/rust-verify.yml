@@ -1,0 +1,91 @@
+# Rust アプリリポジトリから呼ぶ共通検証 workflow（docs/app-delivery.md）。
+# リポジトリの rust-toolchain.toml の版で fmt・clippy・cargo-audit を実行する。
+# 3つとも報告のみで、結果は job summary に出す。テストは各リポジトリの workflow が担当する。
+#
+# 呼び出し側の例:
+#   verify:
+#     uses: home-lab-ksera/home-lab-k8s/.github/workflows/rust-verify.yml@main
+#     with:
+#       apt_packages: pkg-config libdav1d-dev
+
+name: Rust verify
+
+on:
+  workflow_call:
+    inputs:
+      working_directory:
+        description: Cargo workspace のディレクトリ（リポジトリルートからの相対）
+        required: false
+        type: string
+        default: "."
+      apt_packages:
+        description: clippy のビルドに必要な apt パッケージ（空白区切り）。空なら導入しない
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ${{ inputs.working_directory }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Install the toolchain pinned by rust-toolchain.toml
+        run: |
+          test -f rust-toolchain.toml || { echo "::error::rust-toolchain.toml がありません"; exit 1; }
+          rustup toolchain install
+          rustup component add rustfmt clippy
+          rustc --version
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ inputs.working_directory }}
+
+      - name: Install build dependencies
+        if: inputs.apt_packages != ''
+        env:
+          APT_PACKAGES: ${{ inputs.apt_packages }}
+        run: |
+          sudo apt-get update
+          # shellcheck disable=SC2086
+          sudo apt-get install -y --no-install-recommends $APT_PACKAGES
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      - name: Run fmt, clippy and audit (report only)
+        run: |
+          report() {
+            name="$1"; shift
+            if "$@" > "$RUNNER_TEMP/$name.log" 2>&1; then
+              echo "- ✅ \`$name\`" >> "$GITHUB_STEP_SUMMARY"
+            else
+              echo "::warning::$name が問題を報告しました（報告のみ）"
+              {
+                echo "- ⚠️ \`$name\`"
+                echo
+                echo '<details><summary>出力（末尾 200 行）</summary>'
+                echo
+                echo '```'
+                tail -n 200 "$RUNNER_TEMP/$name.log"
+                echo '```'
+                echo
+                echo '</details>'
+              } >> "$GITHUB_STEP_SUMMARY"
+            fi
+          }
+          echo "### Rust verify（$(rustc --version)）" >> "$GITHUB_STEP_SUMMARY"
+          report fmt cargo fmt --all --check
+          report clippy cargo clippy --locked --all-targets -- -D warnings
+          report audit cargo audit
