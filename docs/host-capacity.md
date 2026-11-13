@@ -13,7 +13,7 @@ qemu プロセスがホスト swap へ追い出され、control-plane の応答�
 | k8s-control-plane | 2 / 5120 MiB | taint なし。kubelet drop-in で systemReserved 200m / 512Mi、evictionHard memory.available 300Mi |
 | k8s-worker2 | 4 / 8192 MiB | local-path の PV（PostgreSQL、Loki、Grafana、Alloy）を持つ |
 
-合計 6 vCPU / 13GiB。worker1 は停止して VM 定義とディスクを残している（切り戻し用）。
+合計 6 vCPU / 13GiB。worker1 の VM 定義とディスクは 2026-11-13 に削除した（共用のベースイメージ `ubuntu-base-*.img` は worker2 が使うため残す）。
 control-plane の kubelet drop-in は `/etc/kubernetes/kubelet.conf.d/50-control-plane-reserved.conf` に置き、
 `/etc/default/kubelet` の `--config-dir` で読み込む。`/var/lib/kubelet/config.yaml` は kubeadm upgrade で再生成されるため使わない。
 経緯は [全体最適化計画](../tasks/capacity-optimization-plan.md) の 15 節。

@@ -406,8 +406,7 @@ setup-integration（使い捨て VM で Terraform → kubeadm → 再起動ま�
 
 ### 残作業
 
-- worker1 の VM 定義とディスクは、1週間ほど問題がなければ `virsh undefine --remove-all-storage` で削除する。
-- ホストの `~/k8s_myHome`（旧リポジトリと stale な Terraform state）は使わない。次回 `make phase2` は home-lab-k8s から実行する。
+- 2026-11-13 に完了（17 節）。次回 `make phase2` は home-lab-k8s から実行する。
 
 ## 16. Phase 3 の実施記録（2026-11-12〜13）
 
@@ -449,3 +448,16 @@ setup-integration（使い捨て VM で Terraform → kubeadm → 再起動ま�
 - 読み込まれない `opnecode.jsonc` と、docs/secrets.md と重複する `automation/docs/external-secrets-README.md` を削除した。
 - アプリリポジトリでは、テスト workflow を publish からの `workflow_call` だけにして二重実行をなくし、ruleset の必須 check から単独実行分を外した。api-hub のログ文書・openapi.yaml、hitomi の `docker-*.sh`・compose・api-tests.yml、日付付きの調査記録、home-camera の `k8s/`、blog の hugo 設定と重複ビルド、RSSHub-private の他ホスティング・upstream 運営用ファイルを削除した。
 - RSSHub-private の CI は自作 route の範囲（lint・build・typecheck と image の build・smoke）に絞った（RSSHub-private#121）。upstream のテスト一式と Worker は upstream の CI に任せる。
+
+## 17. 1日後の確認と後片付け（2026-11-13）
+
+ホームラボは需要のピークがないため、1週間ではなく直近24h（ホストの sar と VictoriaMetrics）で判定した（#148）。
+
+- ホスト: available 最小 2.16GiB。swap 使用は 1.36→1.92GiB に増えたが、swap in/out は平均約 32KB/s で、使われていないページの退避にとどまる。CPU PSI は 9.1%。
+- CP: 実使用は CPU 0.47 core、memory 67%。Evicted 0、memory PSI 0。CPU PSI 約 20% は steal（4 コアに 6 vCPU）による。
+- ArgoCD controller は平均 35m。Gateway、backup、Image Updater の main への書き戻しは正常。
+- Renovate App は、8 リポジトリとも Dashboard が未作成のまま。
+- 確認中に、hitomi-monitor が AVIF 変換で cgroup OOM（約 522MB、上限 512Mi）になり、同じ作品で毎回止まっていることがわかった。memory limit を 1Gi に上げた（#155）。Pod の表示は exit 137 / Error で、30秒間隔の working set には現れない。
+- 復元試験: `restore-test.yaml` で repo1 から別クラスタへ復元し、5 DB のテーブル数と行数を本番と比べた。registry だけが -9 行（最後に archive された WAL 以降の書き込み分）で、他は一致した。試験クラスタは削除した。
+- 削除したもの: 旧 PV `pvc-6a622301-…`、試験用の PV 2つ、PV が参照していない NFS ディレクトリ 6つ（今回と 10月の試験の分、旧 PV の分、`harbor-pgo-migration-20261019`）、worker1 VM（ディスク 37GB）、ホストの `~/k8s_myHome`（旧 CA は現行 CA `ca-key-pair` と別物で未使用）。
+- 現行の内部 CA の鍵は、クラスタ内の Secret `cert-manager/ca-key-pair` にしかない。クラスタを作り直すと CA も作り直しになる。
