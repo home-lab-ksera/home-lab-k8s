@@ -6,7 +6,7 @@ VM・OS 準備はローカルスクリプトと Terraform、Kubernetes リソー
 ```mermaid
 flowchart TD
   Host[Ubuntu / KVM / libvirt] --> TF[Terraform / cloud-init / kubeadm]
-  TF --> K8s[control-plane 1台 + worker 2台 / Flannel]
+  TF --> K8s[control-plane 1台 + worker 1台 / Flannel]
   K8s --> Boot[bootstrap: ArgoCD / ESC token / root Application]
   Boot --> Argo[ArgoCD child Applications]
   Argo --> Infra[Storage / MetalLB / Gateway API / cert-manager]

@@ -26,8 +26,17 @@ packages:
   - net-tools
   - nfs-common
 
+# journal は既定でディスクの 10% まで増える。50〜60GiB のルートディスクでは数 GiB になるため上限を置く。
+write_files:
+  - path: /etc/systemd/journald.conf.d/50-size.conf
+    content: |
+      [Journal]
+      SystemMaxUse=500M
+
 # 基本設定のみ
 runcmd:
+  - systemctl restart systemd-journald
+
   # swap無効化
   - swapoff -a
   - sed -i '/ swap / s/^\(.*\)$/#\1/g' /etc/fstab
