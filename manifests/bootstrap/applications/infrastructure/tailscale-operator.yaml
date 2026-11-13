@@ -17,6 +17,10 @@ spec:
       values: |
         installCRDs: true
         operatorConfig:
+          resources:
+            requests:
+              cpu: 10m
+              memory: 64Mi
           defaultTags:
             - "tag:k8s-operator"
   destination:

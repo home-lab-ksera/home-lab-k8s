@@ -19,19 +19,20 @@ spec:
         # L2 のみを使用するため、0.16 系で既定になった BGP 用 FRR-K8s は起動しない。
         frrk8s:
           enabled: false
+        # requests は実測（controller 3m / 48Mi、speaker 7m / 28Mi）に合わせる。
         controller:
           resources:
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 25m
+              memory: 64Mi
             limits:
               cpu: 500m
               memory: 256Mi
         speaker:
           resources:
             requests:
-              cpu: 100m
-              memory: 128Mi
+              cpu: 25m
+              memory: 64Mi
             limits:
               cpu: 500m
               memory: 256Mi

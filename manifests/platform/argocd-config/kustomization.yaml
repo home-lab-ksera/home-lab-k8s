@@ -10,3 +10,4 @@ patches:
   - path: argocd-config.yaml
   - path: argocd-server-params.yaml
   - path: argocd-notifications.yaml
+  - path: argocd-resources.yaml

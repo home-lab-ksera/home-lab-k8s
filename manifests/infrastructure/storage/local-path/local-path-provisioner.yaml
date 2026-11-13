@@ -71,6 +71,10 @@ spec:
             - start
             - --config
             - /etc/config/config.json
+          resources:
+            requests:
+              cpu: 5m
+              memory: 32Mi
           volumeMounts:
             - name: config-volume
               mountPath: /etc/config/

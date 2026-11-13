@@ -26,6 +26,10 @@ spec:
           accessModes: ReadWriteOnce
           archiveOnDelete: true
         replicaCount: 1
+        resources:
+          requests:
+            cpu: 5m
+            memory: 32Mi
   destination:
     server: https://kubernetes.default.svc
     namespace: nfs-storage
