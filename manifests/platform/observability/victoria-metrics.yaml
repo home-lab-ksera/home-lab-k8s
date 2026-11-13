@@ -206,10 +206,18 @@ spec:
         app.kubernetes.io/name: victoria-metrics
     spec:
       serviceAccountName: victoria-metrics
+      # NFS 上の既存データが root 所有のため、実行ユーザーは root のまま権限だけ落とす。
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: victoria-metrics
           image: victoriametrics/victoria-metrics:v1.154.0
           imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
           args:
             - -storageDataPath=/storage
             - -retentionPeriod=30d

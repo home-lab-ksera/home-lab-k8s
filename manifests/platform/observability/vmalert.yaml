@@ -30,9 +30,21 @@ spec:
         app.kubernetes.io/name: vmalert
     spec:
       automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: vmalert
           image: victoriametrics/vmalert:v1.154.0
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
           args:
             - "-rule=/etc/vmalert/alert-rules.yaml"
             - "-rule=/etc/vmalert/workload-rules.yaml"
