@@ -110,7 +110,14 @@ spec:
         kubernetes:
           deployment:
             replicas: 1
-            container: {}
+            container:
+              resources:
+                limits:
+                  cpu: 1000m
+                  memory: 512Mi
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
           service:
             externalTrafficPolicy: Local
             loadBalancerIP: 192.168.122.100

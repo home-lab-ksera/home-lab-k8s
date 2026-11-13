@@ -26,13 +26,15 @@ spec:
               cpu: 500m
               memory: 256Mi
         nginx:
-          resources:
-            requests:
-              cpu: 100m
-              memory: 128Mi
-            limits:
-              cpu: 1000m
-              memory: 512Mi
+          # data plane の resources は nginx.container 配下。nginx.resources は chart が読まない。
+          container:
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+              limits:
+                cpu: 1000m
+                memory: 512Mi
           service:
             type: LoadBalancer
             loadBalancerIP: 192.168.122.100
