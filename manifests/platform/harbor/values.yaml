@@ -71,6 +71,7 @@ core:
   secretName: harbor-internal-secret
   existingXsrfSecret: harbor-internal-secret
   existingXsrfSecretKey: CSRF_KEY
+  priorityClassName: homelab-platform
   resources:
     requests:
       cpu: 50m
@@ -92,6 +93,7 @@ registry:
   existingSecret: harbor-internal-secret
   credentials:
     existingSecret: harbor-internal-secret
+  priorityClassName: homelab-platform
   registry:
     resources:
       requests:

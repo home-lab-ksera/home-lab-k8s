@@ -142,6 +142,7 @@ spec:
                 storage: 10Gi
             storageClassName: local-path
           name: main-local
+          priorityClassName: homelab-platform
           replicas: 1
           resources:
             limits:
