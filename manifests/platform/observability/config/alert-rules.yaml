@@ -48,6 +48,50 @@ groups:
           severity: warning
         annotations:
           summary: "Node {{ $labels.node }} のルートディスク容量を収集できません"
+  - name: home-lab-host
+    interval: 1m
+    rules:
+      # ホストは VM 2台の合計 13GiB を 15GiB の実メモリで支える。余裕がなくなると qemu が swap へ出て
+      # control-plane の応答が遅れる（docs/host-capacity.md）。
+      - alert: HostMetricsUnavailable
+        expr: up{job="host-node"} == 0 or absent(up{job="host-node"})
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ホストの node_exporter（192.168.122.1:9100）を収集できません"
+      - alert: HostMemoryLow
+        expr: node_memory_MemAvailable_bytes{job="host-node"} < 768 * 1024^2
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ホストの利用可能メモリが 768MiB 未満です。VM のメモリ宣言と swap を確認してください"
+      - alert: HostSwapThrashing
+        # 使われないページの退避（数十 KB/s）は正常。継続的な swap in / out だけを通知する。
+        expr: >-
+          (rate(node_vmstat_pswpin{job="host-node"}[10m]) + rate(node_vmstat_pswpout{job="host-node"}[10m])) > 500
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ホストで swap in / out が継続しています（毎秒 500 page 超）"
+      - alert: HostCPUPressure
+        expr: rate(node_pressure_cpu_waiting_seconds_total{job="host-node"}[10m]) > 0.25
+        for: 30m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ホストの CPU PSI（some）が 25% を超えています"
+      - alert: HostDiskSpaceLow
+        expr: >-
+          node_filesystem_avail_bytes{job="host-node",mountpoint="/"}
+          / node_filesystem_size_bytes{job="host-node",mountpoint="/"} < 0.15
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ホストのルートディスク空きが 15% 未満です（VM ディスクを含む）"
   - name: home-lab-state
     interval: 30s
     rules:
@@ -221,6 +265,17 @@ groups:
           severity: warning
         annotations:
           summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} のコンテナが再起動を繰り返しています"
+      # CronJob 由来の Job が失敗したら通知する。開始から6時間を過ぎた失敗は通知を止める。
+      - alert: KubernetesCronJobFailed
+        expr: >-
+          (kube_job_status_failed > 0)
+          * on(namespace, job_name) group_left(owner_name) kube_job_owner{owner_kind="CronJob"}
+          and on(namespace, job_name) (time() - kube_job_status_start_time < 6 * 3600)
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "CronJob {{ $labels.namespace }}/{{ $labels.owner_name }} の Job {{ $labels.job_name }} が失敗しました"
       - alert: KubernetesDeploymentUnavailable
         expr: >-
           kube_deployment_spec_replicas > kube_deployment_status_replicas_available
