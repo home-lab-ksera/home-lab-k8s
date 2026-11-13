@@ -46,6 +46,10 @@ Tailscale OIDC 接続 → Harbor へ push を行います。Docker イメージ�
 PR・手動実行は build と scan までで、公開は既定ブランチ（`github.event.repository.default_branch`）への push に限定します。
 OIDC token の `sub` は呼び出し側の repo / ref になるため、Tailscale の trust credential は従来の条件のままで使えます。
 共通 workflow は `@main` で参照するため、変更は全アプリの次回 publish に効きます。変更時は1リポジトリで公開を確認してから広げます。
+
+Rust のリポジトリは [rust-verify.yml](../.github/workflows/rust-verify.yml) も呼びます。
+リポジトリの `rust-toolchain.toml` の版で fmt・clippy・cargo-audit を実行し、結果を job summary に出します（報告のみ）。
+静的リンクの Rust バイナリは Trivy が依存関係を読めないため、依存の脆弱性は cargo-audit で確認します。
 [workflow 生成スクリプト](../automation/scripts/github-actions/add-runner.sh) はこの呼び出し側の雛形を生成します（`STRATEGY=latest` のみ）。
 
 [Image Updater](../manifests/platform/ci-cd/image-updater/sandbox-images.yaml) が約2分間隔で
