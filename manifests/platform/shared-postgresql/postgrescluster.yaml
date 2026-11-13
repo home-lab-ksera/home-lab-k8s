@@ -12,6 +12,7 @@ spec:
     # local-path はノード固定のため、2VM 化後も残る worker2 に置く。
     - name: main-local
       replicas: 1
+      priorityClassName: homelab-platform
       affinity:
         nodeAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:

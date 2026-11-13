@@ -1,0 +1,10 @@
+# 公開経路・DNS・DB・レジストリなど、他の workload が依存する基盤 Pod 用。
+# system-cluster-critical（2000000000）より低く、既定（0）より高い。
+# ノードが満杯のとき、scheduler はこの class の Pod のために既定優先度の Pod を退避できる。
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: homelab-platform
+value: 1000000
+globalDefault: false
+description: 他の workload が依存する基盤 Pod（Gateway、Split DNS、PostgreSQL、Harbor、Tailscale 経路）

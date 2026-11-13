@@ -17,6 +17,7 @@ spec:
     helm:
       values: |
         nginxGateway:
+          priorityClassName: homelab-platform
           resources:
             requests:
               cpu: 50m

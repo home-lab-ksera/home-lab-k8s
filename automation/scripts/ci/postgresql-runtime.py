@@ -61,6 +61,8 @@ class TestCluster:
         for instance in spec['instances']:
             # kind に本番のノード名はないため、ノード固定は外す。
             instance.pop('affinity', None)
+            # PriorityClass は manifests/core が配布する。kind にはないため外す。
+            instance.pop('priorityClassName', None)
             instance['dataVolumeClaimSpec']['storageClassName'] = 'standard'
             instance['dataVolumeClaimSpec']['resources']['requests']['storage'] = '1Gi'
         for repo in spec['backups']['pgbackrest']['repos']:
