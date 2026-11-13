@@ -90,9 +90,9 @@ VM サイズの根拠: 2VM 化後の常駐は CP 側に control-plane 2.3GiB＋A
 | 1-d | PostgreSQL を local-path へ移行（実施済み、[14](#14-postgresql-の-local-path-移行の実施記録2026-11-12)） | 移行直前の repo1 full backup 成功 | 新 instance set で稼働、旧 PVC は Retain で保持 | 旧 instance set へ switchover |
 | 2-a | Terraform の worker を `for_each` 化（実施済み、方針変更あり。[15](#15-2vm-化の実施記録2026-11-12)） | 1-a | `terraform plan` が No changes | 変更を revert |
 | 2-b | 2VM 化（CP 再サイズと untaint、worker1 drain・削除）（実施済み、[15](#15-2vm-化の実施記録2026-11-12)） | 2-a、repo1 の直近バックアップ成功 | 全 Application Healthy、ホスト MemAvailable 2GiB 以上 | worker1 を Terraform で再作成し再 join |
-| 3-a | 共通 publish workflow と trivy-action | 1-a | 8 リポジトリが共通 workflow を呼び、Harbor へ publish できる | 各リポジトリの旧 workflow へ戻す |
-| 3-b | Renovate preset の共通化 | 3-a | 9 リポジトリで PR が作成される | 各リポジトリの設定を削除 |
-| 3-c | branch 整理・保護、RSSHub-private の upstream 同期 | なし | 未マージ branch の判断記録、main の保護設定 | なし |
+| 3-a | 共通 publish workflow と trivy-action（実施済み、[16](#16-phase-3-の実施記録2026-11-1213)） | 1-a | 8 リポジトリが共通 workflow を呼び、Harbor へ publish できる | 各リポジトリの旧 workflow へ戻す |
+| 3-b | Renovate preset の共通化（実施済み、[16](#16-phase-3-の実施記録2026-11-1213)） | 3-a | 9 リポジトリで PR が作成される | 各リポジトリの設定を削除 |
+| 3-c | branch 整理・保護、RSSHub-private の upstream 同期（実施済み、[16](#16-phase-3-の実施記録2026-11-1213)） | なし | 未マージ branch の判断記録、main の保護設定 | なし |
 | 3-d | ドキュメント整理 | 2-b | docs/ が現行構成のみを記述し、旧手順の README を撤去 | なし |
 
 Phase 0 は無停止、Phase 1 は Pod 単位の再起動、Phase 2 は control-plane の停止（VM 再起動、数分）を伴う。
@@ -409,4 +409,33 @@ setup-integration（使い捨て VM で Terraform → kubeadm → 再起動ま�
 
 - worker1 の VM 定義とディスクは、1週間ほど問題がなければ `virsh undefine --remove-all-storage` で削除する。
 - ホストの `~/k8s_myHome`（旧リポジトリと stale な Terraform state）は使わない。次回 `make phase2` は home-lab-k8s から実行する。
+
+## 16. Phase 3 の実施記録（2026-11-12〜13）
+
+### 3-a 共通 publish workflow
+
+- [publish-harbor.yml](../.github/workflows/publish-harbor.yml)（`workflow_call`）を追加（#149、#150）。buildx + GitHub Actions cache、任意の test target・smoke・build args、Trivy（報告のみ）、既定ブランチへの push のみ Tailscale OIDC で公開。
+- 8 リポジトリの公開 workflow を呼び出し側（テスト job + `uses:`）へ置換。nature-remo で公開を確認してから残り 7 つへ広げた。全リポジトリで versioned tag の push・digest 検証・latest 昇格が成功し、Tailscale の trust credential は変更不要だった。
+- hitomi-pdf-batch / viewer は再ビルドで同じ digest になり配布なし。cooklog-slack は Harbor 保守の `preserved-by-config` で従来から自動配布の対象外。
+
+### 3-b Renovate
+
+- 共通 preset [.github/renovate/app.json](../.github/renovate/app.json)（#151）。週1回、major 以外を1 PR に集約、major は Dashboard 承認。
+- 実行は Mend Renovate App。8 アプリリポジトリに preset を参照する `renovate.json` を追加。home-lab-k8s は従来の self-hosted workflow（App の対象から外す）。
+- RSSHub-private は Dockerfile のみ。npm は upstream 取り込みで更新する。
+
+### 3-c branch・保護・upstream 同期
+
+- PR が merged の remote branch 31本、PR のない未使用 branch 3本（api-hub `codex/api-hub-quality-hardening`・`test-runner`、RSSHub-private `gh-pages`）を削除。hitomi の 2025-07 からの dependabot PR 4件を閉じた。
+- public 5 リポジトリの既定ブランチに ruleset `default-branch`（PR 必須・CI 必須・force push と削除の禁止、admin は PR 経由のみ bypass、home-lab-k8s は Image Updater の deploy key を bypass）。private 4 リポジトリは無料プランのため設定不可。
+  ruleset 下で Image Updater の書き戻し（2026-11-13 01:30 UTC）が成功した。
+- RSSHub-private に upstream 2362 commit を merge commit で取り込み（RSSHub-private#120）。Dockerfile / package.json / pnpm-lock.yaml は upstream 版（Node 26・pnpm 12）、削除済みの upstream workflow・nix は削除を維持。
+  配布後、自作 route 7 件（Playwright 利用の 2 件を含む）が本番 Pod で応答することを確認した。
+- 週次同期 `upstream-sync.yml`（月曜 05:00 JST）を追加。衝突がなければ `sync/upstream` から PR、内容の衝突は Issue で通知。**`SYNC_TOKEN`（fine-grained token、RSSHub-private の contents / pull-requests / issues / workflows 書き込み）の登録が必要**。
+  同期 PR は upstream の履歴を残すため squash せず merge commit でマージする。
+- dependabot の npm 更新を止め、npm / nix の PR 50件を閉じた。GitHub Actions の更新は dependabot が継続。
+
+### 残り
+
+- 3-d ドキュメント整理。
 
