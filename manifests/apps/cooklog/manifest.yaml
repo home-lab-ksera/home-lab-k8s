@@ -17,6 +17,11 @@ spec:
         app: cooklog
     spec:
       restartPolicy: Always
+      # 非 root のコンテナが 80 番で待ち受けられるようにする（safe sysctl）。
+      securityContext:
+        sysctls:
+          - name: net.ipv4.ip_unprivileged_port_start
+            value: "0"
       imagePullSecrets:
         - name: harbor-registry
       containers:
