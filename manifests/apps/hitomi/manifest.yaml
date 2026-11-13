@@ -110,6 +110,14 @@ spec:
           - name: hitomi-monitor
             image: harbor.qroksera.com/sandbox/hitomi:latest
             imagePullPolicy: Always
+            # イメージは distroless の nonroot。Selenium sidecar は対象外（Chrome の要件を変えない）。
+            securityContext:
+              runAsNonRoot: true
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop: [ALL]
+              seccompProfile:
+                type: RuntimeDefault
             resources:
               requests:
                 cpu: 100m
