@@ -146,7 +146,6 @@ Tailscale 側では次の前提が必要です。
 
 生成 workflow は `harbor.internal.qroksera.com` を上記 IP に解決し、TLS 証明書を検証して接続します。
 Tailscale Action は SHA を固定し、終了時に一時端末をログアウトします。Docker 認証ファイルも終了時に削除します。
-runner group / ScaleSet の追加は不要です。
 
 新規アプリを自動更新するには [sandbox-images.yaml](../manifests/platform/ci-cd/image-updater/sandbox-images.yaml) に
 Application 名とイメージを登録し、対象 Kustomization に `images` エントリを追加します。

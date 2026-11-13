@@ -11,5 +11,9 @@
 - [2026-10-28 失敗キューの整理](failure-cleanup-20261028.md)
 - [2026-10-28 Harbor 3世代保持の反映記録](harbor-retention-20261028.md)
 - [2026-11-04 media・cameraアラート対応](alert-remediation-20261104.md)
+- [2026-10-29 media 一時ディスクの本番反映](media-storage-20261029.md)
+- [2026-10-30 worker ディスク拡張](worker-disk-20261030.md)
+- [2026-10-21 kubelet serving 証明書への移行](kubelet-metrics-20261021.md)
+- [2026-11-10 VM 縮小（3VM 構成時）](host-capacity-20261110.md)
 
 現在の運用は [ドキュメント入口](../README.md)、計画・意思決定は [tasks/](../../tasks/) を参照してください。
