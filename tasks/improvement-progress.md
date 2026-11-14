@@ -2,7 +2,7 @@
 
 対象: [全体改善計画](improvement-plan.md)
 
-最終更新: 2026-11-14
+最終更新: 2026-11-15
 
 状態の値: `未着手` / `進行中` / `確認待ち`（反映済みで完了条件の確認前） / `完了` / `保留`（判断または前提待ち） / `取り下げ`
 
@@ -16,7 +16,8 @@
 | D セキュリティ設定と調査 | 10 | 10 | 0 | 0 | 0 | 0 |
 | E アプリ整理 | 3 | 2 | 0 | 0 | 0 | 1 |
 | F 長期 | 2 | 0 | 0 | 0 | 2 | 0 |
-| 合計 | 33 | 28 | 0 | 0 | 4 | 1 |
+| G 追加の最適化（2026-11-15） | 4 | 4 | 0 | 0 | 0 | 0 |
+| 合計 | 37 | 32 | 0 | 0 | 4 | 1 |
 
 保留の 4 件は、Renovate の経過観察（B-1）と OCI 関連（C-6、F-1、F-2）。
 
@@ -102,6 +103,26 @@ hitomi は `cargo build --no-default-features` が通らない（`image` の fea
 | F-1 | OCI 継続か RAM 増設か | 判断 | 保留 | 判断 2 | | OCI は当面扱わない。RAM 増設は今はできない |
 | F-2 | OCI 計画 Phase 0 | 調査 | 保留 | | | |
 
+### Phase G（2026-11-15 に追加）
+
+計画書にはない項目。全項目の完了後の再点検で挙げ、同日に実施した。
+
+| ID | 内容 | 担当 | 状態 | PR / 記録 | 完了日 | メモ |
+|---|---|---|---|---|---|---|
+| G-1 | ExternalSecret の更新間隔を延ばす | GitOps | 完了 | #177 | 2026-11-15 | 20 件を 20 秒 / 1 分 → 1 時間。全件 Ready を確認。即時反映は `force-sync`（docs/secrets.md） |
+| G-2 | アプリの requests を 7 日間の実測に合わせる | GitOps | 完了 | #176 | 2026-11-15 | api-hub・media-api・hitomi-outbox・camera uploader は下げ、不足していた media-worker（実測 378Mi / 248m）と camera recorder（実測 451Mi、上限 512Mi → 768Mi）は上げた。合計は CPU -55m、メモリ -112Mi でほぼ中立。録画中の再起動で破損 segment が残らないことも確認 |
+| G-3 | control-plane 証明書の期限アラート | GitOps | 完了 | #178 | 2026-11-15 | 外形監視に API サーバーの `/livez` を追加し、`ControlPlaneCertificateExpiring`（45 日未満）。実測の残り 174.8 日（期限 2027-05-08） |
+| G-4 | ホストの再起動待ち・更新滞留のアラート | GitOps | 完了 | #178 | 2026-11-15 | `HostRebootRequired`、`HostSecurityUpdatesPending`（各 7 日）。反映時点で再起動待ちなし、セキュリティ更新 8 件が保留（7 日続けば通知） |
+
+再点検で挙げて未実施のもの（判断待ち。優先順）:
+
+1. worker2 のメモリを 8GiB → 7GiB、または ホスト swap を zram にする。ホストの swap は再起動から 1 日で 2.3GiB に戻った。
+2. vCPU を 6 → 5（worker2 を 3 vCPU）にする。control-plane の CPU 待ち約 20% は 4 コアに 6 vCPU を割り当てていることによる。
+3. HDD（H/W RAID1）の状態監視。片側の故障に気づく手段がない。
+4. VictoriaMetrics を NFS から VM のローカルディスクへ移し、非 root にする。
+5. default-deny の NetworkPolicy がない namespace（observability、cert-manager、external-secrets-system、nginx-gateway、tailscale）。
+6. media の失敗分類: 配信元による途中切断が `unknown` になる。asset 31564 がこの理由で再試行中（2026-11-15 01:08 JST から `ApplicationUnreviewedFailure`）。
+
 ## 残作業（次に行うこと）
 
 | 順 | 内容 | 担当 |
@@ -182,3 +203,4 @@ Pod 生成は 1 時間に 13 回、各 4〜9 秒で終わる。クラスタ全�
 | 2026-11-14 | A-6 完了（docker 停止）。B-1 は経過観察（判断 9）。hitomi-monitor の実行成功を確認 |
 | 2026-11-14 | B-2、B-6 完了（hitomi の rustls 0.23 移行、checkout v6） |
 | 2026-11-14 | B-5、E-1、判断 4・6・7・8・10 を完了。D-8〜D-10 を追加。監査ポリシーを反映 |
+| 2026-11-15 | Phase G（G-1〜G-4）を追加して実施。未実施の候補 6 件を記録 |
