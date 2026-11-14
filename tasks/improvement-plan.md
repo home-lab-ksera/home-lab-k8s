@@ -2,7 +2,7 @@
 
 作成日: 2026-11-14
 
-状態: 計画。未着手。進行状況は [進行状況管理票](improvement-progress.md) で管理する。
+状態: 2026-11-14 に Phase A〜D の大半を実施。進行状況・残作業・判断待ちは [進行状況管理票](improvement-progress.md) で管理する。
 
 [全体最適化計画](capacity-optimization-plan.md)（Phase 0〜3 実施済み）の後続。容量の削減は完了しており、
 本計画は 2026-11-14 のレビューで見つかった残課題を扱う。[OCI単一クラスタ計画](oci-single-cluster-plan.md) は置き換えない。
@@ -71,6 +71,7 @@ A-5 は SSH が Wi-Fi 経由のため、wpa_supplicant / NetworkManager には�
 | B-3 | Rust 4 リポジトリに `rust-toolchain.toml` を置き Dockerfile と同じ版にする。CI は `@stable` をやめてこのファイルに従う | 各アプリの PR | テストとイメージのコンパイラ版が一致 | PR revert |
 | B-4 | home-lab-k8s に共通 Rust 検証 workflow（fmt、clippy、test、cargo-audit）を `workflow_call` で追加し、4 リポジトリから呼ぶ。clippy と audit は報告のみで開始 | GitOps + 各アプリの PR | 4 リポジトリで実行され、結果が summary に出る | 呼び出しを外す |
 | B-5 | B-4 の結果を見て、audit をゲート化するか決める | 判断 | 判断を管理票に記録 | - |
+| B-6 | B-4 が報告した脆弱性・clippy・fmt の指摘を解消する（2026-11-14 追加）。semver 互換の更新は lockfile、reqwest 0.11 / rustls 0.21 系は major 更新で対応 | 各アプリの PR | cargo-audit の指摘が、ビルドに含まれない sqlx の未使用 backend と推移的な警告だけになる | PR revert |
 
 ### Phase C: 監視範囲とディスク（2〜3週目）
 
