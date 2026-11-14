@@ -77,6 +77,9 @@ spec:
   failedJobsHistoryLimit: 3
   jobTemplate:
     spec:
+      # 失敗した Job が古い image digest を持ったまま残ると、Image Updater が更新を繰り返し試みる。
+      # 1日で消す（ログは Loki に残る）。
+      ttlSecondsAfterFinished: 86400
       activeDeadlineSeconds: 7200
       backoffLimit: 0
       template:
