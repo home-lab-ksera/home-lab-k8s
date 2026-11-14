@@ -89,13 +89,14 @@ spec:
           value: '3600'
         - name: SPOOL_MAX_BYTES
           value: '85899345920'
+        # 7日間の実測: メモリ最大 451Mi（上限 512Mi に近かった）、CPU p99 15m。
         resources:
           requests:
             cpu: 50m
-            memory: 128Mi
+            memory: 256Mi
           limits:
             cpu: '1'
-            memory: 512Mi
+            memory: 768Mi
         securityContext:
           allowPrivilegeEscalation: false
           readOnlyRootFilesystem: true
@@ -143,10 +144,11 @@ spec:
           value: veryfast
         - name: FFMPEG_CRF
           value: '23'
+        # 7日間の実測: メモリ最大 7Mi、CPU p99 10m。
         resources:
           requests:
-            cpu: 50m
-            memory: 128Mi
+            cpu: 25m
+            memory: 32Mi
           limits:
             cpu: 300m
             memory: 512Mi
