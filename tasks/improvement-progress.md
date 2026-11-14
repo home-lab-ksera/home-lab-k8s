@@ -11,12 +11,12 @@
 | Phase | 項目数 | 完了 | 進行中・確認待ち | 未着手 | 保留 |
 |---|---:|---:|---:|---:|---:|
 | A 重要 Pod の保護とホスト | 6 | 6 | 0 | 0 | 0 |
-| B 依存更新と CI | 6 | 2 | 2 | 0 | 2 |
+| B 依存更新と CI | 6 | 4 | 0 | 0 | 2 |
 | C 監視範囲とディスク | 6 | 5 | 0 | 0 | 1 |
 | D セキュリティ設定と調査 | 7 | 7 | 0 | 0 | 0 |
 | E アプリ整理 | 3 | 0 | 0 | 1 | 2 |
 | F 長期 | 2 | 0 | 0 | 0 | 2 |
-| 合計 | 30 | 20 | 2 | 1 | 7 |
+| 合計 | 30 | 22 | 0 | 1 | 7 |
 
 ## 項目
 
@@ -36,19 +36,19 @@
 | ID | 内容 | 担当 | 状態 | PR / 記録 | 完了日 | メモ |
 |---|---|---|---|---|---|---|
 | B-1 | Renovate App の対象確認と Dashboard | 管理者 | 保留 | 判断 9 | | 導入から 2 日のため経過を見る。次回の再測定時に Dashboard の有無を確認する |
-| B-2 | 既知の遅れを解消 | 各アプリ | 進行中 | 下表 | | Node / nginx / go は解消。api-hub・hitomi・home-camera のテスト workflow の `actions/checkout@v4` が残る |
+| B-2 | 既知の遅れを解消 | 各アプリ | 完了 | 下表 | 2026-11-14 | Node / nginx / go / `actions/checkout` を解消 |
 | B-3 | `rust-toolchain.toml` の統一 | 各アプリ | 完了 | 下表 | 2026-11-14 | 4 リポジトリとも 1.99.1。テストは `@stable` をやめこの版で実行 |
 | B-4 | 共通 Rust 検証 workflow | GitOps + 各アプリ | 完了 | #159、#164、下表 | 2026-11-14 | fmt・clippy・cargo-audit（報告のみ）。指摘は job summary と job ログに出る |
-| B-5 | audit のゲート化判断 | 判断 | 保留 | 判断 4 | | B-6 で hitomi の指摘が解消してから決める |
-| B-6 | cargo-audit / clippy の指摘解消（B-4 の結果で追加） | 各アプリ | 進行中 | 下表 | | hitomi が残る。rustls 0.21 → 0.23 と tokio-rustls の移行が必要で、`dangerous_configuration` を使う `src/util/http_client.rs` の書き換えを伴う |
+| B-5 | audit のゲート化判断 | 判断 | 保留 | 判断 4 | | 4 リポジトリとも、残る指摘は下記の対処不要分だけになった。ゲート化するなら、その分を無視リスト（`.cargo/audit.toml`）に入れる必要がある |
+| B-6 | cargo-audit / clippy の指摘解消（B-4 の結果で追加） | 各アプリ | 完了 | 下表 | 2026-11-14 | 4 リポジトリとも fmt・clippy は指摘なし。audit は対処不要分のみ |
 
 リポジトリ別。対象外は `-`。
 
 | リポジトリ | B-1 Dashboard | B-2 遅れ解消 | B-3 toolchain | B-4 共通検証 | B-6 指摘解消 |
 |---|---|---|---|---|---|
-| api-hub | 未 | checkout が残る | 済（#19） | 済（#19） | 済（#20、rustls 系の更新、clippy 7 件、fmt） |
-| hitomi | 未 | checkout が残る | 済（#35、1.88.0 → 1.99.1） | 済（#35） | 未。脆弱性 8 件（rustls 0.21 系）、clippy 6 件 |
-| home-camera | 未 | checkout が残る | 済（#15） | 済（#15） | 済（#16、reqwest 0.12） |
+| api-hub | 未 | 済（#21） | 済（#19） | 済（#19） | 済（#20、rustls 系の更新、clippy 7 件、fmt） |
+| hitomi | 未 | 済（#36） | 済（#35、1.88.0 → 1.99.1） | 済（#35） | 済（#36、rustls 0.21 → 0.23、clippy 6 件）。実際の HTTPS 先で、正しい証明書の受理と自己署名・ホスト名違い・期限切れの拒否を確認 |
+| home-camera | 未 | 済（#17） | 済（#15） | 済（#15） | 済（#16、reqwest 0.12） |
 | hitomi-pdf-batch | 未 | 済（#15） | 済（#14） | 済（#14） | 済（#16、reqwest 0.12、quick-xml 0.41） |
 | nature-remo | 未 | 済（#4、`go 1.26`） | - | - | - |
 | blog | 未 | 済（#5、Node 26・nginx 1.30） | - | - | - |
@@ -56,7 +56,8 @@
 | RSSHub-private | 未 | - | - | - | - |
 
 cargo-audit に残る指摘（対処不要と判断したもの）: `libsqlite3-sys` と `rsa` は sqlx の未使用 backend が lockfile に載るだけでビルドに含まれない。
-`rand` の unsound 警告は推移的依存。
+`rand` の unsound 警告と `paste` の unmaintained 警告（hitomi）は推移的依存。
+hitomi は `cargo build --no-default-features` が通らない（`image` の feature 分岐が不完全）。既定の feature では問題なく、今回は扱っていない。
 
 ### Phase C
 
@@ -104,7 +105,7 @@ cargo-audit に残る指摘（対処不要と判断したもの）: `libsqlite3-
 | 2 | api-hub の `check-stream-memory.py` が手動実行で 1 回失敗（`memory grew with fixture size`）。同じコードの PR と push の実行は成功しており、不安定なテストとして原因を確認する | - |
 | 3 | Renovate の Dashboard が作られたかを次回の再測定時に確認（B-1） | - |
 | 4 | （完了）ホストの docker 停止 | 管理者 |
-| 5 | hitomi の rustls 0.23 移行（B-6） | - |
+| 5 | （完了）hitomi の rustls 0.23 移行 | - |
 | 6 | 判断 4・6・7・8 | 判断 |
 | 7 | 巨大ファイルの分割（E-1） | - |
 
@@ -170,3 +171,4 @@ Pod 生成は 1 時間に 13 回、各 4〜9 秒で終わる。クラスタ全�
 | 2026-11-14 | OCI 関連（C-6、F-1、F-2）を当面扱わないと決定。C-4 / C-5 は VM 内 sudo で実行できるため担当を修正 |
 | 2026-11-14 | Phase A〜D を実施。B-6、D-7 を追加。調査結果・障害記録・判断 6〜8 を追記 |
 | 2026-11-14 | A-6 完了（docker 停止）。B-1 は経過観察（判断 9）。hitomi-monitor の実行成功を確認 |
+| 2026-11-14 | B-2、B-6 完了（hitomi の rustls 0.23 移行、checkout v6） |
