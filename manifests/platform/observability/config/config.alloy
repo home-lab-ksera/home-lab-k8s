@@ -57,7 +57,9 @@ loki.write "local" {
 // 外形の疎通監視。クラスタ内 DNS → Gateway（TLS）→ 各アプリの応答と、Tailnet 向け Split DNS を1分ごとに確認する。
 // 常駐 Pod を増やさないよう、Alloy 内蔵の blackbox exporter を使う。
 prometheus.exporter.blackbox "endpoints" {
-  config = "{ modules: { http_2xx: { prober: http, timeout: 10s }, dns_split: { prober: dns, timeout: 5s, dns: { query_name: blog.internal.qroksera.com, query_type: A } } } }"
+  // http_2xx_cluster_ca は API サーバー用。証明書はクラスタ CA の発行で公開 CA では検証できないため、
+  // 検証を省いて応答と証明書の期限だけを見る。
+  config = "{ modules: { http_2xx: { prober: http, timeout: 10s }, http_2xx_cluster_ca: { prober: http, timeout: 10s, http: { tls_config: { insecure_skip_verify: true } } }, dns_split: { prober: dns, timeout: 5s, dns: { query_name: blog.internal.qroksera.com, query_type: A } } } }"
 
   target {
     name    = "argocd"
@@ -98,6 +100,12 @@ prometheus.exporter.blackbox "endpoints" {
     name    = "hitomi-upload-viewer"
     address = "https://hitomi-upload-viewer.internal.qroksera.com/health"
     module  = "http_2xx"
+  }
+  // kubeadm が発行する control-plane 証明書の期限を見る。/livez は匿名で取得できる。
+  target {
+    name    = "kube-apiserver"
+    address = "https://kubernetes.default.svc/livez"
+    module  = "http_2xx_cluster_ca"
   }
   target {
     name    = "split-dns"

@@ -85,7 +85,7 @@ data:
             regex: 'container_fs_(limit|usage)_bytes;/;/dev/vda1'
 
       # VM を載せるホスト（ksera-T100）の node_exporter。VM サブネット側の 9100 のみ ufw で許可している。
-      # メモリ・swap・PSI・CPU・ルートディスクだけを保存する。
+      # メモリ・swap・PSI・CPU・ルートディスク・再起動待ち・保留中の更新数だけを保存する。
       - job_name: host-node
         scrape_interval: 60s
         static_configs:
@@ -96,7 +96,7 @@ data:
         metric_relabel_configs:
           - source_labels: [__name__]
             action: keep
-            regex: 'node_memory_(MemTotal|MemAvailable|SwapTotal|SwapFree)_bytes|node_vmstat_pswp(in|out)|node_pressure_.+|node_cpu_seconds_total|node_load1|node_filesystem_(size|avail)_bytes|node_boot_time_seconds'
+            regex: 'node_memory_(MemTotal|MemAvailable|SwapTotal|SwapFree)_bytes|node_vmstat_pswp(in|out)|node_pressure_.+|node_cpu_seconds_total|node_load1|node_filesystem_(size|avail)_bytes|node_boot_time_seconds|node_reboot_required|apt_upgrades_pending'
           - source_labels: [__name__, mountpoint]
             action: drop
             regex: 'node_filesystem_.+;(/boot/efi|/tmp)'

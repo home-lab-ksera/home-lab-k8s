@@ -83,6 +83,22 @@ groups:
           severity: warning
         annotations:
           summary: "ホストの CPU PSI（some）が 25% を超えています"
+      # unattended-upgrades が入れた kernel などは再起動まで有効にならない。
+      - alert: HostRebootRequired
+        expr: node_reboot_required{job="host-node"} == 1
+        for: 7d
+        labels:
+          severity: warning
+        annotations:
+          summary: "ホストが7日以上、再起動待ちです（更新済みの kernel などが未反映）"
+      # セキュリティ更新は unattended-upgrades が毎日入れる。7日残るのは自動更新の停止。
+      - alert: HostSecurityUpdatesPending
+        expr: sum(apt_upgrades_pending{job="host-node",origin=~".*-security.*"}) > 0
+        for: 7d
+        labels:
+          severity: warning
+        annotations:
+          summary: "ホストにセキュリティ更新が7日以上残っています。unattended-upgrades を確認してください"
       - alert: HostDiskSpaceLow
         expr: >-
           node_filesystem_avail_bytes{job="host-node",mountpoint="/"}
@@ -112,12 +128,24 @@ groups:
           summary: "外形監視の結果が届いていません。Alloy と remote write を確認してください"
       # cert-manager は期限の30日前に更新する。14日を切るのは更新失敗。
       - alert: EndpointCertificateExpiring
-        expr: probe_ssl_earliest_cert_expiry{job="endpoint-probe"} - time() < 14 * 86400
+        expr: probe_ssl_earliest_cert_expiry{job="endpoint-probe",target!="kube-apiserver"} - time() < 14 * 86400
         for: 1h
         labels:
           severity: warning
         annotations:
           summary: "{{ $labels.target }} の証明書の期限が14日未満です"
+  - name: home-lab-control-plane
+    interval: 5m
+    rules:
+      # kubeadm の証明書は1年有効で、kubeadm upgrade のときに更新される。更新しないまま期限が来ると API が止まる。
+      # API サーバーの証明書は他の control-plane 証明書と同時に発行されるため、代表として見る。
+      - alert: ControlPlaneCertificateExpiring
+        expr: probe_ssl_earliest_cert_expiry{job="endpoint-probe",target="kube-apiserver"} - time() < 45 * 86400
+        for: 1h
+        labels:
+          severity: warning
+        annotations:
+          summary: "control-plane の証明書の期限が45日未満です。kubeadm upgrade か kubeadm certs renew all を実施してください"
   - name: home-lab-state
     interval: 30s
     rules:
