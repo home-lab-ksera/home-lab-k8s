@@ -10,13 +10,13 @@
 
 | Phase | 項目数 | 完了 | 進行中・確認待ち | 未着手 | 保留 |
 |---|---:|---:|---:|---:|---:|
-| A 重要 Pod の保護とホスト | 6 | 5 | 1 | 0 | 0 |
-| B 依存更新と CI | 6 | 2 | 2 | 1 | 1 |
+| A 重要 Pod の保護とホスト | 6 | 6 | 0 | 0 | 0 |
+| B 依存更新と CI | 6 | 2 | 2 | 0 | 2 |
 | C 監視範囲とディスク | 6 | 5 | 0 | 0 | 1 |
 | D セキュリティ設定と調査 | 7 | 7 | 0 | 0 | 0 |
 | E アプリ整理 | 3 | 0 | 0 | 1 | 2 |
 | F 長期 | 2 | 0 | 0 | 0 | 2 |
-| 合計 | 30 | 19 | 3 | 2 | 6 |
+| 合計 | 30 | 20 | 2 | 1 | 7 |
 
 ## 項目
 
@@ -29,13 +29,13 @@
 | A-3 | control-plane の requests 削減、CoreDNS の配置 | GitOps | 完了 | #161 | 2026-11-14 | CPU requests 93% → 75%。CoreDNS は `rollout restart` で 2 ノードへ分散（Git 変更なし。kubeadm 管理） |
 | A-4 | NFS export を VM サブネットに限定 | 管理者 | 完了 | ホスト作業 | 2026-11-14 | export は `nfs-share 192.168.122.0/24` の 1 行。作業中に export が 0 件になり NFS 依存 Pod が停止（「障害記録」） |
 | A-5 | ホスト再起動 | 管理者 | 完了 | ホスト作業 | 2026-11-14 | kernel 7.0.0-43。両 VM は autostart で復帰 |
-| A-6 | kubectl 1.36、不要サービス停止 | 管理者 | 進行中 | ホスト作業 | | kubectl 1.36.0 と fwupd 停止は完了。docker（未使用）と snapd は稼働中 |
+| A-6 | kubectl 1.36、不要サービス停止 | 管理者 | 完了 | ホスト作業 | 2026-11-14 | kubectl 1.36.0、fwupd と docker を停止・無効化。snapd はデスクトップ用 snap を管理しているため稼働のまま |
 
 ### Phase B
 
 | ID | 内容 | 担当 | 状態 | PR / 記録 | 完了日 | メモ |
 |---|---|---|---|---|---|---|
-| B-1 | Renovate App の対象確認と Dashboard | 管理者 | 未着手 | | | GitHub の App 設定（Organization → Installed GitHub Apps → Renovate）で 8 リポジトリを対象に入れる |
+| B-1 | Renovate App の対象確認と Dashboard | 管理者 | 保留 | 判断 9 | | 導入から 2 日のため経過を見る。次回の再測定時に Dashboard の有無を確認する |
 | B-2 | 既知の遅れを解消 | 各アプリ | 進行中 | 下表 | | Node / nginx / go は解消。api-hub・hitomi・home-camera のテスト workflow の `actions/checkout@v4` が残る |
 | B-3 | `rust-toolchain.toml` の統一 | 各アプリ | 完了 | 下表 | 2026-11-14 | 4 リポジトリとも 1.99.1。テストは `@stable` をやめこの版で実行 |
 | B-4 | 共通 Rust 検証 workflow | GitOps + 各アプリ | 完了 | #159、#164、下表 | 2026-11-14 | fmt・clippy・cargo-audit（報告のみ）。指摘は job summary と job ログに出る |
@@ -73,7 +73,7 @@ cargo-audit に残る指摘（対処不要と判断したもの）: `libsqlite3-
 
 | ID | 内容 | 担当 | 状態 | PR / 記録 | 完了日 | メモ |
 |---|---|---|---|---|---|---|
-| D-1 | sandbox 4 Pod の securityContext | GitOps + アプリ | 完了 | #163、#167、#168、blog#5、cookLog#6、hitomi-pdf-batch#15 | 2026-11-14 | blog / cooklog は uid 101・読み取り専用 rootfs、viewer は uid 65532 で稼働を確認。hitomi-monitor は CronJob への反映まで確認し、新設定での初回実行は 14:55 JST。Selenium sidecar は対象外のため `sandbox` は baseline のまま |
+| D-1 | sandbox 4 Pod の securityContext | GitOps + アプリ | 完了 | #163、#167、#168、blog#5、cookLog#6、hitomi-pdf-batch#15 | 2026-11-14 | blog / cooklog は uid 101・読み取り専用 rootfs、viewer は uid 65532 で稼働を確認。hitomi-monitor は新しい権限設定の定期実行（18:55 JST）が成功。Selenium sidecar は対象外のため `sandbox` は baseline のまま |
 | D-2 | 監視 4 Pod の securityContext | GitOps | 完了 | #165 | 2026-11-14 | VictoriaMetrics は NFS 上のデータが root 所有のため root のまま権限だけ落とした。`observability` は baseline のまま |
 | D-3 | 3 namespace に PSA ラベル | GitOps | 完了 | #160 | 2026-11-14 | local-path-storage privileged、nfs-storage baseline、postgres-operator restricted |
 | D-4 | kube-apiserver メモリの調査 | 調査 | 完了 | 下の「調査結果」 | 2026-11-14 | 対処は判断 6・7 |
@@ -100,10 +100,10 @@ cargo-audit に残る指摘（対処不要と判断したもの）: `libsqlite3-
 
 | 順 | 内容 | 担当 |
 |---|---|---|
-| 1 | hitomi-monitor が新しい権限設定で成功することを確認（D-1。14:55 JST の定期実行。失敗時は `KubernetesCronJobFailed` が通知する） | - |
+| 1 | （完了）hitomi-monitor は新しい権限設定で成功 | - |
 | 2 | api-hub の `check-stream-memory.py` が手動実行で 1 回失敗（`memory grew with fixture size`）。同じコードの PR と push の実行は成功しており、不安定なテストとして原因を確認する | - |
-| 3 | Renovate App の対象リポジトリ設定（B-1） | 管理者 |
-| 4 | ホストの docker / snapd 停止（A-6）: `sudo systemctl disable --now docker docker.socket`。snapd はデスクトップを使わない場合のみ | 管理者 |
+| 3 | Renovate の Dashboard が作られたかを次回の再測定時に確認（B-1） | - |
+| 4 | （完了）ホストの docker 停止 | 管理者 |
 | 5 | hitomi の rustls 0.23 移行（B-6） | - |
 | 6 | 判断 4・6・7・8 | 判断 |
 | 7 | 巨大ファイルの分割（E-1） | - |
@@ -148,6 +148,7 @@ Pod 生成は 1 時間に 13 回、各 4〜9 秒で終わる。クラスタ全�
 | 6 | 監査ポリシーの絞り込み（D-4） | 現状維持 / 読み取りと lease を除外 | 未決 | |
 | 7 | Alloy のログ収集方式（D-4） | 現状維持（API 経由） / DaemonSet でファイルを読む | 未決 | |
 | 8 | `failures.rs` の共通化（E-2） | 現状維持 / 共通 crate に切り出す | 未決 | |
+| 9 | Renovate が PR を作らない件（B-1） | App の対象を確認 / 経過を見る | 導入 2 日のため経過を見る | 2026-11-14 |
 
 ## 再測定
 
@@ -168,3 +169,4 @@ Pod 生成は 1 時間に 13 回、各 4〜9 秒で終わる。クラスタ全�
 | 2026-11-14 | 作成 |
 | 2026-11-14 | OCI 関連（C-6、F-1、F-2）を当面扱わないと決定。C-4 / C-5 は VM 内 sudo で実行できるため担当を修正 |
 | 2026-11-14 | Phase A〜D を実施。B-6、D-7 を追加。調査結果・障害記録・判断 6〜8 を追記 |
+| 2026-11-14 | A-6 完了（docker 停止）。B-1 は経過観察（判断 9）。hitomi-monitor の実行成功を確認 |
