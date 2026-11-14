@@ -19,6 +19,11 @@ spec:
       restartPolicy: Always
       # 非 root のコンテナが 80 番で待ち受けられるようにする（safe sysctl）。
       securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
         sysctls:
           - name: net.ipv4.ip_unprivileged_port_start
             value: "0"
@@ -28,6 +33,11 @@ spec:
         - name: hitomi-upload-viewer
           image: harbor.qroksera.com/sandbox/hitomi-upload-viewer:latest
           imagePullPolicy: Always
+          # 起動時に config.js を書くため rootfs は読み取り専用にしない。
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
           resources:
             requests:
               cpu: 10m
