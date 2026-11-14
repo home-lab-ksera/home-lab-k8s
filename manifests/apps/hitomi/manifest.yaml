@@ -226,10 +226,11 @@ spec:
           value: hitomi
         - name: PGPOOL_MAX
           value: '2'
+        # 7日間の実測: メモリ最大 9Mi、CPU p99 1m 未満。
         resources:
           requests:
-            cpu: 50m
-            memory: 128Mi
+            cpu: 10m
+            memory: 32Mi
           limits:
             cpu: 300m
             memory: 512Mi

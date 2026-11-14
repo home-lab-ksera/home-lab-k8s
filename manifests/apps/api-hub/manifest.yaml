@@ -149,10 +149,11 @@ spec:
           value: api_hub
         - name: PGPOOL_MAX
           value: '3'
+        # 7日間の実測: メモリ最大 27Mi、CPU p99 63m。
         resources:
           requests:
             cpu: 50m
-            memory: 128Mi
+            memory: 48Mi
           limits:
             cpu: 300m
             memory: 512Mi

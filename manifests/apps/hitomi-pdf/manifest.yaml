@@ -205,10 +205,11 @@ spec:
           value: media
         - name: PGPOOL_MAX
           value: '3'
+        # 7日間の実測: メモリ最大 6Mi、CPU p99 1m。
         resources:
           requests:
-            cpu: 50m
-            memory: 128Mi
+            cpu: 10m
+            memory: 32Mi
           limits:
             cpu: 300m
             memory: 512Mi
@@ -299,10 +300,11 @@ spec:
           value: media
         - name: PGPOOL_MAX
           value: '2'
+        # 7日間の実測: メモリ最大 378Mi、CPU p99 248m。動画の取り込み中に増える。
         resources:
           requests:
-            cpu: 50m
-            memory: 128Mi
+            cpu: 100m
+            memory: 256Mi
             ephemeral-storage: 5Gi
           limits:
             cpu: 300m
