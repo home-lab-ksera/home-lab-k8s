@@ -13,10 +13,10 @@
 | A 重要 Pod の保護とホスト | 6 | 5 | 1 | 0 | 0 |
 | B 依存更新と CI | 6 | 2 | 2 | 1 | 1 |
 | C 監視範囲とディスク | 6 | 5 | 0 | 0 | 1 |
-| D セキュリティ設定と調査 | 6 | 5 | 1 | 0 | 0 |
+| D セキュリティ設定と調査 | 7 | 7 | 0 | 0 | 0 |
 | E アプリ整理 | 3 | 0 | 0 | 1 | 2 |
 | F 長期 | 2 | 0 | 0 | 0 | 2 |
-| 合計 | 29 | 17 | 4 | 2 | 6 |
+| 合計 | 30 | 19 | 3 | 2 | 6 |
 
 ## 項目
 
@@ -46,10 +46,10 @@
 
 | リポジトリ | B-1 Dashboard | B-2 遅れ解消 | B-3 toolchain | B-4 共通検証 | B-6 指摘解消 |
 |---|---|---|---|---|---|
-| api-hub | 未 | checkout が残る | 済（#19） | 済（#19） | #20（rustls 系の更新、clippy 7 件、fmt）。CI 通過後にマージ |
+| api-hub | 未 | checkout が残る | 済（#19） | 済（#19） | 済（#20、rustls 系の更新、clippy 7 件、fmt） |
 | hitomi | 未 | checkout が残る | 済（#35、1.88.0 → 1.99.1） | 済（#35） | 未。脆弱性 8 件（rustls 0.21 系）、clippy 6 件 |
 | home-camera | 未 | checkout が残る | 済（#15） | 済（#15） | 済（#16、reqwest 0.12） |
-| hitomi-pdf-batch | 未 | 済（#15） | 済（#14） | 済（#14） | #16（reqwest 0.12、quick-xml 0.41）。CI 通過後にマージ |
+| hitomi-pdf-batch | 未 | 済（#15） | 済（#14） | 済（#14） | 済（#16、reqwest 0.12、quick-xml 0.41） |
 | nature-remo | 未 | 済（#4、`go 1.26`） | - | - | - |
 | blog | 未 | 済（#5、Node 26・nginx 1.30） | - | - | - |
 | cookLog | 未 | 済（#6、Node 26・nginx 1.30）。`Dockerfile.slack` の Node 22 は Renovate に任せる | - | - | - |
@@ -73,12 +73,13 @@ cargo-audit に残る指摘（対処不要と判断したもの）: `libsqlite3-
 
 | ID | 内容 | 担当 | 状態 | PR / 記録 | 完了日 | メモ |
 |---|---|---|---|---|---|---|
-| D-1 | sandbox 4 Pod の securityContext | GitOps + アプリ | 確認待ち | #163、#167、#168、blog#5、cookLog#6、hitomi-pdf-batch#15 | | blog / cooklog は uid 101・読み取り専用 rootfs で稼働を確認。viewer は uid 65532。hitomi-monitor は次回の定期実行で確認する。Selenium sidecar は対象外のため `sandbox` は baseline のまま |
+| D-1 | sandbox 4 Pod の securityContext | GitOps + アプリ | 完了 | #163、#167、#168、blog#5、cookLog#6、hitomi-pdf-batch#15 | 2026-11-14 | blog / cooklog は uid 101・読み取り専用 rootfs、viewer は uid 65532 で稼働を確認。hitomi-monitor は CronJob への反映まで確認し、新設定での初回実行は 14:55 JST。Selenium sidecar は対象外のため `sandbox` は baseline のまま |
 | D-2 | 監視 4 Pod の securityContext | GitOps | 完了 | #165 | 2026-11-14 | VictoriaMetrics は NFS 上のデータが root 所有のため root のまま権限だけ落とした。`observability` は baseline のまま |
 | D-3 | 3 namespace に PSA ラベル | GitOps | 完了 | #160 | 2026-11-14 | local-path-storage privileged、nfs-storage baseline、postgres-operator restricted |
 | D-4 | kube-apiserver メモリの調査 | 調査 | 完了 | 下の「調査結果」 | 2026-11-14 | 対処は判断 6・7 |
 | D-5 | 高頻度 CronJob のコスト測定 | 調査 | 完了 | 下の「調査結果」 | 2026-11-14 | 対処不要 |
 | D-6 | ドキュメントの修正 | GitOps | 完了 | #160 | 2026-11-14 | |
+| D-7 | Image Updater の再試行ループ解消（作業中に発見して追加） | GitOps | 完了 | #170 | 2026-11-14 | 古い digest の失敗 Job が残り、hitomi の更新を約2分おきに 11 時間で 307 回試みていた。失敗 Job 3 件を削除し、hitomi 系 CronJob 4 本に `ttlSecondsAfterFinished: 86400` を設定 |
 
 ### Phase E
 
@@ -99,8 +100,8 @@ cargo-audit に残る指摘（対処不要と判断したもの）: `libsqlite3-
 
 | 順 | 内容 | 担当 |
 |---|---|---|
-| 1 | api-hub#20、hitomi-pdf-batch#16 を CI 通過後にマージ | - |
-| 2 | hitomi-monitor の次回定期実行が成功することを確認（D-1） | - |
+| 1 | hitomi-monitor が新しい権限設定で成功することを確認（D-1。14:55 JST の定期実行。失敗時は `KubernetesCronJobFailed` が通知する） | - |
+| 2 | api-hub の `check-stream-memory.py` が手動実行で 1 回失敗（`memory grew with fixture size`）。同じコードの PR と push の実行は成功しており、不安定なテストとして原因を確認する | - |
 | 3 | Renovate App の対象リポジトリ設定（B-1） | 管理者 |
 | 4 | ホストの docker / snapd 停止（A-6）: `sudo systemctl disable --now docker docker.socket`。snapd はデスクトップを使わない場合のみ | 管理者 |
 | 5 | hitomi の rustls 0.23 移行（B-6） | - |
@@ -166,4 +167,4 @@ Pod 生成は 1 時間に 13 回、各 4〜9 秒で終わる。クラスタ全�
 |---|---|
 | 2026-11-14 | 作成 |
 | 2026-11-14 | OCI 関連（C-6、F-1、F-2）を当面扱わないと決定。C-4 / C-5 は VM 内 sudo で実行できるため担当を修正 |
-| 2026-11-14 | Phase A〜D を実施。B-6 を追加。調査結果・障害記録・判断 6〜8 を追記 |
+| 2026-11-14 | Phase A〜D を実施。B-6、D-7 を追加。調査結果・障害記録・判断 6〜8 を追記 |
