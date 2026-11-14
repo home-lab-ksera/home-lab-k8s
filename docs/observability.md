@@ -83,7 +83,8 @@ namespace / pod / container / node / cluster を付けます。Grafana Explore �
 ```
 
 Alloy は内蔵の blackbox exporter で外形監視も行います。1分ごとに、クラスタ内 DNS → Gateway（TLS）→
-ArgoCD / Harbor / Grafana / blog / cooklog / api-hub / RSSHub / viewer の応答と、Split DNS（`192.168.122.101`）の名前解決を確認し、
+ArgoCD / Harbor / Grafana / blog / cooklog / api-hub / RSSHub / viewer の応答、Split DNS（`192.168.122.101`）の名前解決、
+API サーバーの `/livez`（証明書の期限の取得を兼ねる。クラスタ CA の発行のため検証は省く）を確認し、
 結果を VictoriaMetrics へ remote write します。対象の追加は `config.alloy` の `target` ブロックで行います。
 
 journald・監査ログ・収集前に消えた Pod のログは対象外です。
@@ -110,6 +111,8 @@ Alloy は 167 時間より古いログを転送前に除外し、Loki は Compac
 | ホスト（`Host*`） | node_exporter 欠損 / 10 分、利用可能メモリ 768MiB 未満 / 30 分、swap in/out 継続 / 15 分、CPU PSI 25% 超 / 30 分、ルート空き 15% 未満 / 15 分 |
 | CronJob（`KubernetesCronJobFailed`） | 開始から6時間以内の Job が失敗 / 1 分 |
 | 外形監視（`Endpoint*`） | 応答・名前解決の失敗 / 5 分、結果の欠損 / 15 分、証明書の期限 14 日未満 / 1 時間 |
+| control-plane 証明書（`ControlPlaneCertificateExpiring`） | API サーバーの証明書の期限 45 日未満 / 1 時間。kubeadm の証明書は 1 年有効で、upgrade 時に更新される |
+| ホストの更新（`HostRebootRequired`、`HostSecurityUpdatesPending`） | 再起動待ち / 7 日、セキュリティ更新の残留 / 7 日 |
 | pgBackRest（`PostgreSQLBackupStale`） | full / diff のどちらも26時間成功なし、またはメトリクス欠損 / 30 分 |
 | pgBackRest（`PostgreSQLBackupFailed`） | CronJob の直近スケジュール実行が未成功 / 2 時間 |
 

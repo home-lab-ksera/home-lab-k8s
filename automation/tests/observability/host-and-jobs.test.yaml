@@ -97,3 +97,46 @@ tests:
               owner_name: hitomi-monitor
             exp_annotations:
               summary: "CronJob sandbox/hitomi-monitor の Job hitomi-monitor-1 が失敗しました"
+  - name: ホストの再起動待ちとセキュリティ更新の滞留
+    interval: 1m
+    input_series:
+      - series: node_reboot_required{job="host-node",instance="ksera-T100"}
+        values: 1+0x12000
+      - series: apt_upgrades_pending{job="host-node",instance="ksera-T100",arch="amd64",origin="Ubuntu:resolute/resolute-security,Ubuntu:resolute/resolute-updates"}
+        values: 7+0x12000
+      - series: apt_upgrades_pending{job="host-node",instance="ksera-T100",arch="amd64",origin="Ubuntu:resolute/resolute-updates"}
+        values: 48+0x12000
+    alert_rule_test:
+      - eval_time: 6d
+        alertname: HostRebootRequired
+        exp_alerts: []
+      - eval_time: 8d
+        alertname: HostRebootRequired
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: host-node
+              instance: ksera-T100
+            exp_annotations:
+              summary: "ホストが7日以上、再起動待ちです（更新済みの kernel などが未反映）"
+      - eval_time: 8d
+        alertname: HostSecurityUpdatesPending
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "ホストにセキュリティ更新が7日以上残っています。unattended-upgrades を確認してください"
+  - name: 通常の更新だけが残る場合は通知しない
+    interval: 1m
+    input_series:
+      - series: node_reboot_required{job="host-node",instance="ksera-T100"}
+        values: 0+0x12000
+      - series: apt_upgrades_pending{job="host-node",instance="ksera-T100",arch="amd64",origin="Ubuntu:resolute/resolute-updates"}
+        values: 48+0x12000
+    alert_rule_test:
+      - eval_time: 8d
+        alertname: HostRebootRequired
+        exp_alerts: []
+      - eval_time: 8d
+        alertname: HostSecurityUpdatesPending
+        exp_alerts: []

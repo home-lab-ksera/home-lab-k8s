@@ -54,3 +54,26 @@ tests:
               job: endpoint-probe
             exp_annotations:
               summary: "外形監視の結果が届いていません。Alloy と remote write を確認してください"
+  - name: control-plane 証明書の期限
+    interval: 5m
+    input_series:
+      # 40日後に期限。API サーバーは 14 日の Endpoint 用ルールの対象外。
+      - series: probe_ssl_earliest_cert_expiry{job="endpoint-probe",target="kube-apiserver"}
+        values: 3456000+0x40
+      - series: probe_success{job="endpoint-probe",target="kube-apiserver"}
+        values: 1+0x40
+      - series: probe_ssl_earliest_cert_expiry{job="endpoint-probe",target="blog"}
+        values: 5184000+0x40
+    alert_rule_test:
+      - eval_time: 2h
+        alertname: ControlPlaneCertificateExpiring
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: endpoint-probe
+              target: kube-apiserver
+            exp_annotations:
+              summary: "control-plane の証明書の期限が45日未満です。kubeadm upgrade か kubeadm certs renew all を実施してください"
+      - eval_time: 2h
+        alertname: EndpointCertificateExpiring
+        exp_alerts: []
