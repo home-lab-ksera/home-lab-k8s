@@ -53,7 +53,8 @@ kubectl -n <namespace> describe externalsecret <name>
 kubectl -n <namespace> annotate externalsecret <name> force-sync="$(date +%s)" --overwrite
 ```
 
-同期間隔は各 manifest に従います。Grafana 初期管理者は `CreatedOnce` なので周期的なローテーションの対象ではありません。
+同期間隔は 1 時間です（ArgoCD の GitHub OAuth のみ 15 分）。ESC の値を変えた直後に反映したい場合は上の `force-sync` を使います。
+以前は 20 秒〜1 分で、ESO から API サーバーと Pulumi ESC への問い合わせが監査ログの大半を占めていました。Grafana 初期管理者は `CreatedOnce` なので周期的なローテーションの対象ではありません。
 ArgoCD の `argocd-secret` / `argocd-notifications-secret` は `creationPolicy: Merge` で、upstream が作る Secret が必要です。
 環境変数で読む Secret は更新だけで既存プロセスに反映されないため、[Reloader の監視範囲](platform-extensions.md) も確認します。
 
