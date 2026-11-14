@@ -6,8 +6,16 @@ Secret は AES-CBC で暗号化し、既存平文を読み込むために identi
 鍵は `/etc/kubernetes/security/encryption-config.yaml`（root:root、0600）に生成します。
 Git、Terraform state、ConfigMap、実行ログに鍵を入れません。再実行では既存鍵を保持し、破損時は停止します。
 
-監査は全要求の Metadata（利用者、操作、対象、結果など）を記録し、本文や Secret の値を記録しません。
+監査は Metadata（利用者、操作、対象、結果など）を記録し、本文や Secret の値を記録しません。
+すべての変更（create / update / patch / delete）、人の操作、Secret へのアクセスを記録します。
+次の機械的な要求は記録しません: health 確認と metrics、leader election の lease、
+ServiceAccount・kubelet・control-plane コンポーネントによる Secret 以外の読み取り（get / list / watch）。
+全要求を記録していた時期は約 107 MB / 時で、保持が約 10 時間しかありませんでした。
 `/var/log/kubernetes/audit/audit.log` を最大 100 MB × 10 世代、最大 30 日でローテーションします。
+
+稼働中のクラスタでポリシーを変えるときは、Control Plane で `sudo python3 configure.py prepare` を実行して
+`audit-policy.yaml` を書き直し、API Server を再起動します（ポリシーは起動時にしか読まれません）。
+変更前のファイルを退避し、再起動後に `/livez` が戻らなければ元に戻します。
 監査はローカル保存のため、ノード侵害時の改ざん耐性や外部保管は別途必要です。
 
 ## 既存クラスタの移行

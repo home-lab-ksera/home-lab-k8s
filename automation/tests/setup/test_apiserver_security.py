@@ -27,7 +27,21 @@ class SecurityTests(unittest.TestCase):
             self.assertIn('aescbc', config['resources'][0]['providers'][0])
             self.assertEqual(config['resources'][0]['providers'][-1], {'identity': {}})
             audit = yaml.safe_load((key.parent / 'audit-policy.yaml').read_text())
-            self.assertEqual(audit['rules'], [{'level': 'Metadata'}])
+            rules = audit['rules']
+            # 最後は全要求の Metadata。除外は読み取り・lease・health に限る。
+            self.assertEqual(rules[-1], {'level': 'Metadata'})
+            for rule in rules:
+                if rule['level'] != 'None':
+                    continue
+                read_only = set(rule.get('verbs', [])) == {'get', 'list', 'watch'}
+                leases = rule.get('resources') == [{'group': 'coordination.k8s.io', 'resources': ['leases']}]
+                self.assertTrue(read_only or leases or 'nonResourceURLs' in rule, rule)
+            # Secret の記録は、読み取りの除外より前にある。
+            secret_index = next(i for i, rule in enumerate(rules)
+                                if rule.get('resources') == [{'group': '', 'resources': ['secrets']}])
+            self.assertEqual(rules[secret_index]['level'], 'Metadata')
+            first_read_exclusion = next(i for i, rule in enumerate(rules) if 'verbs' in rule)
+            self.assertLess(secret_index, first_read_exclusion)
 
     def test_corrupt_key_is_never_replaced(self):
         with tempfile.TemporaryDirectory() as tmp:
