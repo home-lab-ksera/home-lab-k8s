@@ -11,6 +11,22 @@ import yaml
 
 SECURITY_DIR = '/etc/kubernetes/security'
 AUDIT_DIR = '/var/log/kubernetes/audit'
+# 先に一致した rule が使われる。変更（create / update / patch / delete）と、人の操作、Secret への
+# アクセスはすべて Metadata で残す。機械的な読み取りだけを除外し、ログの保持期間を確保する。
+AUDIT_RULES = [
+    # health 確認と metrics の取得。
+    {'level': 'None', 'nonResourceURLs': ['/healthz*', '/livez*', '/readyz*', '/version', '/metrics']},
+    # leader election の lease 更新。
+    {'level': 'None', 'resources': [{'group': 'coordination.k8s.io', 'resources': ['leases']}]},
+    # Secret は誰が読んでも記録する（下の除外より前に置く）。
+    {'level': 'Metadata', 'resources': [{'group': '', 'resources': ['secrets']}]},
+    # ServiceAccount・kubelet・control-plane コンポーネントの読み取り。
+    {'level': 'None', 'verbs': ['get', 'list', 'watch'],
+     'userGroups': ['system:serviceaccounts', 'system:nodes']},
+    {'level': 'None', 'verbs': ['get', 'list', 'watch'],
+     'users': ['system:kube-controller-manager', 'system:kube-scheduler', 'system:apiserver']},
+    {'level': 'Metadata'},
+]
 FLAGS = {
     'encryption-provider-config': f'{SECURITY_DIR}/encryption-config.yaml',
     'audit-policy-file': f'{SECURITY_DIR}/audit-policy.yaml',
@@ -64,7 +80,7 @@ def prepare(root):
     # 本文・レスポンスを一切保存しない。Secret と TokenRequest の内容も対象外。
     write_private(directory / 'audit-policy.yaml', {
         'apiVersion': 'audit.k8s.io/v1', 'kind': 'Policy',
-        'omitStages': ['RequestReceived'], 'rules': [{'level': 'Metadata'}]})
+        'omitStages': ['RequestReceived'], 'rules': AUDIT_RULES})
 
 
 def merge_named(existing, additions):
