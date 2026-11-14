@@ -1,6 +1,8 @@
 # Rust アプリリポジトリから呼ぶ共通検証 workflow（docs/app-delivery.md）。
 # リポジトリの rust-toolchain.toml の版で fmt・clippy・cargo-audit を実行する。
-# 3つとも報告のみで、結果は job summary に出す。テストは各リポジトリの workflow が担当する。
+# 1つでも指摘があれば失敗する。結果は job summary と job ログに出す。テストは各リポジトリの workflow が担当する。
+# cargo-audit は脆弱性で失敗し、unsound / unmaintained の警告では失敗しない。
+# ビルドに含まれない crate の指摘は、理由を添えて呼び出し側の .cargo/audit.toml で無視する。
 #
 # 呼び出し側の例:
 #   verify:
@@ -64,8 +66,9 @@ jobs:
         with:
           tool: cargo-audit
 
-      - name: Run fmt, clippy and audit (report only)
+      - name: Run fmt, clippy and audit
         run: |
+          failed=0
           report() {
             name="$1"; shift
             if "$@" > "$RUNNER_TEMP/$name.log" 2>&1; then
@@ -75,7 +78,8 @@ jobs:
               echo "::group::$name の出力"
               cat "$RUNNER_TEMP/$name.log"
               echo "::endgroup::"
-              echo "::warning::$name が問題を報告しました（報告のみ）"
+              failed=1
+              echo "::error::$name が問題を報告しました"
               {
                 echo "- ⚠️ \`$name\`"
                 echo
@@ -93,3 +97,4 @@ jobs:
           report fmt cargo fmt --all --check
           report clippy cargo clippy --locked --all-targets -- -D warnings
           report audit cargo audit
+          exit "$failed"

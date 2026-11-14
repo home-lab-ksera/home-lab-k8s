@@ -48,7 +48,9 @@ OIDC token の `sub` は呼び出し側の repo / ref になるため、Tailscal
 共通 workflow は `@main` で参照するため、変更は全アプリの次回 publish に効きます。変更時は1リポジトリで公開を確認してから広げます。
 
 Rust のリポジトリは [rust-verify.yml](../.github/workflows/rust-verify.yml) も呼びます。
-リポジトリの `rust-toolchain.toml` の版で fmt・clippy・cargo-audit を実行し、結果を job summary に出します（報告のみ）。
+リポジトリの `rust-toolchain.toml` の版で fmt・clippy・cargo-audit を実行し、1つでも指摘があれば失敗します。
+各リポジトリの publish は `verify` の成功を待つため、指摘がある間は公開されません。
+ビルドに含まれない crate の指摘（sqlx の未使用 backend など）は、理由を添えて各リポジトリの `.cargo/audit.toml` で無視します。
 静的リンクの Rust バイナリは Trivy が依存関係を読めないため、依存の脆弱性は cargo-audit で確認します。
 [workflow 生成スクリプト](../automation/scripts/github-actions/add-runner.sh) はこの呼び出し側の雛形を生成します（`STRATEGY=latest` のみ）。
 
