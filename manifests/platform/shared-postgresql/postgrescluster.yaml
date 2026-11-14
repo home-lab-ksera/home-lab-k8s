@@ -54,6 +54,12 @@ spec:
         options: [--type=full]
       global:
         repo1-retention-full: "3"
+      # repo host は requests がなく BestEffort だった。実測は 6m / 6Mi。
+      repoHost:
+        resources:
+          requests:
+            cpu: 10m
+            memory: 32Mi
       repos:
         - name: repo1
           schedules:
