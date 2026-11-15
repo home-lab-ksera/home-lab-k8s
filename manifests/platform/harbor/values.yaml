@@ -31,7 +31,7 @@ persistence:
 database:
   type: external
   external:
-    host: shared-postgresql-primary.database.svc
+    host: postgresql.database.svc
     port: "5432"
     username: app
     coreDatabase: registry

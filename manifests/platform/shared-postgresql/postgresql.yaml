@@ -111,10 +111,13 @@ spec:
         - name: run
           emptyDir: {}
   volumeClaimTemplates:
-    - metadata:
+    - apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
         name: data
       spec:
         storageClassName: local-path
+        volumeMode: Filesystem
         accessModes: [ReadWriteOnce]
         resources:
           requests:

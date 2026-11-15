@@ -4,6 +4,6 @@ metadata:
   name: application-postgresql
   namespace: sandbox
 data:
-  PGHOST: shared-postgresql-primary.database.svc
+  PGHOST: postgresql.database.svc
   PGUSER: app
   PGSSLROOTCERT: /etc/postgresql/ca.crt

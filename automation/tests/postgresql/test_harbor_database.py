@@ -40,7 +40,7 @@ class HarborDatabaseTest(unittest.TestCase):
                     ca_path = next(v['value'] for v in container['env'] if v['name'] == 'PGSSLROOTCERT')
                     mount = next(m for m in container['volumeMounts'] if ca_path.startswith(m['mountPath'] + '/'))
                     self.assertTrue(mount['readOnly'])
-                    self.assertEqual(volumes[mount['name']]['configMap']['name'], 'shared-postgresql-ca')
+                    self.assertEqual(volumes[mount['name']]['secret']['secretName'], 'postgresql-ca')
 
     def test_database_is_external_and_other_storage_is_preserved(self):
         self.assertNotIn(('StatefulSet', 'harbor-database'), self.resources)

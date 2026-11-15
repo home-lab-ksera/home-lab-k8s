@@ -68,6 +68,9 @@ spec:
           readOnly: true
       volumes:
       - name: database-ca
-        configMap:
-          name: shared-postgresql-ca
+        secret:
+          secretName: postgresql-ca
+          items:
+            - key: ca.crt
+              path: ca.crt
       restartPolicy: Never

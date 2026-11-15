@@ -62,8 +62,11 @@ spec:
           readOnly: true
       volumes:
       - name: database-ca
-        configMap:
-          name: shared-postgresql-ca
+        secret:
+          secretName: postgresql-ca
+          items:
+            - key: ca.crt
+              path: ca.crt
       restartPolicy: Never
 ---
 apiVersion: batch/v1
@@ -171,8 +174,11 @@ spec:
             emptyDir:
               sizeLimit: 3Gi
           - name: database-ca
-            configMap:
-              name: shared-postgresql-ca
+            secret:
+              secretName: postgresql-ca
+              items:
+                - key: ca.crt
+                  path: ca.crt
           imagePullSecrets:
           - name: harbor-registry
   timeZone: Asia/Tokyo
@@ -253,7 +259,10 @@ spec:
           readOnly: true
       volumes:
       - name: database-ca
-        configMap:
-          name: shared-postgresql-ca
+        secret:
+          secretName: postgresql-ca
+          items:
+            - key: ca.crt
+              path: ca.crt
   strategy:
     type: Recreate
