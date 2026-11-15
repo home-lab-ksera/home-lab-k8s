@@ -59,6 +59,7 @@ spec:
       containers:
       - name: recorder
         image: harbor.qroksera.com/sandbox/home-camera:latest
+        imagePullPolicy: IfNotPresent
         command:
         - /usr/local/bin/home-camera
         args:
@@ -123,6 +124,7 @@ spec:
           failureThreshold: 4
       - name: uploader
         image: harbor.qroksera.com/sandbox/home-camera:latest
+        imagePullPolicy: IfNotPresent
         command:
         - /usr/local/bin/home-camera
         args:

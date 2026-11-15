@@ -83,9 +83,8 @@ LAN端末でもこのDNSゾーンの転送設定が必要です。Tailscale接�
 
    push で表示された digest を `manifests/apps/nature-remo/kustomization.yaml` の `images` に
    `digest: sha256:...` として追加してください。
-   本アプリも Harbor 保守と Image Updater の対象です。初回正常稼働後、保守 Job が `deploy` と
-   `retain-current` を作成し、以降は `deploy` の digest を Git に書き戻します。
-   更新時はテスト済みイメージを `latest` にも push すると、保守 Job の確認後に配布されます。
+   本アプリも Image Updater の対象です。テスト済みイメージを `latest` に push すると、
+   その digest が Git に書き戻されて配布されます。
    アプリの GitHub Actions はテストとビルドのみで、Harbor への自動 push は行いません。
 
 5. Tailscale Operator が稼働し、MagicDNS と HTTPS が有効であることを確認します。

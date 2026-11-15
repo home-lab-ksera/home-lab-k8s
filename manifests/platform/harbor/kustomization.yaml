@@ -1,9 +1,6 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-resources:
-  - maintenance.yaml
-
 helmCharts:
   - name: harbor
     repo: https://helm.goharbor.io
@@ -25,11 +22,3 @@ configMapGenerator:
     namespace: harbor
     files:
       - scripts/wait-for-database.sh
-  - name: harbor-maintenance-scripts
-    namespace: harbor
-    files:
-      - scripts/maintenance.py
-  - name: harbor-maintenance-config
-    namespace: harbor
-    files:
-      - maintenance.json

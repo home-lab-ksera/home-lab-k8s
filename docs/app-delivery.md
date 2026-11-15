@@ -55,11 +55,10 @@ Rust のリポジトリは [rust-verify.yml](../.github/workflows/rust-verify.ym
 [workflow 生成スクリプト](../automation/scripts/github-actions/add-runner.sh) はこの呼び出し側の雛形を生成します（`STRATEGY=latest` のみ）。
 
 [Image Updater](../manifests/platform/ci-cd/image-updater/sandbox-images.yaml) が約2分間隔で
-許可した9アプリの `deploy` の digest を検知し、このリポジトリの `main` にある各
+許可した9アプリの `latest` の digest を検知し、このリポジトリの `main` にある各
 `manifests/apps/<app>/kustomization.yaml` に書き戻します。ArgoCD Application の revision は `HEAD` のままです。
 書き戻しの commit message には `[skip ci]` を付け、digest だけの変更で検証 workflow を起動しません。
 Harbor への接続は内部 URL、マニフェスト内のイメージ名は従来の `harbor.qroksera.com/sandbox/...` を使います。
-10分間隔のHarbor保守Jobが直前の配布成功を確認して`latest`を`deploy`へ進めます。
 更新方式は公式の [Git write-back](https://argocd-image-updater.readthedocs.io/en/stable/basics/update-methods/) と
 [digest strategy](https://argocd-image-updater.readthedocs.io/en/stable/basics/update-strategies/#digest---update-to-the-most-recent-pushed-version-of-a-tag) を利用します。
 
@@ -71,9 +70,8 @@ Harbor への接続は内部 URL、マニフェスト内のイメージ名は従
   別 Application 間の更新・同期は独立しており、同時切替は保証しません。
 
 Git に digest が残るため、履歴から配布イメージを特定できます。
-ロールバックはHarborの`maintenance.json`に既知の正常版を`rollbackDigest`として設定し、Gitへ反映します。
-保守Jobが`deploy`を戻し、Image UpdaterとArgoCDが配布します。解除するまで指定版を維持します。
-保持契約と保守手順は [Harborの3世代保持](harbor-retention.md) を参照してください。
+ロールバックはアプリ側の revert と再公開、または Harbor で `latest` タグを正常版へ付け替えて行います。
+保持ルールと手順は [Harbor の保持と GC](harbor-retention.md) を参照してください。
 
 ## 既存 CI からの移行
 
@@ -87,7 +85,7 @@ Image Updater の pull-only Robot Account と、このリポジトリへの書�
 `image_updater.git_ssh_private_key` は Pulumi ESC → ExternalSecret 経由で同期します。
 CI の資格情報は GitHub Secrets に登録します。値を Git に保存しません。
 
-反映後は CI の push・digest 検証・latest 更新と、その後の Harbor 保守 Job による deploy 昇格、
+反映後は CI の push・digest 検証・latest 更新、
 Image Updater の Git 書き戻し、ArgoCD 同期、実際の imageID を確認します。
 CronJob は次回 Job の image / imageID を確認します。
 

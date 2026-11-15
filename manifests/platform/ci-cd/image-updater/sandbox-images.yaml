@@ -21,63 +21,63 @@ spec:
     - namePattern: api-hub
       images:
         - alias: app
-          imageName: harbor.qroksera.com/sandbox/api-hub:deploy
+          imageName: harbor.qroksera.com/sandbox/api-hub:latest
           manifestTargets:
             kustomize:
               name: harbor.qroksera.com/sandbox/api-hub
     - namePattern: blog
       images:
         - alias: app
-          imageName: harbor.qroksera.com/sandbox/blog:deploy
+          imageName: harbor.qroksera.com/sandbox/blog:latest
           manifestTargets:
             kustomize:
               name: harbor.qroksera.com/sandbox/blog
     - namePattern: cooklog
       images:
         - alias: app
-          imageName: harbor.qroksera.com/sandbox/cooklog:deploy
+          imageName: harbor.qroksera.com/sandbox/cooklog:latest
           manifestTargets:
             kustomize:
               name: harbor.qroksera.com/sandbox/cooklog
     - namePattern: hitomi
       images:
         - alias: app
-          imageName: harbor.qroksera.com/sandbox/hitomi:deploy
+          imageName: harbor.qroksera.com/sandbox/hitomi:latest
           manifestTargets:
             kustomize:
               name: harbor.qroksera.com/sandbox/hitomi
     - namePattern: hitomi-pdf
       images:
         - alias: app
-          imageName: harbor.qroksera.com/sandbox/hitomi-pdf-batch:deploy
+          imageName: harbor.qroksera.com/sandbox/hitomi-pdf-batch:latest
           manifestTargets:
             kustomize:
               name: harbor.qroksera.com/sandbox/hitomi-pdf-batch
     - namePattern: hitomi-upload-viewer
       images:
         - alias: app
-          imageName: harbor.qroksera.com/sandbox/hitomi-upload-viewer:deploy
+          imageName: harbor.qroksera.com/sandbox/hitomi-upload-viewer:latest
           manifestTargets:
             kustomize:
               name: harbor.qroksera.com/sandbox/hitomi-upload-viewer
     - namePattern: home-camera
       images:
         - alias: app
-          imageName: harbor.qroksera.com/sandbox/home-camera:deploy
+          imageName: harbor.qroksera.com/sandbox/home-camera:latest
           manifestTargets:
             kustomize:
               name: harbor.qroksera.com/sandbox/home-camera
     - namePattern: nature-remo
       images:
         - alias: app
-          imageName: harbor.qroksera.com/sandbox/nature-remo:deploy
+          imageName: harbor.qroksera.com/sandbox/nature-remo:latest
           manifestTargets:
             kustomize:
               name: harbor.qroksera.com/sandbox/nature-remo
     - namePattern: rsshub
       images:
         - alias: app
-          imageName: harbor.qroksera.com/sandbox/rsshub-private:deploy
+          imageName: harbor.qroksera.com/sandbox/rsshub-private:latest
           manifestTargets:
             kustomize:
               name: harbor.qroksera.com/sandbox/rsshub-private

@@ -181,7 +181,6 @@ class PlatformNetworkPolicyTests(unittest.TestCase):
                                   ('observability', {'app.kubernetes.io/name': 'grafana'}),
                                   ('observability', {'app.kubernetes.io/name': 'vmalert'}),
                                   ('observability', {'app.kubernetes.io/name': 'weekly-observability-report'}),
-                                  ('harbor', {'app': 'harbor-maintenance'}),
                                   ('rustfs', {'app.kubernetes.io/name': 'rustfs-scanner-monitor'}),
                                   ('nginx-gateway', GATEWAY)]:
             self.assertTrue(allowed('observability', VM, 'Ingress', remote_ns, labels, '10.244.1.2', 8428), labels)

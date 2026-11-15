@@ -45,6 +45,7 @@ spec:
       containers:
         - name: nature-remo
           image: harbor.qroksera.com/sandbox/nature-remo:build-975d107
+          imagePullPolicy: IfNotPresent
           ports:
             - name: http
               containerPort: 8080
