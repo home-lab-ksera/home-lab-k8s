@@ -5,6 +5,5 @@ resources:
   - priority-classes.yaml
   - networkpolicies.yaml
   - workload-networkpolicies.yaml
-  - platform-networkpolicies.yaml
   - storage-classes/nfs-postgresql.yaml
   - application-networkpolicies.yaml
