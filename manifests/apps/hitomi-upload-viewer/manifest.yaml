@@ -32,7 +32,7 @@ spec:
       containers:
         - name: hitomi-upload-viewer
           image: harbor.qroksera.com/sandbox/hitomi-upload-viewer:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           # 起動時に config.js を書くため rootfs は読み取り専用にしない。
           securityContext:
             allowPrivilegeEscalation: false

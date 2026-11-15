@@ -32,7 +32,7 @@ spec:
       containers:
         - name: cooklog
           image: harbor.qroksera.com/sandbox/cooklog:0.0.1
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

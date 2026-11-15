@@ -32,7 +32,7 @@ spec:
       containers:
         - name: blog
           image: harbor.qroksera.com/sandbox/blog:0.0.1
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true

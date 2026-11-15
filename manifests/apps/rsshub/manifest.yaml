@@ -28,7 +28,7 @@ spec:
       containers:
         - name: rsshub
           image: harbor.qroksera.com/sandbox/rsshub-private:latest
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
