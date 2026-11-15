@@ -5,6 +5,6 @@ resources:
   - access.yaml
 images:
   - name: harbor.qroksera.com/sandbox/hitomi-upload-viewer
-    newTag: deploy
+    newTag: latest
     newName: harbor.qroksera.com/sandbox/hitomi-upload-viewer
     digest: sha256:6e7cd1a3e6f58cc2f7bbb516c7b23697533cb3177625f551a40449ad7f6036bb

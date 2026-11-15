@@ -56,11 +56,8 @@ curl -s --aws-sigv4 "aws:amz:us-east-1:s3" --user "$AK:$SK" -X POST -H 'Content-
 
 ## Harbor cleanup
 
-旧 `harbor-sandbox-image-cleanup` CronJobは撤去済みです。
-`harbor-maintenance`が5分ごとに稼働版・直前正常版・候補を確認し、最大3世代へ整理します。
-削除候補がある回だけHarbor標準保持を実行し、GCは毎日03:30 JSTに実行します。
-容量上限、全repoの定期保守・GC、正常版への切り戻し手順は [Harborの3世代保持](harbor-retention.md) を参照してください。
-標準保持処理を単独で定期実行せず、配布と保守Jobが実行を調停します。
+専用の cleanup / 保守 CronJob は撤去済みです。Harbor 標準の保持ルール（直近 5 件）と日次 GC だけを使います。
+設定値と切り戻し手順は [Harbor の保持と GC](harbor-retention.md) を参照してください。
 
 ## Renovate と監視
 

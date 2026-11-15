@@ -28,6 +28,7 @@ spec:
       containers:
       - name: migrate
         image: harbor.qroksera.com/sandbox/hitomi-pdf-batch:latest
+        imagePullPolicy: IfNotPresent
         command:
         - /app/hitomi-pdf-batch
         args:
@@ -101,6 +102,7 @@ spec:
           containers:
           - name: plan
             image: harbor.qroksera.com/sandbox/hitomi-pdf-batch:latest
+            imagePullPolicy: IfNotPresent
             command:
             - /app/hitomi-pdf-batch
             args:
@@ -186,6 +188,7 @@ spec:
       containers:
       - name: serve
         image: harbor.qroksera.com/sandbox/hitomi-pdf-batch:latest
+        imagePullPolicy: IfNotPresent
         command:
         - /app/hitomi-pdf-batch
         args:
@@ -277,6 +280,7 @@ spec:
       containers:
       - name: worker
         image: harbor.qroksera.com/sandbox/hitomi-pdf-batch:latest
+        imagePullPolicy: IfNotPresent
         command:
         - /app/hitomi-pdf-batch
         args:
@@ -385,6 +389,7 @@ spec:
           containers:
           - name: reconcile
             image: harbor.qroksera.com/sandbox/hitomi-pdf-batch:latest
+            imagePullPolicy: IfNotPresent
             command:
             - /app/hitomi-pdf-batch
             args:
@@ -470,6 +475,7 @@ spec:
           containers:
           - name: verify-objects
             image: harbor.qroksera.com/sandbox/hitomi-pdf-batch:latest
+            imagePullPolicy: IfNotPresent
             command:
             - /app/hitomi-pdf-batch
             args:
