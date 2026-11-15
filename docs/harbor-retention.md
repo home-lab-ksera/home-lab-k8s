@@ -8,6 +8,7 @@
 | 項目 | 値 |
 |---|---|
 | 保持ルール（project `sandbox`） | 全 repository で「直近に push された 5 件の artifact を保持」。毎日 03:00 JST に実行 |
+| 保持の例外 | `cooklog-slack` は全件保持。manifest が特定の `build-*` タグに固定されており、Image Updater の対象外のため |
 | GC | 毎日 03:30 JST、`delete_untagged=false`、workers=1 |
 | quota（project `sandbox`） | 4 GiB。到達すると push が失敗する |
 
