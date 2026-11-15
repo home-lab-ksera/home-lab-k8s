@@ -3,15 +3,6 @@ kind: Kustomization
 
 resources:
   - gateway-shared.yaml
-  - harbor-access.yaml
-  - argocd-access.yaml
-  - rustfs-access.yaml
-  - blog-access.yaml
-  - cooklog-access.yaml
-  - api-hub-access.yaml
-  - hitomi-upload-viewer-access.yaml
-  - observability-access.yaml
+  - platform-access.yaml
   - dns-core.yaml
   - dns-tailscale.yaml
-  - rsshub-access.yaml
-  - nature-remo-access.yaml

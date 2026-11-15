@@ -36,7 +36,7 @@ spec:
       kind: Gateway
       name: nginx-gateway
       namespace: nginx-gateway
-      sectionName: https-grafana-internal
+      sectionName: https-internal
   hostnames:
     - grafana.internal.qroksera.com
   rules:

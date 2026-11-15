@@ -1,7 +1,7 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: argocd-access
+  name: platform-access
   namespace: argocd
   finalizers:
     - resources-finalizer.argocd.argoproj.io
@@ -12,10 +12,10 @@ spec:
   source:
     repoURL: https://github.com/home-lab-ksera/home-lab-k8s.git
     targetRevision: HEAD
-    path: manifests/access/argocd
+    path: manifests/access/platform
   destination:
     server: https://kubernetes.default.svc
-    namespace: argocd
+    namespace: nginx-gateway
   syncPolicy:
     automated:
       prune: true

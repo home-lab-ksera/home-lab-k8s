@@ -19,7 +19,6 @@ BOOTSTRAP_APPS = MANIFESTS / "bootstrap/applications"
 
 YAML_SUFFIXES = {".yaml", ".yml"}
 WORKLOAD_KINDS = {"Deployment", "StatefulSet", "DaemonSet", "Job", "CronJob", "Pod"}
-ACCESS_KINDS = {"HTTPRoute", "Gateway", "Ingress", "ClientSettingsPolicy", "BackendTLSPolicy", "ReferenceGrant", "AccessPolicy"}
 
 SCAN_TEXT_DIRS = ["manifests", "automation", ".github"]
 SCAN_TEXT_FILES = ["AGENTS.md", "README.md", "Makefile"]
@@ -181,9 +180,6 @@ def check_manifest_rules(issues: list[str]) -> None:
 
             if kind == "ExternalSecret" and not path_rel.startswith("manifests/platform/secrets/external-secrets/"):
                 fail(issues, "R-005", f"top-level ExternalSecret outside post-ESO path: {path_rel} {identity_label(ident)}")
-
-            if path_rel.startswith("manifests/apps/") and kind in ACCESS_KINDS:
-                fail(issues, "R-008", f"access resource under apps path: {path_rel} {identity_label(ident)}")
 
             if kind in WORKLOAD_KINDS:
                 namespace = ident[1]

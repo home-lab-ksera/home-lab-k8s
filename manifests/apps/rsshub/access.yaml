@@ -37,7 +37,7 @@ spec:
       kind: Gateway
       name: nginx-gateway
       namespace: nginx-gateway
-      sectionName: https-rsshub-internal
+      sectionName: https-internal
   hostnames:
     - rsshub.internal.qroksera.com
   rules:

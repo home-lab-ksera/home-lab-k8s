@@ -1,0 +1,9 @@
+# 基盤コンポーネント（ArgoCD / Harbor / 監視 / RustFS）の公開経路を1つの Application で管理する。
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../argocd
+  - ../harbor
+  - ../observability
+  - ../rustfs

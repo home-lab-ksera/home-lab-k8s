@@ -56,7 +56,7 @@ LAN端末でもこのDNSゾーンの転送設定が必要です。Tailscale接�
    - 'REMO_DEVICES=[{"id":"living","name":"Nature Remo mini","url":"http://192.168.10.2"}]'
    ```
 
-3. `manifests/access/nature-remo/manifest.yaml` の `egress` は下記の設定済みです。
+3. `manifests/apps/nature-remo/access.yaml` の `egress` は下記の設定済みです。
    複数台ある場合は各 IP の `ipBlock` を列挙します。
 
    ```yaml
@@ -95,7 +95,7 @@ LAN端末でもこのDNSゾーンの転送設定が必要です。Tailscale接�
    利用者の ACL/grants を `nature-remo` の TCP 443 に許可します。
    アプリにログイン画面はなく、許可した利用者は信号の登録・削除・送信ができます。
 6. 変更を通常の GitOps フローで反映します。bootstrap の Kustomization には
-   `nature-remo` と `nature-remo-access` を登録済みです。
+   `nature-remo` を登録済みです（公開経路も同じ Application）。
    イメージ未登録の段階ではこの変更を本番ブランチへ反映しないでください。
 
 ## 確認

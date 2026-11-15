@@ -9,7 +9,7 @@ spec:
       kind: Gateway
       name: nginx-gateway
       namespace: nginx-gateway
-      sectionName: https-s3-internal
+      sectionName: https-internal
   hostnames:
     - s3.internal.qroksera.com
   rules:

@@ -139,7 +139,7 @@ spec:
       kind: Gateway
       name: nginx-gateway
       namespace: nginx-gateway
-      sectionName: https-harbor-internal
+      sectionName: https-internal
   hostnames:
     - harbor.internal.qroksera.com
   rules:

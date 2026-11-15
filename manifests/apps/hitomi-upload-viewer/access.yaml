@@ -36,7 +36,7 @@ spec:
       kind: Gateway
       name: nginx-gateway
       namespace: nginx-gateway
-      sectionName: https-hitomi-upload-viewer-internal
+      sectionName: https-internal
   hostnames:
     - hitomi-upload-viewer.internal.qroksera.com
   rules:
