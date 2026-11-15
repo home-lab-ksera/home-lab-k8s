@@ -11,7 +11,7 @@
 - Harbor の Trivy を無効化し、脆弱性スキャンは GitHub Actions 側へ移す。
 - バックアップ強化（OCI Object Storage へのオフサイト、etcd 日次 snapshot）は行わない。既存の pgBackRest repo1 を維持する。
 
-[OCI単一クラスタ計画](oci-single-cluster-plan.md) は置き換えない。本計画はそれらの前段として
+OCI単一クラスタ計画（2026-11-16 に計画書を削除） は置き換えない。本計画はそれらの前段として
 ホストの過積載を解消し、2VM 構成を OCI 計画の「自宅 worker 1台」へ接続する。
 
 ## 1. 目的と合意事項
@@ -223,8 +223,8 @@ repo1 の直近 full backup 成功を確認してから、次の順で実施す�
 - `kubectl get nodes` が 2 台 Ready、全 Application Synced / Healthy。
 - ホスト `free -h` の available 2GiB 以上、swap 使用 256MiB 未満、`/proc/pressure/cpu` の some avg300 が 10% 未満。
 - [architecture.md](../docs/architecture.md)、[host-capacity.md](../docs/host-capacity.md)、[cluster-contract.yaml](../manifests/contracts/home-lab/cluster-contract.yaml)、
-  `settings.toml.example` の `worker_1_ip` と `containerd_canary_node` を更新する。[version-audit.py](../automation/scripts/ci/version-audit.py) と [gitops-check.py](../automation/scripts/ci/gitops-check.py) のノード名参照を確認する。
-- [OCI単一クラスタ計画](oci-single-cluster-plan.md) の「現状」表を 2VM 構成へ改訂する。A1 確保後は CP を OCI へ移し、自宅 CP VM は worker へ転用する方針は変えない。
+  `settings.toml.example` の `worker_1_ip` と `containerd_canary_node` を更新する。version-audit.py（削除済み） と [gitops-check.py](../automation/scripts/ci/gitops-check.py) のノード名参照を確認する。
+- OCI単一クラスタ計画（2026-11-16 に計画書を削除） の「現状」表を 2VM 構成へ改訂する。A1 確保後は CP を OCI へ移し、自宅 CP VM は worker へ転用する方針は変えない。
 
 切戻し: `var.workers` に worker1 を戻して `terraform apply`、cloud-init の join で再参加する。local-path データは worker2 にあるため影響しない。
 

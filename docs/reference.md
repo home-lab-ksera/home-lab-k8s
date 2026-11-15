@@ -14,7 +14,7 @@ mise exec -- automation/scripts/ci/validate.sh
 make validate-local
 ```
 
-validate は actionlint、setup / version update / observability / CI / PostgreSQL の回帰テスト、
+validate は actionlint、setup / observability / CI / PostgreSQL の回帰テスト、
 shellcheck、yamllint、GitOps 参照・登録、policy、PostgreSQL 版整合、
 全 `manifests/**/kustomization.yaml` の `kustomize build --enable-helm` と kubeconform、consistency を確認します。
 リモート配布物や schema の取得にネットワークを使います。
@@ -66,21 +66,6 @@ kindやコンテナを使う追加実行テストは、Dockerが使えるホス�
 ```bash
 mise exec -- python3 automation/scripts/ci/validate-platform-configs.py
 ```
-
-## 使い捨て VM の実構築テスト
-
-[Setup Integration](../.github/workflows/setup-integration.yml) は workflow_dispatch のみです。
-[setup-integration.sh](../automation/scripts/ci/setup-integration.sh) が GitHub-hosted runner 内に隔離した設定を作り、
-共通 Terraform / cloud-init から VM と Kubernetes を構築します。
-
-```bash
-gh workflow run setup-integration.yml --ref main
-```
-
-Node Ready、DNS・ノード間通信、Terraform 再適用の無差分、各 VM 再起動後の復旧を確認します。
-成否にかかわらず診断収集と destroy を試み、artifact は 7 日保持します。
-本番の NFS、phase1 のホスト準備、`clean-and-deploy.sh` の削除処理、ArgoCD 以降の収束は検証範囲外です。
-実行可能性は runner の KVM・メモリ・ディスクの preflight に依存します。
 
 ## 個別検証
 
