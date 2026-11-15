@@ -1,0 +1,157 @@
+# 共通 PostgreSQL。公式イメージの単一 StatefulSet で、operator は使わない。
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgresql
+  namespace: database
+spec:
+  selector:
+    app.kubernetes.io/name: postgresql
+  ports:
+    - name: postgresql
+      port: 5432
+      targetPort: postgresql
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgresql
+  namespace: database
+  annotations:
+    # サーバー証明書の更新（年1回）を読み込ませる。
+    secret.reloader.stakater.com/reload: postgresql-server-tls
+spec:
+  serviceName: postgresql
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: postgresql
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: postgresql
+    spec:
+      priorityClassName: homelab-platform
+      # local-path はノード固定のため worker2 に置く。
+      nodeSelector:
+        kubernetes.io/hostname: k8s-worker2
+      terminationGracePeriodSeconds: 60
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 999
+        runAsGroup: 999
+        fsGroup: 999
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgresql
+          image: postgres:18.6
+          args:
+            - -c
+            - ssl=on
+            - -c
+            - ssl_cert_file=/tls/tls.crt
+            - -c
+            - ssl_key_file=/tls/tls.key
+          env:
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-input
+                  key: admin-password
+            - name: APP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgresql-input
+                  key: password
+          ports:
+            - name: postgresql
+              containerPort: 5432
+          readinessProbe:
+            exec:
+              command: [pg_isready, -U, postgres, -h, 127.0.0.1]
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: [pg_isready, -U, postgres, -h, 127.0.0.1]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            failureThreshold: 6
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql
+            - name: tls
+              mountPath: /tls
+              readOnly: true
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+              readOnly: true
+            - name: run
+              mountPath: /var/run/postgresql
+      volumes:
+        - name: tls
+          secret:
+            secretName: postgresql-server-tls
+            # 秘密鍵は root 所有・group 読み取りまで（PostgreSQL の要件）。
+            defaultMode: 0640
+        - name: init
+          configMap:
+            name: postgresql-init
+        - name: run
+          emptyDir: {}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        storageClassName: local-path
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 10Gi
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgresql
+  namespace: database
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgresql
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {}
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: harbor
+          podSelector:
+            matchLabels:
+              app: harbor
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: grafana
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: sandbox
+          podSelector:
+            matchLabels:
+              database.k8s-myhome.local/shared-postgresql: "true"
+      ports:
+        - protocol: TCP
+          port: 5432

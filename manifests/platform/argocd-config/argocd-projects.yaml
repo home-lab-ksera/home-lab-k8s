@@ -48,6 +48,15 @@ spec:
       namespace: tailscale
     - server: https://kubernetes.default.svc
       namespace: nfs-storage
+    # 共通 PostgreSQL のサーバー証明書と、利用側 namespace に置く CA（cert-manager-config が所有）。
+    - server: https://kubernetes.default.svc
+      namespace: database
+    - server: https://kubernetes.default.svc
+      namespace: harbor
+    - server: https://kubernetes.default.svc
+      namespace: observability
+    - server: https://kubernetes.default.svc
+      namespace: sandbox
   clusterResourceWhitelist:
     - group: "*"
       kind: "*"

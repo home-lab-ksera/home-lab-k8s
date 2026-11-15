@@ -1,0 +1,105 @@
+# 共通 PostgreSQL の TLS。クラスタ内専用の CA を cert-manager が持ち、サーバー証明書を発行する。
+# 利用側の namespace には同じ CA が発行した証明書を置き、その Secret の ca.crt を検証用に mount する
+# （CA を配布する Job や追加の controller を置かないため）。
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: postgresql-ca
+  namespace: cert-manager
+spec:
+  isCA: true
+  commonName: home-lab postgresql CA
+  secretName: postgresql-ca
+  duration: 87600h # 10年
+  renewBefore: 8760h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+  issuerRef:
+    name: selfsigned
+    kind: ClusterIssuer
+---
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: postgresql-ca
+spec:
+  ca:
+    secretName: postgresql-ca
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: postgresql-server
+  namespace: database
+spec:
+  secretName: postgresql-server-tls
+  duration: 8760h # 1年
+  renewBefore: 720h
+  issuerRef:
+    name: postgresql-ca
+    kind: ClusterIssuer
+  dnsNames:
+    - postgresql.database.svc
+    - postgresql.database.svc.cluster.local
+    - postgresql.database
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
+---
+# 以下3つは ca.crt を各 namespace に置くためだけの証明書。秘密鍵は使わない。
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: postgresql-ca
+  namespace: harbor
+spec:
+  secretName: postgresql-ca
+  commonName: postgresql-trust
+  duration: 8760h
+  renewBefore: 720h
+  issuerRef:
+    name: postgresql-ca
+    kind: ClusterIssuer
+  usages:
+    - client auth
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: postgresql-ca
+  namespace: observability
+spec:
+  secretName: postgresql-ca
+  commonName: postgresql-trust
+  duration: 8760h
+  renewBefore: 720h
+  issuerRef:
+    name: postgresql-ca
+    kind: ClusterIssuer
+  usages:
+    - client auth
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: postgresql-ca
+  namespace: sandbox
+spec:
+  secretName: postgresql-ca
+  commonName: postgresql-trust
+  duration: 8760h
+  renewBefore: 720h
+  issuerRef:
+    name: postgresql-ca
+    kind: ClusterIssuer
+  usages:
+    - client auth

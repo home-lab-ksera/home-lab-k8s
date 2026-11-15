@@ -1,0 +1,96 @@
+# 日次の論理バックアップ。全 DB と role を1ファイルに書き出し、7日分を残す。
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgresql-backup
+  namespace: database
+spec:
+  storageClassName: nfs-postgresql
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 5Gi
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgresql-backup
+  namespace: database
+spec:
+  schedule: "0 18 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 1800
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: postgresql-backup
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+            fsGroup: 999
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: backup
+              image: postgres:18.6
+              command:
+                - /bin/sh
+                - -ec
+                - |
+                  out="/backup/dumpall-$(date -u +%Y%m%dT%H%M%SZ).sql.gz"
+                  pg_dumpall --clean --if-exists | gzip > "$out.partial"
+                  gzip -t "$out.partial"
+                  mv "$out.partial" "$out"
+                  find /backup -name 'dumpall-*.sql.gz' -mtime +7 -delete
+                  find /backup -name '*.partial' -mtime +1 -delete
+                  ls -l /backup
+              env:
+                - name: PGHOST
+                  value: postgresql.database.svc
+                - name: PGUSER
+                  value: postgres
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef:
+                      name: postgresql-input
+                      key: admin-password
+                - name: PGSSLMODE
+                  value: verify-full
+                - name: PGSSLROOTCERT
+                  value: /tls/ca.crt
+              resources:
+                requests:
+                  cpu: 25m
+                  memory: 64Mi
+                limits:
+                  cpu: 500m
+                  memory: 256Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: [ALL]
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+                - name: tls
+                  mountPath: /tls
+                  readOnly: true
+          volumes:
+            - name: backup
+              persistentVolumeClaim:
+                claimName: postgresql-backup
+            - name: tls
+              secret:
+                secretName: postgresql-server-tls
+                items:
+                  - key: ca.crt
+                    path: ca.crt
