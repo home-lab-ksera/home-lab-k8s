@@ -23,7 +23,7 @@ datasources:
     uid: postgresql-registry
     type: grafana-postgresql-datasource
     access: proxy
-    url: shared-postgresql-primary.database.svc:5432
+    url: postgresql.database.svc:5432
     user: app
     editable: false
     jsonData:

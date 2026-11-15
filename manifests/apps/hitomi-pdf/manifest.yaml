@@ -62,8 +62,11 @@ spec:
           readOnly: true
       volumes:
       - name: database-ca
-        configMap:
-          name: shared-postgresql-ca
+        secret:
+          secretName: postgresql-ca
+          items:
+            - key: ca.crt
+              path: ca.crt
       restartPolicy: Never
 ---
 apiVersion: batch/v1
@@ -146,8 +149,11 @@ spec:
               readOnly: true
           volumes:
           - name: database-ca
-            configMap:
-              name: shared-postgresql-ca
+            secret:
+              secretName: postgresql-ca
+              items:
+                - key: ca.crt
+                  path: ca.crt
           restartPolicy: Never
   timeZone: Asia/Tokyo
   suspend: false
@@ -245,8 +251,11 @@ spec:
           periodSeconds: 15
       volumes:
       - name: database-ca
-        configMap:
-          name: shared-postgresql-ca
+        secret:
+          secretName: postgresql-ca
+          items:
+            - key: ca.crt
+              path: ca.crt
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -333,8 +342,11 @@ spec:
           mountPath: /tmp
       volumes:
       - name: database-ca
-        configMap:
-          name: shared-postgresql-ca
+        secret:
+          secretName: postgresql-ca
+          items:
+            - key: ca.crt
+              path: ca.crt
       - name: tmp
         emptyDir:
           sizeLimit: 6Gi
@@ -433,8 +445,11 @@ spec:
               readOnly: true
           volumes:
           - name: database-ca
-            configMap:
-              name: shared-postgresql-ca
+            secret:
+              secretName: postgresql-ca
+              items:
+                - key: ca.crt
+                  path: ca.crt
           restartPolicy: Never
   timeZone: Asia/Tokyo
   suspend: false
@@ -519,8 +534,11 @@ spec:
               readOnly: true
           volumes:
           - name: database-ca
-            configMap:
-              name: shared-postgresql-ca
+            secret:
+              secretName: postgresql-ca
+              items:
+                - key: ca.crt
+                  path: ca.crt
           restartPolicy: Never
   timeZone: Asia/Tokyo
   suspend: false
