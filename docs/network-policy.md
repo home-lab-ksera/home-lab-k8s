@@ -12,6 +12,7 @@
 | [RustFS lifecycle](../manifests/platform/rustfs/lifecycle-networkpolicy.yaml) | 同 namespace の lifecycle Job → RustFS:9000 |
 | [PostgreSQL](../manifests/platform/shared-postgresql/credentials.yaml) | database 内 Pod、harbor の `app=harbor`、observability の Grafana → DB（namespace 外は TCP 5432） |
 | [Loki](../manifests/platform/observability/logging-networkpolicy.yaml) | Grafana / Alloy → Loki:3100 |
+| [core/platform-networkpolicies.yaml](../manifests/core/platform-networkpolicies.yaml) | 基盤 5 namespace の default-deny と許可（下の「基盤 namespace」） |
 
 [workload-networkpolicies.yaml](../manifests/core/workload-networkpolicies.yaml) は
 `sandbox`・`tools`・`harbor` に Ingress/Egress 両方の default-deny を設定します。
@@ -29,6 +30,43 @@
 | home-camera | 192.168.10.4:554/TCP と RTSP の RTP/RTCP 用 UDP 1024–65535（同カメラからの受信も許可） |
 | Harbor 内部（cleanup Job 含む） | 同 namespace の Harbor Pod の TCP 8080 / 5000 / 8082 / 6379 |
 | Harbor | shared-postgresql:5432 |
+
+## 基盤 namespace
+
+[platform-networkpolicies.yaml](../manifests/core/platform-networkpolicies.yaml) は
+`observability`・`cert-manager`・`external-secrets-system`・`nginx-gateway`・`tailscale` に
+Ingress/Egress 両方の default-deny と DNS の許可を置きます（2026-11-15）。`argocd` は upstream のポリシー、
+`database` と `rustfs` は各コンポーネントのポリシーで守られています。
+
+| 対象 | 受信 | 送信 |
+|---|---|---|
+| VictoriaMetrics | Alloy / Grafana / vmalert / 週次レポート、Harbor 保守、RustFS scanner、Gateway（VMUI）→ 8428 | API、全 Pod の metrics 用 port（3000 / 8080 / 9090 / 9113 / 9402）、ノードの 10250 / 9080、ホストの 9100 |
+| vmalert / Alertmanager | Alertmanager は vmalert → 9093 のみ | vmalert → VM / Alertmanager。Alertmanager → 外部 HTTPS（Slack、healthchecks.io） |
+| Grafana | Gateway → 3000 | VM、Loki、共有 PostgreSQL のみ。外部へは出ない |
+| Alloy | なし | API、Loki、VM、外形監視（Gateway 443、Split DNS 53） |
+| kube-state-metrics / 週次レポート | VM → 8080 / なし | API / VM と外部 HTTPS（Slack） |
+| cert-manager | webhook は API サーバー → 10250、全 Pod は VM → 9402 | 全 Pod → API。controller → 外部 HTTPS（ACME、Cloudflare API、DNS over HTTPS） |
+| External Secrets | なし | API、外部 HTTPS（Pulumi ESC） |
+| Gateway data plane | 全送信元 → 80 / 443、VM → 9113 | control plane 8443、HTTPRoute の backend の namespace と port のみ |
+| Gateway control plane | data plane → 8443、VM → 9113 | API のみ（製品テレメトリは values で停止） |
+| Tailscale operator | なし | API、外部 HTTPS |
+| Tailscale proxy | なし | API、外部 TCP 80 / 443、UDP の任意 port（LAN の端末と直接つながるため 192.168.0.0/16 を含む） |
+| subnet router | なし | 192.168.122.0/24 の全 port、Gateway と Split DNS の Pod |
+| Nature Remo の Ingress proxy | なし | sandbox の nature-remo:8080 のみ |
+| Split DNS | 全送信元 → 53 | なし（hosts の固定応答だけで上流へ問い合わせない） |
+
+VictoriaMetrics の収集先は Pod の `prometheus.io/scrape` annotation で決まるため、送信側は metrics 用の port に限って
+全 Pod を許可し、受け側の ingress で絞ります。新しい収集先の port がこの一覧にない場合は追加します。
+cert-manager の DNS01 の伝播確認は DNS over HTTPS（1.1.1.1 / 1.0.0.1）に固定しているため、外部の 53 番は開けていません。
+
+### kube-network-policies の実測した性質（2026-11-15）
+
+- 同じノードの root プロセス（kubelet の probe、API サーバー、containerd）から Pod への通信は評価されない。
+- 別ノードのホストから Pod への通信は、送信元が送信側ノードの flannel.1 のアドレスになる。
+  API サーバー（control-plane）から別ノードの webhook へは `10.244.0.0` から届く。
+  control-plane は最初に参加するノードのため `10.244.0.0/24` を受け持つ。再構築で変わった場合は
+  cert-manager webhook の許可も直す。
+- 確認方法: 別ノードに置いた検証 Pod へ、送信元を 1 つだけ許可したポリシーを付け、ホストから接続する。
 
 外部 HTTP/HTTPS は IPv4 の private / loopback / link-local / CGNAT 宛を除外しています。
 標準 NetworkPolicy は FQDN や HTTP の宛先を制限できないため、許可された HTTPS を使った情報持ち出しは防げません。
@@ -82,6 +120,12 @@ Git 修正の反映後に撤去します。controller 全停止は全ポリシ�
 - hitomi-pdf から `https://rsshub.internal.qroksera.com/twivideo/ranking` を取得できる。
 - api-hub の S3 操作、RSSHub のキャッシュ、hitomi の Selenium 操作、カメラ収録が成功する。
 - Harbor の DB 接続が成功する。
+- VictoriaMetrics の全収集対象が `up == 1`、外形監視が全件 `probe_success == 1`、Loki にログが入り続ける。
+- Alertmanager の Slack / heartbeat 送信が失敗しない（`alertmanager_notifications_failed_total` が増えない）。
+- cert-manager の webhook が応答し（`kubectl apply --dry-run=server` で Certificate を検証）、証明書を発行できる。
+- ExternalSecret の `force-sync` 後に Ready のまま更新時刻が進む。
+- subnet router から Gateway VIP と Split DNS に届き、Tailnet の端末との直接通信が維持される。
+- 無関係な Pod から Grafana / VictoriaMetrics / Alertmanager / cert-manager webhook への接続が失敗する。
 - 無関係な sandbox Pod から hitomi Pod の WebDriver:4444、Redis、API Server、LAN への通信が失敗する。
 - 許可されていない Pod の外向き TCP 443 と、許可された Pod の外向き TCP 22 が失敗する。
 - api-hub Service が ClusterIP であり、ノードの旧 32001/TCP から到達できない。

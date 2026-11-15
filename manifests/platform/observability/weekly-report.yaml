@@ -16,6 +16,10 @@ spec:
       backoffLimit: 0
       activeDeadlineSeconds: 420
       template:
+        metadata:
+          # NetworkPolicy（allow-weekly-report-egress）の選択に使う。
+          labels:
+            app.kubernetes.io/name: weekly-observability-report
         spec:
           restartPolicy: Never
           automountServiceAccountToken: false
