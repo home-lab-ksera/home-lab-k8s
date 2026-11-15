@@ -3,8 +3,6 @@ kind: HTTPRoute
 metadata:
   name: s3-internal
   namespace: rustfs
-  annotations:
-    contracts.k8s-myhome.local/access-surface: s3-internal
 spec:
   parentRefs:
     - group: gateway.networking.k8s.io

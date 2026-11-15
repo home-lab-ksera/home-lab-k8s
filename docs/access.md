@@ -1,36 +1,17 @@
 # アクセス経路と公開の追加
 
-経路の照合元は [access-surfaces.yaml](../manifests/contracts/home-lab/access-surfaces.yaml)、
-実リソースは [access/](../manifests/access/) です。contract の変更だけでは DNS や Route は生成されません。
+公開経路の実リソースは [access/](../manifests/access/) です。HTTPRoute・Gateway・DNS の YAML が正本で、
+別の台帳は持ちません（公開台帳と専用 checker は 2026-11-16 に撤去）。
 
 ## 公開経路のCI検証
 
-台帳はv1alpha2です。各surfaceにRouteのnamespace/name、Gateway/listener、TLS参照、
-転送ルールのprofileを登録します。Harborのcore/portal分岐、S3のGET/HEAD/OPTIONSと
-許可prefix、RustFS consoleのredirectもprofileで照合します。変更時は実リソースと台帳を一緒に更新してください。
-Nature RemoはHTTPRouteではなく `tailscale-ingress` として登録しています。
+[policy-check.py](../automation/scripts/ci/policy-check.py) の R-010 が、各 Application の render 結果から
+`NodePort` / `LoadBalancer` / `externalIPs` を持つ Service と、Tailscale 以外の Ingress を拒否します。
+許可する Service は同ファイルの `ALLOWLISTED_EXPOSED_SERVICES` に登録します（現在は Split DNS のみ）。
+Gateway の LoadBalancer は NGINX Gateway Fabric が生成するため、この検査の対象外です。
 
-checkerはbootstrapからApplication/ApplicationSetを辿り、Kustomizeと外部Helmの展開結果を検査します。
-注釈のないRouteや台帳外のIngress、余分なbackend、NodePort、HTTP直結、TLS欠落、
-未登録のnamespace間参照を拒否します。全条件は[検証ルール](../automation/scripts/ci/contract_rules.py)が正本です。
-未対応のsourceやchart取得失敗を正常扱いにはしません。
-
-Gatewayの各HTTPS listenerは、そのRouteが属するnamespaceだけを許可します。
-HTTP listenerは登録済みredirect Routeのnamespace集合を許可します。
-namespaceは `kubernetes.io/metadata.name` で選び、許可kindはHTTPRouteのみです。
-同じnamespace内でのRoute書換えやGitを経由しない変更は、このCIだけでは防げません。
-
-新しい経路を追加する際は、次も更新します。
-
-- surfaceの `routes` と `profiles`。profileはbackendのService portを使い、targetPortとは区別する。
-- listenerのallowedRoutesと証明書。既存listenerのAllへの変更は検証に失敗する。
-- DNSのhostsエントリとpublish設定。rewrite/import等の迂回設定は未対応として拒否する。
-- 必要な場合だけ、[cluster contract](../manifests/contracts/home-lab/cluster-contract.yaml)の基盤例外。
-  例外はidentity・許可する設定・理由を明示し、namespace全体を除外しない。
-
-`internal` は公開意図の記録です。ホスト名・DNS設定・CI成功だけではInternetからの到達を遮断できません。
-Tailnet ACL、ルーター/NAT、証明書の実値、operator生成後のService/Podは別途確認します。
-台帳とmanifestを同時に緩和すると一致検査だけは通るため、PRの公開設定差分もレビューしてください。
+ホスト名・DNS 設定・CI 成功だけでは Internet からの到達を遮断できません。
+Tailnet ACL、ルーター/NAT、証明書の実値、operator 生成後の Service / Pod は別途確認します。
 
 ```mermaid
 flowchart LR
@@ -52,9 +33,8 @@ Harbor は push・pull・認証を内部 Gateway `192.168.122.100` で完結さ�
 コンソールは `https://harbor.internal.qroksera.com` を LAN / Tailscale 経由で利用します。
 cloudflared と専用 Secret / Namespace / Application は撤去しました。
 旧 `harbor.qroksera.com` の Route は既存イメージ名との互換用に内部で残しています。
-contract の `harbor-external` は旧名であり、exposure は internal です。
 Internet向けだった `argocd.qroksera.com`、`rustfs.qroksera.com`、`blog.qroksera.com` の
-listener・Route・台帳エントリは撤去済みです。現在 `exposure: external` のsurfaceはありません。
+listener・Route は撤去済みです。現在 Internet 向けの経路はありません。
 
 RustFS の Gateway backend は console の 9001 のみです。S3 の 9000 はクラスタ内で api-hub などが利用します。
 console の `/` は GET / HEAD のリダイレクトと POST / Authorization 付き GET の転送を
@@ -87,16 +67,14 @@ Cloudflare 側の設定、Tailnet ACL、OAuth App の設定はこのリポジト
 1. 公開範囲（クラスタ内 / LAN・Tailnet / Internet）、hostname、backend Service と port、呼び出し元を決めます。
 2. [アプリ配布](app-delivery.md) に従って workload / Service / Secret を追加します。
    クラスタ内 Service DNS のみで利用するなら Gateway / hostname の追加は不要です。
-3. hostname を使う場合は contract の surface を追加します。`backend`、`gatewayListener`、各 `publish` を指定します。
-4. `access/<app>/` に HTTPRoute と Kustomization を追加します。
-   annotation `contracts.k8s-myhome.local/access-surface` を surface 名に合わせます。
+3. `access/<app>/` に HTTPRoute と Kustomization を追加します。
    `parentRefs.sectionName`、hostname、backend の **Service port** を照合します。
-5. 必要な Gateway listener と Certificate を追加します。証明書は cert-manager 配下に置きます。
-6. 必要な CoreDNS / Split DNS の hosts と surface annotation を更新します。
+4. 必要な Gateway listener と Certificate を追加します。証明書は cert-manager 配下に置きます。
+5. 必要な CoreDNS / Split DNS の hosts を更新します。
    ConfigMap の変更時は Pod template も変更し、新しい設定を読み込ませます。
-7. 新しい access Application を `bootstrap/applications/access/` に作り、Kustomization と [一覧](diagrams/app-of-apps-sync-wave.md) に登録します。
-8. [NetworkPolicy](network-policy.md) の受信先・送信元と **Pod の待受 port** を確認し、必要な許可を追加します。
-9. 静的検証後、Secret / workload の準備、公開経路の同期、クライアントからの実操作を順に確認します。
+6. 新しい access Application を `bootstrap/applications/access/` に作り、Kustomization と [一覧](diagrams/app-of-apps-sync-wave.md) に登録します。
+7. [NetworkPolicy](network-policy.md) の受信先・送信元と **Pod の待受 port** を確認し、必要な許可を追加します。
+8. 静的検証後、Secret / workload の準備、公開経路の同期、クライアントからの実操作を順に確認します。
 
 Service が 80 → 8080 なら HTTPRoute は 80、NetworkPolicy は 8080 です。
 既存 HTTPRoute の PathPrefix 内で API のパスだけを追加する場合、接続先・port・公開範囲が変わらなければ

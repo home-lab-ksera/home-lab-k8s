@@ -4,8 +4,6 @@ kind: HTTPRoute
 metadata:
   name: harbor-external-redirect
   namespace: harbor
-  annotations:
-    contracts.k8s-myhome.local/access-surface: harbor-external
 spec:
   parentRefs:
     - group: gateway.networking.k8s.io
@@ -32,8 +30,6 @@ kind: HTTPRoute
 metadata:
   name: harbor-external
   namespace: harbor
-  annotations:
-    contracts.k8s-myhome.local/access-surface: harbor-external
 spec:
   parentRefs:
     - group: gateway.networking.k8s.io
@@ -111,8 +107,6 @@ kind: HTTPRoute
 metadata:
   name: harbor-internal-redirect
   namespace: harbor
-  annotations:
-    contracts.k8s-myhome.local/access-surface: harbor-internal
 spec:
   parentRefs:
     - group: gateway.networking.k8s.io
@@ -139,8 +133,6 @@ kind: HTTPRoute
 metadata:
   name: harbor-internal
   namespace: harbor
-  annotations:
-    contracts.k8s-myhome.local/access-surface: harbor-internal
 spec:
   parentRefs:
     - group: gateway.networking.k8s.io

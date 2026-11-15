@@ -17,8 +17,7 @@ flowchart TD
 
 ## ノード・ネットワーク
 
-[Terraform 変数](../automation/infrastructure/variables.tf) と
-[cluster contract](../manifests/contracts/home-lab/cluster-contract.yaml) の宣言値です。
+[Terraform 変数](../automation/infrastructure/variables.tf) の宣言値です。
 
 | 対象 | 宣言 |
 |---|---|

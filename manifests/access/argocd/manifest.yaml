@@ -4,8 +4,6 @@ kind: HTTPRoute
 metadata:
   name: argocd-internal-redirect
   namespace: argocd
-  annotations:
-    contracts.k8s-myhome.local/access-surface: argocd-internal
 spec:
   parentRefs:
     - group: gateway.networking.k8s.io
@@ -32,8 +30,6 @@ kind: HTTPRoute
 metadata:
   name: argocd-internal
   namespace: argocd
-  annotations:
-    contracts.k8s-myhome.local/access-surface: argocd-internal
 spec:
   parentRefs:
     - group: gateway.networking.k8s.io

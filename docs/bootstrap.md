@@ -40,7 +40,7 @@
 初期 Kubernetes 版は [variables.tf](../automation/infrastructure/variables.tf) の `kubernetes_version`、
 既存ノードの更新先は `settings.toml` の `[upgrade].target_version` です。
 ArgoCD の Git URL、DNS、NFS、ESC environment も各マニフェストで固定されています。
-環境を変える場合は [contracts](../manifests/contracts/home-lab/) と対応する実体を同時に更新します。
+環境を変える場合は各マニフェストと Terraform 変数を同時に更新します。
 
 ## 構築手順
 

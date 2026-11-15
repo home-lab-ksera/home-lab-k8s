@@ -3,9 +3,6 @@ kind: Gateway
 metadata:
   name: nginx-gateway
   namespace: nginx-gateway
-  annotations:
-    contracts.k8s-myhome.local/domain-external: global.domain.external
-    contracts.k8s-myhome.local/domain-internal: global.domain.internal
 spec:
   gatewayClassName: nginx
   listeners:
