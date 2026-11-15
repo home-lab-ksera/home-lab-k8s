@@ -25,6 +25,33 @@ spec:
               - observability
               - rustfs
               - sandbox
+    - name: https-internal
+      hostname: "*.internal.qroksera.com"
+      port: 443
+      protocol: HTTPS
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            group: ""
+            name: wildcard-internal-tls
+            namespace: nginx-gateway
+      allowedRoutes:
+        kinds:
+        - group: gateway.networking.k8s.io
+          kind: HTTPRoute
+        namespaces:
+          from: Selector
+          selector:
+            matchExpressions:
+            - key: kubernetes.io/metadata.name
+              operator: In
+              values:
+              - argocd
+              - harbor
+              - observability
+              - rustfs
+              - sandbox
     - name: https-harbor-external
       hostname: harbor.qroksera.com
       port: 443

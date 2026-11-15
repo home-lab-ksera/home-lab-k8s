@@ -226,3 +226,23 @@ spec:
     - digital signature
     - key encipherment
     - server auth
+---
+# 内部公開用 wildcard 証明書（*.internal.qroksera.com の全 hostname を1枚で終端する）
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildcard-internal
+  namespace: nginx-gateway
+spec:
+  secretName: wildcard-internal-tls
+  duration: 8760h # 1年
+  renewBefore: 720h # 30日前から更新
+  issuerRef:
+    name: letsencrypt-cloudflare
+    kind: ClusterIssuer
+  dnsNames:
+    - "*.internal.qroksera.com"
+  usages:
+    - digital signature
+    - key encipherment
+    - server auth
