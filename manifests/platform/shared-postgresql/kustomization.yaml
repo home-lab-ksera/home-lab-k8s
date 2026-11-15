@@ -3,6 +3,8 @@ kind: Kustomization
 resources:
   - application-config.yaml
   - postgrescluster.yaml
+  - postgresql.yaml
+  - backup.yaml
   - credentials.yaml
   - harbor-trust.yaml
   - grafana-trust.yaml
@@ -14,6 +16,11 @@ configMapGenerator:
     files:
       - scripts/reconcile.py
       - scripts/bootstrap.sql
+  - name: postgresql-init
+    namespace: database
+    files:
+      - 10-roles.sh=scripts/init-roles.sh
+      - 20-bootstrap.sql=scripts/bootstrap.sql
 replacements:
   - source:
       kind: CronJob
