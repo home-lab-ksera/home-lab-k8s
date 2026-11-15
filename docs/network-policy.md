@@ -12,7 +12,6 @@
 | [RustFS lifecycle](../manifests/platform/rustfs/lifecycle-networkpolicy.yaml) | 同 namespace の lifecycle Job → RustFS:9000 |
 | [PostgreSQL](../manifests/platform/shared-postgresql/credentials.yaml) | database 内 Pod、harbor の `app=harbor`、observability の Grafana → DB（namespace 外は TCP 5432） |
 | [Loki](../manifests/platform/observability/logging-networkpolicy.yaml) | Grafana / Alloy → Loki:3100 |
-| [core/platform-networkpolicies.yaml](../manifests/core/platform-networkpolicies.yaml) | 基盤 5 namespace の default-deny と許可（下の「基盤 namespace」） |
 
 [workload-networkpolicies.yaml](../manifests/core/workload-networkpolicies.yaml) は
 `sandbox`・`tools`・`harbor` に Ingress/Egress 両方の default-deny を設定します。
@@ -33,32 +32,11 @@
 
 ## 基盤 namespace
 
-[platform-networkpolicies.yaml](../manifests/core/platform-networkpolicies.yaml) は
-`observability`・`cert-manager`・`external-secrets-system`・`nginx-gateway`・`tailscale` に
-Ingress/Egress 両方の default-deny と DNS の許可を置きます（2026-11-15）。`argocd` は upstream のポリシー、
-`database` と `rustfs` は各コンポーネントのポリシーで守られています。
-
-| 対象 | 受信 | 送信 |
-|---|---|---|
-| VictoriaMetrics | Alloy / Grafana / vmalert / 週次レポート、Harbor 保守、RustFS scanner、Gateway（VMUI）→ 8428 | API、全 Pod の metrics 用 port（3000 / 8080 / 9090 / 9113 / 9402）、ノードの 10250 / 9080、ホストの 9100 |
-| vmalert / Alertmanager | Alertmanager は vmalert → 9093 のみ | vmalert → VM / Alertmanager。Alertmanager → 外部 HTTPS（Slack、healthchecks.io） |
-| Grafana | Gateway → 3000 | VM、Loki、共有 PostgreSQL のみ。外部へは出ない |
-| Alloy | なし | API、Loki、VM、外形監視（Gateway 443、Split DNS 53） |
-| kube-state-metrics / 週次レポート | VM → 8080 / なし | API / VM と外部 HTTPS（Slack） |
-| cert-manager | webhook は API サーバー → 10250、全 Pod は VM → 9402 | 全 Pod → API。controller → 外部 HTTPS（ACME、Cloudflare API、DNS over HTTPS） |
-| External Secrets | なし | API、外部 HTTPS（Pulumi ESC） |
-| Gateway data plane | 全送信元 → 80 / 443、VM → 9113 | control plane 8443、HTTPRoute の backend の namespace と port のみ |
-| Gateway control plane | data plane → 8443、VM → 9113 | API のみ（製品テレメトリは values で停止） |
-| Gateway の cert-generator（chart の hook Job） | なし | API のみ。同期のたびに走るため、ないと同期が失敗する |
-| Tailscale operator | なし | API、外部 HTTPS |
-| Tailscale proxy | なし | API、外部 TCP 80 / 443、UDP の任意 port（LAN の端末と直接つながるため 192.168.0.0/16 を含む） |
-| subnet router | なし | 192.168.122.0/24 の全 port、Gateway と Split DNS の Pod |
-| Nature Remo の Ingress proxy | なし | sandbox の nature-remo:8080 のみ |
-| Split DNS | 全送信元 → 53 | なし（hosts の固定応答だけで上流へ問い合わせない） |
-
-VictoriaMetrics の収集先は Pod の `prometheus.io/scrape` annotation で決まるため、送信側は metrics 用の port に限って
-全 Pod を許可し、受け側の ingress で絞ります。新しい収集先の port がこの一覧にない場合は追加します。
-cert-manager の DNS01 の伝播確認は DNS over HTTPS（1.1.1.1 / 1.0.0.1）に固定しているため、外部の 53 番は開けていません。
+`observability`・`cert-manager`・`external-secrets-system`・`nginx-gateway`・`tailscale` には default-deny を置きません。
+2026-11-15 に導入した基盤 5 namespace の default-deny（32 ポリシー）は、入口が LAN と Tailscale に限られる構成に対して
+保守の負担が大きいため 2026-11-16 に撤去しました。Loki は [専用ポリシー](../manifests/platform/observability/logging-networkpolicy.yaml)、
+`argocd` は upstream のポリシー、`database` と `rustfs` は各コンポーネントのポリシーで受信を絞っています。
+アプリが動く `sandbox`・`tools` と `harbor` の default-deny は維持します。
 
 ### kube-network-policies の実測した性質（2026-11-15）
 
