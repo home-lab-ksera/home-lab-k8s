@@ -16,6 +16,11 @@ spec:
     helm:
       values: |
         installCRDs: true
+        # DNS01 の伝播確認を DNS over HTTPS に固定する。権威サーバーへ 53 番で直接問い合わせないため、
+        # NetworkPolicy で外部の 53 番を開けずに済む（manifests/core/platform-networkpolicies.yaml）。
+        # zone は Cloudflare にあり、1.1.1.1 は Cloudflare の resolver のため反映が速い。
+        dns01RecursiveNameservers: "https://1.1.1.1/dns-query,https://1.0.0.1/dns-query"
+        dns01RecursiveNameserversOnly: true
         resources:
           requests:
             cpu: 10m

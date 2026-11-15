@@ -18,6 +18,9 @@ spec:
       values: |
         nginxGateway:
           priorityClassName: homelab-platform
+          # 既定では利用状況を F5 へ送る。NetworkPolicy で外部への送信を許可していないため止める。
+          productTelemetry:
+            enable: false
           resources:
             requests:
               cpu: 50m

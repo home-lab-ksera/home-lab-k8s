@@ -8,6 +8,8 @@ import yaml
 ROOT = Path(__file__).resolve().parents[3]
 POLICIES = list(yaml.safe_load_all((ROOT / 'manifests/core/workload-networkpolicies.yaml').read_text()))
 for policy_file in ['manifests/core/application-networkpolicies.yaml',
+                    'manifests/core/platform-networkpolicies.yaml',
+                    'manifests/platform/observability/logging-networkpolicy.yaml',
                     'manifests/platform/shared-postgresql/application-networkpolicy.yaml']:
     POLICIES.extend(yaml.safe_load_all((ROOT / policy_file).read_text()))
 
@@ -17,6 +19,14 @@ def matches(selector, labels):
         labels.get(expr['key']) in expr['values'] for expr in selector.get('matchExpressions', []))
 
 
+def port_matches(rule, port, protocol):
+    # ports を省略した rule は全 port・全 protocol を許可する。
+    if 'ports' not in rule:
+        return True
+    return any(p.get('protocol', 'TCP') == protocol and p['port'] <= port <= p.get('endPort', p['port'])
+               for p in rule['ports'])
+
+
 def allowed(namespace, labels, direction, remote_ns, remote_labels, ip, port, protocol='TCP'):
     selected = [p['spec'] for p in POLICIES if p['metadata']['namespace'] == namespace
                 and matches(p['spec']['podSelector'], labels) and direction in p['spec']['policyTypes']]
@@ -24,10 +34,13 @@ def allowed(namespace, labels, direction, remote_ns, remote_labels, ip, port, pr
         return True
     for spec in selected:
         for rule in spec.get(direction.lower(), []):
-            if not any(p.get('protocol', 'TCP') == protocol and p['port'] <= port <= p.get('endPort', p['port'])
-                       for p in rule['ports']):
+            if not port_matches(rule, port, protocol):
                 continue
-            for peer in rule['to' if direction == 'Egress' else 'from']:
+            # to / from を省略した rule は全送信元・全宛先を許可する。
+            peers = rule.get('to' if direction == 'Egress' else 'from')
+            if peers is None:
+                return True
+            for peer in peers:
                 if 'ipBlock' in peer:
                     block = peer['ipBlock']
                     address = ipaddress.ip_address(ip)
@@ -143,3 +156,138 @@ class NetworkPolicyTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+GATEWAY = {'app.kubernetes.io/name': 'nginx-gateway-nginx', 'gateway.networking.k8s.io/gateway-name': 'nginx-gateway'}
+VM = {'app.kubernetes.io/name': 'victoria-metrics'}
+UNRELATED = {'app': 'unrelated'}
+INTERNET = '1.1.1.1'
+
+
+class PlatformNetworkPolicyTests(unittest.TestCase):
+    """基盤 namespace の default-deny と、壊すと監視・公開・証明書が止まる経路。"""
+
+    def test_every_platform_namespace_denies_by_default(self):
+        for namespace in ['observability', 'cert-manager', 'external-secrets-system', 'nginx-gateway', 'tailscale']:
+            for direction in ['Ingress', 'Egress']:
+                self.assertFalse(allowed(namespace, UNRELATED, direction, 'sandbox', UNRELATED, '10.244.1.2', 8080),
+                                 f'{namespace} {direction}')
+            # DNS はどの Pod にも許可する。
+            self.assertTrue(allowed(namespace, UNRELATED, 'Egress', 'kube-system', {'k8s-app': 'kube-dns'},
+                                    '10.244.0.5', 53, 'UDP'))
+
+    def test_victoria_metrics_accepts_only_known_writers_and_readers(self):
+        for remote_ns, labels in [('observability', {'app.kubernetes.io/name': 'alloy'}),
+                                  ('observability', {'app.kubernetes.io/name': 'grafana'}),
+                                  ('observability', {'app.kubernetes.io/name': 'vmalert'}),
+                                  ('observability', {'app.kubernetes.io/name': 'weekly-observability-report'}),
+                                  ('harbor', {'app': 'harbor-maintenance'}),
+                                  ('rustfs', {'app.kubernetes.io/name': 'rustfs-scanner-monitor'}),
+                                  ('nginx-gateway', GATEWAY)]:
+            self.assertTrue(allowed('observability', VM, 'Ingress', remote_ns, labels, '10.244.1.2', 8428), labels)
+        self.assertFalse(allowed('observability', VM, 'Ingress', 'sandbox', UNRELATED, '10.244.1.2', 8428))
+        self.assertFalse(allowed('observability', VM, 'Ingress', 'harbor', {'app': 'harbor'}, '10.244.1.2', 8428))
+
+    def test_victoria_metrics_scrapes_pods_nodes_and_host(self):
+        for port in [3000, 8080, 9090, 9113, 9402]:
+            self.assertTrue(allowed('observability', VM, 'Egress', 'sandbox', UNRELATED, '10.244.1.2', port))
+        self.assertFalse(allowed('observability', VM, 'Egress', 'database', UNRELATED, '10.244.1.2', 5432))
+        for node in ['192.168.122.10', '192.168.122.12']:
+            for port in [10250, 9080]:
+                self.assertTrue(allowed('observability', VM, 'Egress', '', {}, node, port))
+        self.assertTrue(allowed('observability', VM, 'Egress', '', {}, '192.168.122.1', 9100))
+        self.assertFalse(allowed('observability', VM, 'Egress', '', {}, '192.168.122.10', 22))
+        self.assertFalse(allowed('observability', VM, 'Egress', '', {}, INTERNET, 443))
+
+    def test_alerts_reach_slack_but_grafana_stays_inside(self):
+        alertmanager = {'app.kubernetes.io/name': 'alertmanager'}
+        grafana = {'app.kubernetes.io/name': 'grafana'}
+        self.assertTrue(allowed('observability', {'app.kubernetes.io/name': 'vmalert'}, 'Egress', 'observability',
+                                alertmanager, '10.244.1.2', 9093))
+        self.assertTrue(allowed('observability', alertmanager, 'Ingress', 'observability',
+                                {'app.kubernetes.io/name': 'vmalert'}, '10.244.1.2', 9093))
+        self.assertTrue(allowed('observability', alertmanager, 'Egress', '', {}, INTERNET, 443))
+        self.assertFalse(allowed('observability', alertmanager, 'Egress', '', {}, '192.168.10.2', 443))
+        self.assertFalse(allowed('observability', grafana, 'Egress', '', {}, INTERNET, 443))
+        self.assertTrue(allowed('observability', grafana, 'Egress', 'database',
+                                {'postgres-operator.crunchydata.com/cluster': 'shared-postgresql'}, '10.244.1.2', 5432))
+        self.assertTrue(allowed('observability', grafana, 'Ingress', 'nginx-gateway', GATEWAY, '10.244.1.2', 3000))
+        self.assertFalse(allowed('observability', grafana, 'Ingress', 'sandbox', UNRELATED, '10.244.1.2', 3000))
+
+    def test_alloy_probes_gateway_split_dns_and_apiserver(self):
+        alloy = {'app.kubernetes.io/name': 'alloy'}
+        for address in ['192.168.122.100', '10.244.2.2']:
+            self.assertTrue(allowed('observability', alloy, 'Egress', 'nginx-gateway', GATEWAY, address, 443))
+        for address in ['192.168.122.101', '10.244.2.3']:
+            self.assertTrue(allowed('observability', alloy, 'Egress', 'tailscale', {'app': 'tailscale-split-dns'},
+                                    address, 53, 'UDP'))
+        self.assertTrue(allowed('observability', alloy, 'Egress', '', {}, '10.96.0.1', 443))
+        self.assertTrue(allowed('observability', alloy, 'Egress', '', {}, '192.168.122.10', 6443))
+        self.assertTrue(allowed('observability', {'app.kubernetes.io/name': 'loki'}, 'Ingress', 'observability',
+                                alloy, '10.244.1.2', 3100))
+
+    def test_cert_manager_reaches_acme_and_only_the_apiserver_calls_the_webhook(self):
+        controller = {'app.kubernetes.io/name': 'cert-manager', 'app.kubernetes.io/component': 'controller'}
+        webhook = {'app.kubernetes.io/name': 'webhook', 'app.kubernetes.io/component': 'webhook'}
+        self.assertTrue(allowed('cert-manager', controller, 'Egress', '', {}, INTERNET, 443))
+        # DNS01 の伝播確認は DoH のため、外部の 53 番は開けない。
+        self.assertFalse(allowed('cert-manager', controller, 'Egress', '', {}, INTERNET, 53, 'UDP'))
+        self.assertFalse(allowed('cert-manager', webhook, 'Egress', '', {}, INTERNET, 443))
+        # 別ノードの API サーバーからは control-plane の flannel.1 が送信元になる。
+        self.assertTrue(allowed('cert-manager', webhook, 'Ingress', '', {}, '10.244.0.0', 10250))
+        self.assertFalse(allowed('cert-manager', webhook, 'Ingress', 'sandbox', UNRELATED, '10.244.1.2', 10250))
+        self.assertTrue(allowed('cert-manager', webhook, 'Ingress', 'observability', VM, '10.244.1.2', 9402))
+
+    def test_external_secrets_reaches_pulumi_and_the_apiserver_only(self):
+        operator = {'app.kubernetes.io/name': 'external-secrets'}
+        self.assertTrue(allowed('external-secrets-system', operator, 'Egress', '', {}, INTERNET, 443))
+        self.assertTrue(allowed('external-secrets-system', operator, 'Egress', '', {}, '192.168.122.10', 6443))
+        self.assertFalse(allowed('external-secrets-system', operator, 'Egress', 'database', UNRELATED, '10.244.1.2', 5432))
+        self.assertFalse(allowed('external-secrets-system', operator, 'Ingress', 'sandbox', UNRELATED, '10.244.1.2', 8080))
+
+    def test_gateway_serves_everyone_and_reaches_only_route_backends(self):
+        for source in ['192.168.10.9', '192.168.122.1', '10.244.0.0']:
+            for port in [80, 443]:
+                self.assertTrue(allowed('nginx-gateway', GATEWAY, 'Ingress', '', {}, source, port))
+        for remote_ns, port in [('sandbox', 80), ('sandbox', 1200), ('sandbox', 3000), ('sandbox', 8080),
+                                ('harbor', 8080), ('argocd', 8080), ('observability', 3000),
+                                ('observability', 8428), ('rustfs', 9000), ('rustfs', 9001)]:
+            self.assertTrue(allowed('nginx-gateway', GATEWAY, 'Egress', remote_ns, UNRELATED, '10.244.1.2', port),
+                            (remote_ns, port))
+        self.assertFalse(allowed('nginx-gateway', GATEWAY, 'Egress', 'database', UNRELATED, '10.244.1.2', 5432))
+        self.assertFalse(allowed('nginx-gateway', GATEWAY, 'Egress', '', {}, INTERNET, 443))
+        control = {'app.kubernetes.io/name': 'nginx-gateway-fabric'}
+        self.assertTrue(allowed('nginx-gateway', GATEWAY, 'Egress', 'nginx-gateway', control, '10.244.1.2', 8443))
+        self.assertTrue(allowed('nginx-gateway', control, 'Ingress', 'nginx-gateway', GATEWAY, '10.244.1.2', 8443))
+        self.assertFalse(allowed('nginx-gateway', control, 'Ingress', 'sandbox', UNRELATED, '10.244.1.2', 8443))
+        # 製品テレメトリは values で止めており、外部への送信は許可しない。
+        self.assertFalse(allowed('nginx-gateway', control, 'Egress', '', {}, INTERNET, 443))
+
+    def test_tailscale_router_reaches_the_subnet_but_not_the_pod_network(self):
+        router = {'tailscale.com/managed': 'true', 'tailscale.com/parent-resource': 'k8s-subnet-router',
+                  'tailscale.com/parent-resource-type': 'connector'}
+        for address, port in [('192.168.122.10', 22), ('192.168.122.1', 9100), ('192.168.122.100', 443)]:
+            self.assertTrue(allowed('tailscale', router, 'Egress', '', {}, address, port), address)
+        self.assertTrue(allowed('tailscale', router, 'Egress', 'nginx-gateway', GATEWAY, '10.244.2.2', 443))
+        self.assertTrue(allowed('tailscale', router, 'Egress', 'tailscale', {'app': 'tailscale-split-dns'},
+                                '10.244.2.3', 53, 'UDP'))
+        self.assertFalse(allowed('tailscale', router, 'Egress', 'database', UNRELATED, '10.244.1.2', 5432))
+        self.assertFalse(allowed('tailscale', router, 'Egress', 'sandbox', {'app': 'api-hub'}, '10.244.1.2', 3000))
+        # Tailscale 自体の通信。自宅 LAN の端末とは UDP で直接つながる。
+        self.assertTrue(allowed('tailscale', router, 'Egress', '', {}, INTERNET, 443))
+        self.assertTrue(allowed('tailscale', router, 'Egress', '', {}, '192.168.10.9', 41641, 'UDP'))
+        self.assertFalse(allowed('tailscale', router, 'Egress', '', {}, '10.244.1.2', 41641, 'UDP'))
+
+    def test_tailscale_ingress_proxy_and_split_dns(self):
+        proxy = {'tailscale.com/managed': 'true', 'tailscale.com/parent-resource': 'nature-remo',
+                 'tailscale.com/parent-resource-type': 'ingress'}
+        self.assertTrue(allowed('tailscale', proxy, 'Egress', 'sandbox', {'app': 'nature-remo'}, '10.244.1.2', 8080))
+        self.assertFalse(allowed('tailscale', proxy, 'Egress', 'sandbox', {'app': 'api-hub'}, '10.244.1.2', 3000))
+        self.assertFalse(allowed('tailscale', proxy, 'Egress', '', {}, '192.168.122.10', 22))
+        split_dns = {'app': 'tailscale-split-dns'}
+        for source in ['10.244.2.199', '192.168.122.1']:
+            self.assertTrue(allowed('tailscale', split_dns, 'Ingress', '', {}, source, 53, 'UDP'))
+        self.assertFalse(allowed('tailscale', split_dns, 'Egress', '', {}, INTERNET, 53, 'UDP'))
+        operator = {'app': 'operator'}
+        self.assertFalse(allowed('tailscale', operator, 'Egress', '', {}, INTERNET, 41641, 'UDP'))
+        self.assertTrue(allowed('tailscale', operator, 'Egress', '', {}, INTERNET, 443))
