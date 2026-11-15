@@ -655,6 +655,32 @@ spec:
         - protocol: TCP
           port: 6443
 ---
+# chart の pre-install / pre-upgrade hook。ArgoCD の同期のたびに走り、data plane との mTLS 用 Secret を作る。
+# Pod template にラベルがないため、Kubernetes が付ける Job 名のラベルで選ぶ。
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-cert-generator
+  namespace: nginx-gateway
+spec:
+  podSelector:
+    matchLabels:
+      batch.kubernetes.io/job-name: nginx-gateway-fabric-cert-generator
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 10.96.0.1/32
+      ports:
+        - protocol: TCP
+          port: 443
+    - to:
+        - ipBlock:
+            cidr: 192.168.122.10/32
+      ports:
+        - protocol: TCP
+          port: 6443
+---
 # data plane は利用者（LAN、Tailnet、ノードの containerd、クラスタ内の Pod）から 80 / 443 を受ける。
 # 送信は control plane と、HTTPRoute の backend の namespace・port だけ。backend 側の ingress で Pod を絞る。
 apiVersion: networking.k8s.io/v1

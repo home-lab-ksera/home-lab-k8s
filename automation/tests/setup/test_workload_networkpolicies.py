@@ -262,6 +262,11 @@ class PlatformNetworkPolicyTests(unittest.TestCase):
         self.assertFalse(allowed('nginx-gateway', control, 'Ingress', 'sandbox', UNRELATED, '10.244.1.2', 8443))
         # 製品テレメトリは values で止めており、外部への送信は許可しない。
         self.assertFalse(allowed('nginx-gateway', control, 'Egress', '', {}, INTERNET, 443))
+        # chart の cert-generator hook は同期のたびに API で Secret を作る（2026-11-15 に遮断で失敗した）。
+        generator = {'batch.kubernetes.io/job-name': 'nginx-gateway-fabric-cert-generator'}
+        self.assertTrue(allowed('nginx-gateway', generator, 'Egress', '', {}, '10.96.0.1', 443))
+        self.assertTrue(allowed('nginx-gateway', generator, 'Egress', '', {}, '192.168.122.10', 6443))
+        self.assertFalse(allowed('nginx-gateway', generator, 'Egress', '', {}, INTERNET, 443))
 
     def test_tailscale_router_reaches_the_subnet_but_not_the_pod_network(self):
         router = {'tailscale.com/managed': 'true', 'tailscale.com/parent-resource': 'k8s-subnet-router',
