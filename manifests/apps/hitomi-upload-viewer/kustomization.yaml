@@ -6,4 +6,4 @@ images:
   - name: harbor.qroksera.com/sandbox/hitomi-upload-viewer
     newTag: deploy
     newName: harbor.qroksera.com/sandbox/hitomi-upload-viewer
-    digest: sha256:d03c1c237e52a0e36c8d701837f770f564ee78b7306bfca448471ade3447cf99
+    digest: sha256:6e7cd1a3e6f58cc2f7bbb516c7b23697533cb3177625f551a40449ad7f6036bb
