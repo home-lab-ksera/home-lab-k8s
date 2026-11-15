@@ -20,7 +20,7 @@
 ## マニフェスト規約
 - `bootstrap/` には Root/Application 定義のみを置き、`core/` に ArgoCD `Application` を置かない。
 - 現行 repo に新規アプリを追加する場合は `manifests/apps/<app>/` と `manifests/bootstrap/applications/user-apps/<app>-app.yaml` をセットで追加する。
-- `tasks/` の改革スコープでは `apps/` workload-only、公開/接続系は `access/` へ分離する target-state を計画している。未実装の path を live repo の既成事実として扱わない。
+- アプリの HTTPRoute は `manifests/apps/<app>/access.yaml` に置き、アプリと同じ Application で管理する。Gateway・DNS・基盤の経路は `manifests/access/`。
 - cert-manager 系リソースは `manifests/infrastructure/security/cert-manager/` に集約し、Gateway 配下は Gateway/HTTPRoute/TLSPolicy などルーティング系のみ置く。
 - ExternalSecret 定義は `manifests/platform/secrets/external-secrets/` に集約する。
 - `.sh` からの `kubectl apply` はブートストラップ最小限のみ。最終状態は ArgoCD 管理に戻す。

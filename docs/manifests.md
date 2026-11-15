@@ -10,13 +10,13 @@ Application の `source` を辿ったものが通常の GitOps 管理対象で�
 | [core/](../manifests/core/) | Namespace、基本 NetworkPolicy、StorageClass |
 | [infrastructure/](../manifests/infrastructure/) | ネットワーク・証明書・ストレージコントローラなど |
 | [platform/](../manifests/platform/) | ArgoCD、ESO、Harbor、RustFS、PGO、共通 DB、共有設定、監視 |
-| [access/](../manifests/access/) | Gateway、HTTPRoute、DNS |
-| [apps/](../manifests/apps/) | アプリの Deployment / Service / CronJob など |
+| [access/](../manifests/access/) | Gateway、DNS、基盤コンポーネントの HTTPRoute |
+| [apps/](../manifests/apps/) | アプリの Deployment / Service / CronJob と、そのアプリの HTTPRoute（`access.yaml`） |
 
 ## 追加・変更時の規約
 
 - アプリ実体と `bootstrap/applications/user-apps/<app>-app.yaml` をセットで追加し、親の Kustomization に登録します。
-- HTTPRoute など接続系は `access/` に分離し、新しい所有者なら access Application も登録します。
+- アプリの HTTPRoute は `apps/<app>/access.yaml` に置き、アプリと同じ Application で管理します。基盤の経路は `access/platform` がまとめて所有します。
 - ローカル Git source は `targetRevision: HEAD`。外部 chart の revision は chart の固定版です。
 - cert-manager の Issuer / Certificate は [security/cert-manager](../manifests/infrastructure/security/cert-manager/) に集約します。
   SecretStore / ExternalSecret は [platform/secrets/external-secrets](../manifests/platform/secrets/external-secrets/) に置きます。

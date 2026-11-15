@@ -58,15 +58,7 @@ wave は root が作成・更新する Application の annotation です。別 A
 | 12 | [hitomi-upload-viewer](../../manifests/bootstrap/applications/user-apps/hitomi-upload-viewer-app.yaml) | `apps` | [manifests/apps/hitomi-upload-viewer](../../manifests/apps/hitomi-upload-viewer) | `sandbox` |
 | 12 | [home-camera](../../manifests/bootstrap/applications/user-apps/home-camera-app.yaml) | `apps` | [manifests/apps/home-camera](../../manifests/apps/home-camera) | `sandbox` |
 | 12 | [rsshub](../../manifests/bootstrap/applications/user-apps/rsshub-app.yaml) | `apps` | [manifests/apps/rsshub](../../manifests/apps/rsshub) | `sandbox` |
-| 13 | [api-hub-access](../../manifests/bootstrap/applications/access/api-hub-access.yaml) | `access` | [manifests/access/api-hub](../../manifests/access/api-hub) | `sandbox` |
-| 13 | [argocd-access](../../manifests/bootstrap/applications/access/argocd-access.yaml) | `access` | [manifests/access/argocd](../../manifests/access/argocd) | `argocd` |
-| 13 | [blog-access](../../manifests/bootstrap/applications/access/blog-access.yaml) | `access` | [manifests/access/blog](../../manifests/access/blog) | `sandbox` |
-| 13 | [cooklog-access](../../manifests/bootstrap/applications/access/cooklog-access.yaml) | `access` | [manifests/access/cooklog](../../manifests/access/cooklog) | `sandbox` |
-| 13 | [harbor-access](../../manifests/bootstrap/applications/access/harbor-access.yaml) | `access` | [manifests/access/harbor](../../manifests/access/harbor) | `harbor` |
-| 13 | [hitomi-upload-viewer-access](../../manifests/bootstrap/applications/access/hitomi-upload-viewer-access.yaml) | `access` | [manifests/access/hitomi-upload-viewer](../../manifests/access/hitomi-upload-viewer) | `sandbox` |
-| 13 | [observability-access](../../manifests/bootstrap/applications/access/observability-access.yaml) | `access` | [manifests/access/observability](../../manifests/access/observability) | `observability` |
-| 13 | [rsshub-access](../../manifests/bootstrap/applications/access/rsshub-access.yaml) | `access` | [manifests/access/rsshub](../../manifests/access/rsshub) | `sandbox` |
-| 13 | [rustfs-access](../../manifests/bootstrap/applications/access/rustfs-access.yaml) | `access` | [manifests/access/rustfs](../../manifests/access/rustfs) | `rustfs` |
+| 13 | [platform-access](../../manifests/bootstrap/applications/access/platform-access.yaml) | `access` | [manifests/access/platform](../../manifests/access/platform)（argocd / harbor / observability / rustfs の経路） | `nginx-gateway` |
 | 14 | [dns-core](../../manifests/bootstrap/applications/access/dns-core.yaml) | `access` | [manifests/access/dns/core](../../manifests/access/dns/core) | `kube-system` |
 | 14 | [dns-tailscale](../../manifests/bootstrap/applications/access/dns-tailscale.yaml) | `access` | [manifests/access/dns/tailscale](../../manifests/access/dns/tailscale) | `tailscale` |
 
@@ -75,7 +67,6 @@ Nature Remo の追加定義:
 | Wave | Application（定義） | Project | Source | Destination namespace |
 |---|---|---|---|---|
 | 12 | [nature-remo](../../manifests/bootstrap/applications/user-apps/nature-remo-app.yaml) | `apps` | [manifests/apps/nature-remo](../../manifests/apps/nature-remo) | `sandbox` |
-| 13 | [nature-remo-access](../../manifests/bootstrap/applications/access/nature-remo-access.yaml) | `access` | [manifests/access/nature-remo](../../manifests/access/nature-remo) | `sandbox` |
 
 設定・初回公開は [Nature Remo](../nature-remo.md) を参照してください。
 
@@ -94,10 +85,10 @@ root 配下は **47 Application**。`argocd-projects` / `argocd-core` のみ aut
 Application を変更したら、この一覧・Runner 表・関連する運用ページを合わせて更新します。
 同期状態の確認と切り戻しは [GitOps](../gitops.md) を参照してください。
 
-Harbor は内部 Gateway 経由に統一し、cloudflared は撤去しました。`harbor-access` は HTTPRoute に加え、
+Harbor は内部 Gateway 経由に統一し、cloudflared は撤去しました。`platform-access` は基盤の HTTPRoute に加え、
 ノードの名前解決を管理する `kube-system/harbor-node-hosts` DaemonSet を所有します。
 移行時の段階的な同期は [アクセス経路](../access.md#harbor-の内部経路と移行) を参照してください。
-`harbor-access` 内ではスクリプト ConfigMap（wave -2）→ DaemonSet（wave -1）→ Route（wave 0）の順に同期します。
+`platform-access` 内ではスクリプト ConfigMap（wave -2）→ DaemonSet（wave -1）→ Route（wave 0）の順に同期します。
 
 ### sandbox イメージの更新
 

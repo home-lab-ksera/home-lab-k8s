@@ -36,7 +36,7 @@ spec:
       kind: Gateway
       name: nginx-gateway
       namespace: nginx-gateway
-      sectionName: https-observability-internal
+      sectionName: https-internal
   hostnames:
     - observability.internal.qroksera.com
   rules:

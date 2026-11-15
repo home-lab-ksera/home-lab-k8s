@@ -1,6 +1,6 @@
 # アプリの追加と配布
 
-アプリ実体は [apps/](../manifests/apps/)、公開経路は [access/](../manifests/access/) に置きます。
+アプリ実体と公開経路（HTTPRoute）は [apps/](../manifests/apps/) に置きます。Gateway・DNS・基盤の経路は [access/](../manifests/access/) です。
 Application の namespace と source は [一覧](diagrams/app-of-apps-sync-wave.md) が参照先です。
 現在のユーザーアプリは api-hub、blog、cooklog、hitomi、hitomi-pdf、hitomi-upload-viewer、home-camera、rsshub、nature-remo。
 すべて `sandbox` に配置します。Selenium は独立アプリではなく、hitomi の収集 Job 内でのみ起動します。
@@ -14,7 +14,7 @@ Nature Remo の初回配布と手動ビルドは [ローカル操作アプリの
    既存例の Project `apps`、Git revision `HEAD`、wave 12 を基準にします。
 3. 必要な Namespace / AppProject destination、共有設定、ExternalSecret、PVC を用意します。
 4. hostname を公開する場合は [access 手順](access.md#新しく到達可能な-api-を追加する手順) に沿って
-   Route / 証明書 / DNS / access Application を追加します。
+   Route / DNS を追加します。
 5. [静的検証](reference.md) を実行し、Git 反映後に Application と実際のサービス操作を確認します。
 
 イメージはベース YAML だけでなく、Kustomize の `images` で上書きされる場合があります。

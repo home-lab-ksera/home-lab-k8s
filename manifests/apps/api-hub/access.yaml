@@ -37,7 +37,7 @@ spec:
       kind: Gateway
       name: nginx-gateway
       namespace: nginx-gateway
-      sectionName: https-api-hub-internal
+      sectionName: https-internal
   hostnames:
     - api-hub.internal.qroksera.com
   rules:

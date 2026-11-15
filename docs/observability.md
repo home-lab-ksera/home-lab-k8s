@@ -1,7 +1,7 @@
 # 監視・ログ・通知
 
 [observability Kustomization](../manifests/platform/observability/kustomization.yaml) が構成の正本です。
-データ収集・評価・通知・表示は `observability` Application、HTTPRoute は `observability-access` が管理します。
+データ収集・評価・通知・表示は `observability` Application、HTTPRoute は `platform-access` が管理します。
 
 ## 構成と保存先
 
@@ -160,7 +160,7 @@ CronJob から手動 Job を作ると実際に Slack へ送信します。再試
 
 ```bash
 kubectl -n observability get pods,pvc,externalsecrets,cronjobs
-kubectl -n argocd get applications observability observability-access
+kubectl -n argocd get applications observability platform-access
 kubectl -n observability logs deployment/alloy --tail=50
 kubectl -n observability logs deployment/vmalert --tail=50
 kubectl -n observability logs deployment/alertmanager --tail=50

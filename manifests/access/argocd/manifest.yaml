@@ -36,7 +36,7 @@ spec:
       kind: Gateway
       name: nginx-gateway
       namespace: nginx-gateway
-      sectionName: https-argocd-internal
+      sectionName: https-internal
   hostnames:
     - argocd.internal.qroksera.com
   rules:

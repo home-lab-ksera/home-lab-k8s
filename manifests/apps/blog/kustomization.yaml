@@ -3,6 +3,7 @@ kind: Kustomization
 
 resources:
   - manifest.yaml
+  - access.yaml
 
 images:
   - name: harbor.qroksera.com/sandbox/blog

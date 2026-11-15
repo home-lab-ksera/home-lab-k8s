@@ -74,7 +74,7 @@ spec:
       kind: Gateway
       name: nginx-gateway
       namespace: nginx-gateway
-      sectionName: https-nature-remo-internal
+      sectionName: https-internal
   hostnames:
     - nature-remo.internal.qroksera.com
   rules:
