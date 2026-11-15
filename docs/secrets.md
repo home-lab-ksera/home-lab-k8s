@@ -74,5 +74,5 @@ ArgoCD の `argocd-secret` / `argocd-notifications-secret` は `creationPolicy: 
 証明書と秘密鍵、password と htpasswd の整合を維持します。暗号化キーの変更は保存済みデータへの影響を確認します。
 Harbor namespace は現行 Reloader の監視対象外なので、annotation があっても自動再起動を前提にしません。
 
-共通 DB は ESO の入力 Secret と PGO の生成 Secret を分離し、資格情報 CronJob が反映します。
+共通 DB は ESO の入力 Secret（`postgresql-input`）を初期化時のパスワードに使います。既存 DB のローテーションは [手順](shared-postgresql.md#初期化と資格情報) を参照。
 共用 `app` パスワードを変えると Harbor と Grafana の SQL 接続に影響します。[DB 運用](shared-postgresql.md) を参照してください。

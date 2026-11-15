@@ -2,33 +2,12 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - application-config.yaml
-  - postgrescluster.yaml
   - postgresql.yaml
   - backup.yaml
-  - credentials.yaml
-  - harbor-trust.yaml
-  - grafana-trust.yaml
-  - sandbox-trust.yaml
   - application-networkpolicy.yaml
 configMapGenerator:
-  - name: postgresql-credentials-scripts
-    namespace: database
-    files:
-      - scripts/reconcile.py
-      - scripts/bootstrap.sql
   - name: postgresql-init
     namespace: database
     files:
       - 10-roles.sh=scripts/init-roles.sh
       - 20-bootstrap.sql=scripts/bootstrap.sql
-replacements:
-  - source:
-      kind: CronJob
-      name: postgresql-credentials
-      fieldPath: spec.jobTemplate.spec
-    targets:
-      - select:
-          kind: Job
-          name: postgresql-credentials-sync
-        fieldPaths:
-          - spec

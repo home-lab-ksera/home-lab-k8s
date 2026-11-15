@@ -37,11 +37,6 @@ jobs:
             ghcr.io/renovatebot/renovate:44.166.0
       - name: Install validation toolchain
         uses: ./.github/actions/setup-toolchain
-      - name: Sync PostgreSQL images and vendored chart in Renovate PRs
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-        run: mise exec -- python3 automation/scripts/ci/sync-renovate-postgresql.py
       - name: Dispatch validation for Renovate PRs
         # GITHUB_TOKEN で作った PR のイベントは CI を起動しない。
         if: always()

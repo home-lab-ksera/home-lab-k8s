@@ -396,28 +396,17 @@ groups:
           severity: warning
         annotations:
           summary: "kubelet の容量メトリクスを収集できません"
-      # pgBackRest: full（日曜）と diff（月〜土）が毎日 18:00 UTC に実行される。
-      # どちらかの成功が26時間ない場合に通知する。DBの重要度が低いため warning とする。
+      # pg_dumpall の日次バックアップ（18:00 UTC）。成功が26時間ない場合に通知する。DBの重要度が低いため warning とする。
       - alert: PostgreSQLBackupStale
         expr: >-
-          time() - max(kube_cronjob_status_last_successful_time{namespace="database",cronjob=~"shared-postgresql-repo1-(full|diff)"}) > 26 * 3600
-          or absent(kube_cronjob_status_last_successful_time{namespace="database",cronjob=~"shared-postgresql-repo1-(full|diff)"})
+          time() - kube_cronjob_status_last_successful_time{namespace="database",cronjob="postgresql-backup"} > 26 * 3600
+          or absent(kube_cronjob_status_last_successful_time{namespace="database",cronjob="postgresql-backup"})
         for: 30m
         labels:
           severity: warning
           namespace: database
         annotations:
-          summary: "共通PostgreSQLのpgBackRestバックアップが26時間以上成功していません。database namespaceのbackup Jobとrepo-hostのログを確認してください"
-      # 直近のスケジュール実行が成功していない（失敗・未完了）状態が続く場合。実行中の数分は for で除外する。
-      - alert: PostgreSQLBackupFailed
-        expr: >-
-          kube_cronjob_status_last_schedule_time{namespace="database",cronjob=~"shared-postgresql-repo1-(full|diff)"}
-          > kube_cronjob_status_last_successful_time{namespace="database",cronjob=~"shared-postgresql-repo1-(full|diff)"}
-        for: 2h
-        labels:
-          severity: warning
-        annotations:
-          summary: "pgBackRest {{ $labels.cronjob }} の直近の実行が成功していません。kubectl -n database get jobs で失敗Jobを確認してください"
+          summary: "共通PostgreSQLの日次バックアップが26時間以上成功していません。kubectl -n database get jobs とJobのログを確認してください"
       # RustFS scanner は lifecycle（30日保持）も実行する。停止すると期限切れ削除が止まり容量が増え続ける。
       # 通常は約10分ごとに1周を完了する（2026-11-10 実測）。
       - alert: RustFSScannerStalled

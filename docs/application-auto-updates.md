@@ -8,7 +8,7 @@ PR を作成して検証し、**マージは手動**です。Kubernetes / contai
 | 対象 | 正本と更新方法 |
 |---|---|
 | 公開コンテナ、bootstrap の外部 Helm chart | [renovate.json](../renovate.json) の Kubernetes / ArgoCD manager |
-| PGO と関連イメージ | PGO chart を起点に同梱 chart・DB・pgBackRest・補助コンテナを同期。[専用手順](postgresql-updates.md) |
+| PostgreSQL | 公式イメージの minor 更新を 1 つの PR にまとめる。major は手動。[手順](postgresql-updates.md) |
 | Harbor / RustFS 同梱 chart | 手動 Application Version Updates workflow |
 | ArgoCD / Gateway API の配布 URL | 手動で版を書き換える（専用 updater は 2026-11-16 に撤去） |
 | private Harbor のアプリ | アプリ側 workflow。[アプリ配布](app-delivery.md) |
@@ -17,7 +17,6 @@ PR を作成して検証し、**マージは手動**です。Kubernetes / contai
 Renovate は charts / upstream / tasks / automation を走査対象から外し、ローカル source の `HEAD` と自作 `latest` を維持します。
 GitHub Actions 自体の更新 manager は有効にしていません。
 通常は公開から 3 日待ち、同時 PR 3 件・時間あたり 2 件、major は Dependency Dashboard 承認後に PR を作ります。
-PGO の OCI metadata に公開日時がない場合は timestamp-optional の例外があります。
 
 ## アプリリポジトリ
 

@@ -557,12 +557,6 @@ spec:
           kubernetes.io/metadata.name: database
       podSelector:
         matchLabels:
-          postgres-operator.crunchydata.com/cluster: shared-postgresql
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: database
-      podSelector:
-        matchLabels:
           app.kubernetes.io/name: postgresql
     ports:
     - protocol: TCP

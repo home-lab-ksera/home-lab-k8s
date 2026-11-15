@@ -113,8 +113,7 @@ Alloy は 167 時間より古いログを転送前に除外し、Loki は Compac
 | 外形監視（`Endpoint*`） | 応答・名前解決の失敗 / 5 分、結果の欠損 / 15 分、証明書の期限 14 日未満 / 1 時間 |
 | control-plane 証明書（`ControlPlaneCertificateExpiring`） | API サーバーの証明書の期限 45 日未満 / 1 時間。kubeadm の証明書は 1 年有効で、upgrade 時に更新される |
 | ホストの更新（`HostRebootRequired`、`HostSecurityUpdatesPending`） | 再起動待ち / 7 日、セキュリティ更新の残留 / 7 日 |
-| pgBackRest（`PostgreSQLBackupStale`） | full / diff のどちらも26時間成功なし、またはメトリクス欠損 / 30 分 |
-| pgBackRest（`PostgreSQLBackupFailed`） | CronJob の直近スケジュール実行が未成功 / 2 時間 |
+| PostgreSQL の日次 dump（`PostgreSQLBackupStale`） | 26 時間成功なし、またはメトリクス欠損 / 30 分 |
 
 condition や対象時系列そのものの欠損をすべて検出する構成ではありません。
 HTTPRoute metrics はあっても現行 alert rule はありません。DB 復元成功は別途確認します。

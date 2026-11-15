@@ -88,8 +88,6 @@ spec:
     - server: https://kubernetes.default.svc
       namespace: database
     - server: https://kubernetes.default.svc
-      namespace: postgres-operator
-    - server: https://kubernetes.default.svc
       namespace: sandbox
     - server: https://kubernetes.default.svc
       namespace: default

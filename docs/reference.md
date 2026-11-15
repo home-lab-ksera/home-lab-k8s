@@ -19,10 +19,10 @@ shellcheck、yamllint、GitOps 参照・登録、policy、PostgreSQL 版整合�
 全 `manifests/**/kustomization.yaml` の `kustomize build --enable-helm` と kubeconform、consistency を確認します。
 リモート配布物や schema の取得にネットワークを使います。
 
-kubeconform は PGO 同梱 CRD・標準 schema・CRD catalog を利用し、schema 不足はスキップします。
+kubeconform は標準 schema・CRD catalog を利用し、schema 不足はスキップします。
 外部 Helm Application の同期そのもの、admission、Secret の実値、URL 疎通、データ復元は保証しません。
 
-operator が後から生成する Service / Pod（NGINX Gateway、PGO、Tailscale）は静的 render に現れないため、
+operator が後から生成する Service / Pod（NGINX Gateway、Tailscale）は静的 render に現れないため、
 反映後に Service 種別・port、Pod の hostNetwork / hostPort を実機で確認します。
 
 2026-11-08の読み取り確認時点では、GitHubのmainブランチ保護とrulesetは未設定です。
@@ -59,7 +59,6 @@ kindやコンテナを使う追加実行テストは、Dockerが使えるホス�
 | `setup-behavior` | 外部コマンドを stub に置換した順序・失敗時停止・SSH skip の回帰テスト |
 | `validate` | 上記 validate.sh |
 | `platform-configs` | manifest の固定 image を使った Loki / Alloy 設定検証、Renovate 設定検証 |
-| `postgresql-runtime` | 対象 path の変更時などに kind で更新・backup・restore。[詳細](postgresql-updates.md) |
 
 追加設定検証のローカル入口（Docker が必要）:
 

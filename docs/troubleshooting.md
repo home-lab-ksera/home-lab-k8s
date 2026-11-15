@@ -61,7 +61,7 @@ NGF / Gateway API の更新手順は [アプリ更新](application-auto-updates.
 kubectl -n harbor get pods
 kubectl -n harbor logs deployment/harbor-core --all-containers=true --tail=100
 kubectl -n database get postgrescluster,pods,jobs,pvc
-kubectl -n database describe cronjob postgresql-credentials
+kubectl -n database get statefulset,pods,jobs
 ```
 
 `Waiting for PostgreSQL credentials, TLS, and verified Harbor restore` は
