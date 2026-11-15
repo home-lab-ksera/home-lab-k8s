@@ -35,7 +35,7 @@ command="${!#}"
 echo "$command" >> "$TRACE"
 case "$command" in
   'mktemp -d '*) echo /tmp/kubelet-certs.TEST ;;
-  'kubectl apply '*) exit "${APPLY_STATUS:-0}" ;;
+  'set -o pipefail; kubectl get csr '*) exit "${APPLY_STATUS:-0}" ;;
   'python3 '*) exit "${VERIFY_STATUS:-0}" ;;
   'rm -rf '*) exit 0 ;;
   *) exit 99 ;;
@@ -58,7 +58,7 @@ esac
     def test_prepare_verifies_after_apply(self):
         result, events = self.run_gate()
         self.assertEqual(result.returncode, 0, result.stderr)
-        apply = next(i for i, s in enumerate(events) if s.startswith('kubectl apply'))
+        apply = next(i for i, s in enumerate(events) if s.startswith('set -o pipefail; kubectl get csr'))
         check = next(i for i, s in enumerate(events) if s.startswith('python3'))
         self.assertLess(apply, check)
         self.assertTrue(events[-1].startswith('rm -rf'))
@@ -66,7 +66,7 @@ esac
     def test_verify_only_never_applies(self):
         result, events = self.run_gate('--verify-only')
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertFalse(any(s.startswith('kubectl apply') for s in events))
+        self.assertFalse(any(s.startswith('set -o pipefail; kubectl get csr') for s in events))
         self.assertTrue(any(s.startswith('python3') for s in events))
 
     def test_copy_apply_and_tls_failure_propagate(self):
@@ -77,6 +77,26 @@ esac
                 if var != 'VERIFY_STATUS':
                     self.assertFalse(any(s.startswith('python3') for s in events))
                 self.assertTrue(events[-1].startswith('rm -rf'))
+
+
+class CertificateApprovalTests(unittest.TestCase):
+    def test_only_pending_serving_requests_from_listed_nodes(self):
+        spec = importlib.util.spec_from_file_location('approve', ROOT / 'automation/scripts/approve-kubelet-serving.py')
+        approve = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(approve)
+
+        def csr(name, user='system:node:node1', signer='kubernetes.io/kubelet-serving', conditions=None):
+            return {'metadata': {'name': name}, 'spec': {'username': user, 'signerName': signer},
+                    'status': {'conditions': conditions} if conditions else {}}
+
+        csrs = {'items': [
+            csr('ok'),
+            csr('other-node', user='system:node:unknown'),
+            csr('not-a-node', user='system:serviceaccount:default:x'),
+            csr('client', signer='kubernetes.io/kube-apiserver-client-kubelet'),
+            csr('done', conditions=[{'type': 'Approved'}]),
+        ]}
+        self.assertEqual(approve.approvable(csrs, {'node1': '192.168.122.11'}), ['ok'])
 
 
 class CertificateVerificationTests(unittest.TestCase):

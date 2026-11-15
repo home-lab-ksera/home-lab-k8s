@@ -201,6 +201,10 @@ rules:
     resources:
       - certificates
     verbs: ["list", "watch"]
+  - apiGroups: ["certificates.k8s.io"]
+    resources:
+      - certificatesigningrequests
+    verbs: ["list", "watch"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -266,7 +270,7 @@ spec:
             capabilities:
               drop: [ALL]
           args:
-            - --resources=cronjobs,daemonsets,deployments,jobs,namespaces,nodes,persistentvolumeclaims,persistentvolumes,pods,replicasets,statefulsets,storageclasses
+            - --resources=certificatesigningrequests,cronjobs,daemonsets,deployments,jobs,namespaces,nodes,persistentvolumeclaims,persistentvolumes,pods,replicasets,statefulsets,storageclasses
             - --metric-labels-allowlist=pods=[app.kubernetes.io/name,app]
             - --custom-resource-state-config-file=/etc/kube-state-metrics/custom-resource-state/config.yaml
           ports:

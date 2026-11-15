@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 初回発行と更新で同じGit管理の承認処理を使用する。既存ノードの設定変更は行わない。
+# 未承認の kubelet serving CSR を1回だけ承認し、全ノードの配信証明書を検証する。既存ノードの設定変更は行わない。
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
@@ -26,10 +26,10 @@ cleanup() {
 trap cleanup EXIT
 remote_tmp="$("${ssh_cmd[@]}" 'mktemp -d /tmp/kubelet-certs.XXXXXXXXXX')"
 [[ "$remote_tmp" =~ ^/tmp/kubelet-certs\.[a-zA-Z0-9]+$ ]] || { remote_tmp=''; exit 1; }
-source_dir="$ROOT_DIR/manifests/infrastructure/security/kubelet-serving-certificates"
-scp "${ssh_options[@]}" "$source_dir/nodes.json" "$SCRIPT_DIR/verify-kubelet-serving.py" "$host:$remote_tmp/"
+scp "${ssh_options[@]}" "$SCRIPT_DIR/kubelet-serving-nodes.json" "$SCRIPT_DIR/verify-kubelet-serving.py" \
+  "$SCRIPT_DIR/approve-kubelet-serving.py" "$host:$remote_tmp/"
 if [[ "$mode" == --prepare ]]; then
-  scp -r "${ssh_options[@]}" "$source_dir" "$host:$remote_tmp/source"
-  "${ssh_cmd[@]}" "kubectl apply -k '$remote_tmp/source' && kubectl -n kube-system rollout status deployment/kubelet-serving-approver --timeout=300s"
+  # 台帳のノード自身が出した未承認の serving CSR だけを承認する。常駐の承認処理は置かない。
+  "${ssh_cmd[@]}" "set -o pipefail; kubectl get csr -o json | python3 '$remote_tmp/approve-kubelet-serving.py' '$remote_tmp/kubelet-serving-nodes.json' | xargs -r kubectl certificate approve"
 fi
-"${ssh_cmd[@]}" "python3 '$remote_tmp/verify-kubelet-serving.py' '$remote_tmp/nodes.json'"
+"${ssh_cmd[@]}" "python3 '$remote_tmp/verify-kubelet-serving.py' '$remote_tmp/kubelet-serving-nodes.json'"

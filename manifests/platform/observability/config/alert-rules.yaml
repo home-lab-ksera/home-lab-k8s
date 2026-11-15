@@ -261,32 +261,16 @@ groups:
           severity: critical
         annotations:
           summary: "NetworkPolicy controller の metrics を収集できません"
-      - alert: KubeletServingCertificateInvalid
+      # serving CSR は自動承認しない。更新時期（有効期間1年の残り約2〜3割）になると kubelet が CSR を出し続けるため、
+      # 未承認が残っていたら手動で承認する（docs/kubelet-metrics.md）。期限切れ後は kubelet の scrape 失敗で検知する。
+      - alert: KubeletServingCSRPending
         expr: >-
-          kubelet_serving_certificate_valid == 0 or absent(kubelet_serving_certificate_valid)
-        for: 5m
-        labels:
-          severity: critical
-        annotations:
-          summary: "kubelet serving 証明書を検証できません"
-      - alert: KubeletServingCertificateExpiring
-        expr: >-
-          (kubelet_serving_certificate_expiry_seconds - time() < 14 * 86400)
-          and (kubelet_serving_certificate_valid == 1)
-        for: 15m
+          max by (signer_name) (kube_certificatesigningrequest_condition{signer_name="kubernetes.io/kubelet-serving",condition="pending"}) > 0
+        for: 1h
         labels:
           severity: warning
         annotations:
-          summary: "Node {{ $labels.node }} の serving 証明書の有効期限が14日以内です"
-      - alert: KubeletServingApproverUnavailable
-        expr: >-
-          time() - kubelet_serving_approver_last_success_seconds > 180
-          or absent(kubelet_serving_approver_last_success_seconds)
-        for: 5m
-        labels:
-          severity: critical
-        annotations:
-          summary: "kubelet serving CSR 自動承認処理が停止しています"
+          summary: "kubelet serving 証明書の CSR が未承認です。kubectl get csr で要求元ノードを確認し kubectl certificate approve で承認してください"
       - alert: KubeStateMetricsUnavailable
         expr: >-
           up{job="kube-state-metrics"} == 0 or absent(up{job="kube-state-metrics"})
