@@ -14,4 +14,3 @@ resources:
   - cert-manager-config.yaml
   - tailscale-operator.yaml
   - tailscale-connector.yaml
-  - kubelet-serving-certificates.yaml

@@ -14,7 +14,7 @@ help:
 	@echo "  make all                 - phase1 -> phase2 -> bootstrap -> phase5を順番に実行"
 	@echo "  make phase1 / make vm     - VMの構成"
 	@echo "  make phase2 / make k8s    - k8sの構成"
-	@echo "  make kubelet-certificates - serving CSRの自動承認導入と全ノードTLS検証"
+	@echo "  make kubelet-certificates - 未承認のserving CSRを承認し全ノードのTLSを検証"
 	@echo "  make bootstrap            - GitOps bootstrap（ArgoCD + root Application）"
 	@echo "  make phase5 / make verify       - 確認"
 	@echo "  make validate                   - Docker内のmise toolchainでCI相当の検証"

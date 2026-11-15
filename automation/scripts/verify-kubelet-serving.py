@@ -12,7 +12,7 @@ import time
 def verify_nodes(hosts, nodes, context):
     by_name = {node['metadata']['name']: node for node in nodes['items']}
     if set(by_name) != set(hosts):
-        raise ValueError('登録ノードが nodes.json と一致しません')
+        raise ValueError('登録ノードが kubelet-serving-nodes.json と一致しません')
     for name, ip in hosts.items():
         status = by_name[name]['status']
         ips = [a['address'] for a in status.get('addresses', []) if a['type'] == 'InternalIP']

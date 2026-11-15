@@ -26,12 +26,6 @@ log_section "Setup behavior tests (isolated stubs)"
 require_command python3
 python3 -m unittest discover -s "$ROOT_DIR/automation/tests/setup" -v
 
-log_section "Kubelet serving CSR approval tests (no network)"
-require_command go
-CGO_ENABLED=0 GO111MODULE=off GOTOOLCHAIN=local GOPROXY=off go test \
-  "$ROOT_DIR/manifests/infrastructure/security/kubelet-serving-certificates/approver.go" \
-  "$ROOT_DIR/manifests/infrastructure/security/kubelet-serving-certificates/approver_test.go"
-
 log_section "Version update tests (no network)"
 python3 -m unittest discover -s "$ROOT_DIR/automation/tests/version_updates" -v
 
