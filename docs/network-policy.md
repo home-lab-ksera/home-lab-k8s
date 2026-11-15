@@ -49,6 +49,7 @@ Ingress/Egress 両方の default-deny と DNS の許可を置きます（2026-11
 | External Secrets | なし | API、外部 HTTPS（Pulumi ESC） |
 | Gateway data plane | 全送信元 → 80 / 443、VM → 9113 | control plane 8443、HTTPRoute の backend の namespace と port のみ |
 | Gateway control plane | data plane → 8443、VM → 9113 | API のみ（製品テレメトリは values で停止） |
+| Gateway の cert-generator（chart の hook Job） | なし | API のみ。同期のたびに走るため、ないと同期が失敗する |
 | Tailscale operator | なし | API、外部 HTTPS |
 | Tailscale proxy | なし | API、外部 TCP 80 / 443、UDP の任意 port（LAN の端末と直接つながるため 192.168.0.0/16 を含む） |
 | subnet router | なし | 192.168.122.0/24 の全 port、Gateway と Split DNS の Pod |
