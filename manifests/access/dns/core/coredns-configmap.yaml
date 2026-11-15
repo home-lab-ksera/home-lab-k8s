@@ -4,9 +4,6 @@ kind: ConfigMap
 metadata:
   name: coredns
   namespace: kube-system
-  annotations:
-    contracts.k8s-myhome.local/service-ip: network.serviceIPs.gateway
-    contracts.k8s-myhome.local/access-surfaces: nature-remo-internal,harbor-external,harbor-internal,argocd-internal,cooklog-internal,hitomi-upload-viewer-internal,api-hub-internal,rsshub-internal,observability-internal,grafana-internal,s3-internal,rustfs-console-internal,blog-internal
 data:
   Corefile: |
     .:53 {

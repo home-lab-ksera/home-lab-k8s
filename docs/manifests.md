@@ -12,7 +12,6 @@ Application の `source` を辿ったものが通常の GitOps 管理対象で�
 | [platform/](../manifests/platform/) | ArgoCD、ESO、Harbor、RustFS、PGO、共通 DB、共有設定、監視 |
 | [access/](../manifests/access/) | Gateway、HTTPRoute、DNS |
 | [apps/](../manifests/apps/) | アプリの Deployment / Service / CronJob など |
-| [contracts/](../manifests/contracts/) | 非機密な環境値と公開経路の照合用定義 |
 
 ## 追加・変更時の規約
 
@@ -23,7 +22,6 @@ Application の `source` を辿ったものが通常の GitOps 管理対象で�
   SecretStore / ExternalSecret は [platform/secrets/external-secrets](../manifests/platform/secrets/external-secrets/) に置きます。
 - `core/` に Application を追加しません。同一リソースを別 Application から重複管理しません。
 - Harbor / RustFS / PGO は repo-local Helm wrapper と同梱 chart を持ち、描画に `kustomize build --enable-helm` を使います。
-- `contracts/` は生成器ではありません。値の変更時は参照する YAML / スクリプトも更新し、整合性検証を実行します。
 
 `argocd-projects` と `argocd-core` は同じ source directory を使いますが、前者は `directory.include` で
 AppProject ファイルのみ、後者は Kustomize で本体・設定のみを描画します。
@@ -41,4 +39,4 @@ AppProject ファイルのみ、後者は Kustomize で本体・設定のみを�
 未使用だった no-provisioner の `local-storage` / `local-ssd-storage` は 2026-11-10 に撤去しました。
 
 配置検証の根拠は [gitops-check.py](../automation/scripts/ci/gitops-check.py)、
-[policy-check.py](../automation/scripts/ci/policy-check.py)、[contract-check.py](../automation/scripts/ci/contract-check.py) です。
+[policy-check.py](../automation/scripts/ci/policy-check.py) です。

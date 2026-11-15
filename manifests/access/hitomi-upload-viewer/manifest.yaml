@@ -4,8 +4,6 @@ kind: HTTPRoute
 metadata:
   name: hitomi-upload-viewer-internal-redirect
   namespace: sandbox
-  annotations:
-    contracts.k8s-myhome.local/access-surface: hitomi-upload-viewer-internal
 spec:
   parentRefs:
     - group: gateway.networking.k8s.io
@@ -32,8 +30,6 @@ kind: HTTPRoute
 metadata:
   name: hitomi-upload-viewer-internal
   namespace: sandbox
-  annotations:
-    contracts.k8s-myhome.local/access-surface: hitomi-upload-viewer-internal
 spec:
   parentRefs:
     - group: gateway.networking.k8s.io

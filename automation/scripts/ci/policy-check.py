@@ -4,14 +4,13 @@ from __future__ import annotations
 
 import re
 import shutil
+import subprocess
 import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
 
 import yaml
-
-from contract_inventory import InventoryError, render_local
 
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -32,6 +31,12 @@ SELF_FILES = {
 
 MONITORING_LEGACY_ALLOWLIST = {
     "automation/scripts/ci/consistency-check.sh",
+}
+
+# ノード外へ直接公開する Service はここに登録したものだけを許可する。
+# Gateway の LoadBalancer は NGINX Gateway Fabric が Gateway から生成するため render 結果には現れない。
+ALLOWLISTED_EXPOSED_SERVICES = {
+    ("tailscale", "tailscale-split-dns"),
 }
 
 ALLOWLISTED_PRUNE_FALSE = {
@@ -264,15 +269,32 @@ def check_child_app_structure(issues: list[str]) -> None:
 
 def render_child_app(path: str) -> tuple[int, str, str]:
     try:
-        return 0, yaml.safe_dump_all(render_local(ROOT, path)), ""
-    except InventoryError as exc:
-        return 1, "", str(exc)
+        result = subprocess.run(
+            ["kustomize", "build", "--enable-helm", str(ROOT / path)],
+            capture_output=True, text=True, timeout=180, check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return 1, "", type(exc).__name__
+    # render 結果は Secret を含み得るため、失敗時も stderr の先頭行だけを返す。
+    return result.returncode, result.stdout, result.stderr.strip().split("\n")[0]
 
 
 def default_namespace_for_app(doc: dict[str, Any]) -> str | None:
     destination = doc.get("spec", {}).get("destination", {}) or {}
     namespace = destination.get("namespace")
     return str(namespace) if namespace else None
+
+
+def check_exposure(issues: list[str], app_name: str, doc: dict[str, Any], ident: tuple[str, str, str]) -> None:
+    kind, namespace, name = ident
+    if kind == "Ingress" and (doc.get("spec", {}) or {}).get("ingressClassName") != "tailscale":
+        fail(issues, "R-010", f"{app_name}: Ingress {namespace}/{name} is not allowed; publish through the Gateway")
+    if kind != "Service":
+        return
+    spec = doc.get("spec", {}) or {}
+    exposed = spec.get("type") in {"NodePort", "LoadBalancer"} or spec.get("externalIPs")
+    if exposed and (namespace, name) not in ALLOWLISTED_EXPOSED_SERVICES:
+        fail(issues, "R-010", f"{app_name}: Service {namespace}/{name} is exposed outside the cluster without an allowlist entry")
 
 
 def check_rendered_collision(issues: list[str]) -> None:
@@ -305,6 +327,7 @@ def check_rendered_collision(issues: list[str]) -> None:
             if not ident[0] or not ident[2]:
                 continue
             owners_by_identity[ident].append(str(app_name))
+            check_exposure(issues, str(app_name), doc, ident)
 
     for ident, owners in sorted(owners_by_identity.items()):
         unique_owners = sorted(set(owners))

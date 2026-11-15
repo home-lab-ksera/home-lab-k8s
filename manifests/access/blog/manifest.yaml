@@ -4,8 +4,6 @@ kind: HTTPRoute
 metadata:
   name: blog-internal-redirect
   namespace: sandbox
-  annotations:
-    contracts.k8s-myhome.local/access-surface: blog-internal
 spec:
   parentRefs:
     - group: gateway.networking.k8s.io
@@ -32,8 +30,6 @@ kind: HTTPRoute
 metadata:
   name: blog-internal
   namespace: sandbox
-  annotations:
-    contracts.k8s-myhome.local/access-surface: blog-internal
 spec:
   parentRefs:
     - group: gateway.networking.k8s.io

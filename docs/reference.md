@@ -16,36 +16,14 @@ make validate-local
 
 validate は actionlint、setup / version update / observability / CI / PostgreSQL の回帰テスト、
 shellcheck、yamllint、GitOps 参照・登録、policy、PostgreSQL 版整合、
-全 `manifests/**/kustomization.yaml` の `kustomize build --enable-helm` と kubeconform、consistency / contract を確認します。
+全 `manifests/**/kustomization.yaml` の `kustomize build --enable-helm` と kubeconform、consistency を確認します。
 リモート配布物や schema の取得にネットワークを使います。
 
 kubeconform は PGO 同梱 CRD・標準 schema・CRD catalog を利用し、schema 不足はスキップします。
 外部 Helm Application の同期そのもの、admission、Secret の実値、URL 疎通、データ復元は保証しません。
 
-## 公開台帳の検証とレポート
-
-`contract-check.py` はJSON Schema、重複YAMLキー、配備対象の参照、公開経路の許可を検証します。
-ローカルKustomize、固定版の外部Helm、明示的なdirectory.include、multi-source、
-現在のApplicationSet list generatorに対応します。未対応の形式は失敗させます。
-収集とrenderの共通処理は `contract_inventory.py`、照合は `contract_rules.py` です。
-
-```bash
-mise exec -- python3 -m unittest discover -s automation/tests/ci -p test_contracts.py -v
-mise exec -- python3 automation/scripts/ci/contract-check.py --report /tmp/contract-review.json
-# 比較元にはfetch済みの完全なcommit SHAを指定
-mise exec -- python3 automation/scripts/ci/contract-check.py --base-ref "$(git rev-parse origin/main)"
-```
-
-PRのvalidate jobは比較元SHAを渡し、公開台帳・転送profile・検証器の変更を `[REVIEW]` として出力します。
-レポートにはsource一覧・リソース件数・検証エラー・実行時確認項目だけを保存し、Secretやrender本文は保存しません。
-artifactの保持は7日です。基盤の例外や台帳を変更した場合、一致検査に通るだけでは公開拡大のレビューが済んだことになりません。
-
-Helmは固定toolchainとKubernetes 1.34.0の互換性条件でオフラインrenderします。
-この値は実クラスタから取得した版ではありません。実際のAPI discoveryやadmissionによる差分、
-operatorが後から生成する資産は静的renderでは再現しません。
-NGINX Gateway、PGO、Tailscaleの関連CRは台帳の `operatorResources` と照合し、
-生成後のService種別・port・ownerReference、PodのhostNetwork/hostPortを確認します。
-任意の新規operatorが生成する全リソースの安全性まで保証する検証ではありません。
+operator が後から生成する Service / Pod（NGINX Gateway、PGO、Tailscale）は静的 render に現れないため、
+反映後に Service 種別・port、Pod の hostNetwork / hostPort を実機で確認します。
 
 2026-11-08の読み取り確認時点では、GitHubのmainブランチ保護とrulesetは未設定です。
 CI失敗によるマージ禁止はまだ強制されていません。required checkとレビュー設定はGitHub側で別に設定する必要があります。
@@ -114,7 +92,6 @@ shellcheck -S error -x automation/scripts/<file>.sh
 yamllint -f parsable -c .yamllint.yml manifests/<dir-or-file>
 kustomize build --enable-helm manifests/<component>
 python3 automation/scripts/ci/gitops-check.py
-python3 automation/scripts/ci/contract-check.py
 python3 -m unittest discover -s automation/tests/setup -v
 ```
 

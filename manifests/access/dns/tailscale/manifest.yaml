@@ -4,9 +4,6 @@ kind: ConfigMap
 metadata:
   name: tailscale-split-dns
   namespace: tailscale
-  annotations:
-    contracts.k8s-myhome.local/service-ip: network.serviceIPs.gateway
-    contracts.k8s-myhome.local/access-surfaces: nature-remo-internal,harbor-internal,cooklog-internal,hitomi-upload-viewer-internal,api-hub-internal,rsshub-internal,observability-internal,grafana-internal,argocd-internal,s3-internal,rustfs-console-internal,blog-internal
 data:
   Corefile: |
     internal.qroksera.com:53 {
@@ -40,8 +37,6 @@ metadata:
   namespace: tailscale
   labels:
     app: tailscale-split-dns
-  annotations:
-    contracts.k8s-myhome.local/service-ip: network.serviceIPs.tailscaleSplitDNS
 spec:
   revisionHistoryLimit: 3
   replicas: 1
