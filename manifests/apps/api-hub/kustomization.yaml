@@ -4,7 +4,7 @@ resources:
   - manifest.yaml
   - access.yaml
 images:
-  - name: harbor.qroksera.com/sandbox/api-hub
+  - name: harbor.internal.qroksera.com/sandbox/api-hub
     newTag: latest
-    newName: harbor.qroksera.com/sandbox/api-hub
+    newName: harbor.internal.qroksera.com/sandbox/api-hub
     digest: sha256:94b275268d27ed38624c162028fef62af21879942601c5dfcef563e37721448b

@@ -31,7 +31,7 @@ spec:
               {{ end -}}
             registries:
               - name: Harbor
-                prefix: harbor.qroksera.com
+                prefix: harbor.internal.qroksera.com
                 api_url: https://harbor.internal.qroksera.com
                 credentials: secret:argocd/image-updater-harbor#credentials
                 credsexpire: 5m

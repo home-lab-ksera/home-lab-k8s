@@ -21,63 +21,63 @@ spec:
     - namePattern: api-hub
       images:
         - alias: app
-          imageName: harbor.qroksera.com/sandbox/api-hub:latest
+          imageName: harbor.internal.qroksera.com/sandbox/api-hub:latest
           manifestTargets:
             kustomize:
-              name: harbor.qroksera.com/sandbox/api-hub
+              name: harbor.internal.qroksera.com/sandbox/api-hub
     - namePattern: blog
       images:
         - alias: app
-          imageName: harbor.qroksera.com/sandbox/blog:latest
+          imageName: harbor.internal.qroksera.com/sandbox/blog:latest
           manifestTargets:
             kustomize:
-              name: harbor.qroksera.com/sandbox/blog
+              name: harbor.internal.qroksera.com/sandbox/blog
     - namePattern: cooklog
       images:
         - alias: app
-          imageName: harbor.qroksera.com/sandbox/cooklog:latest
+          imageName: harbor.internal.qroksera.com/sandbox/cooklog:latest
           manifestTargets:
             kustomize:
-              name: harbor.qroksera.com/sandbox/cooklog
+              name: harbor.internal.qroksera.com/sandbox/cooklog
     - namePattern: hitomi
       images:
         - alias: app
-          imageName: harbor.qroksera.com/sandbox/hitomi:latest
+          imageName: harbor.internal.qroksera.com/sandbox/hitomi:latest
           manifestTargets:
             kustomize:
-              name: harbor.qroksera.com/sandbox/hitomi
+              name: harbor.internal.qroksera.com/sandbox/hitomi
     - namePattern: hitomi-pdf
       images:
         - alias: app
-          imageName: harbor.qroksera.com/sandbox/hitomi-pdf-batch:latest
+          imageName: harbor.internal.qroksera.com/sandbox/hitomi-pdf-batch:latest
           manifestTargets:
             kustomize:
-              name: harbor.qroksera.com/sandbox/hitomi-pdf-batch
+              name: harbor.internal.qroksera.com/sandbox/hitomi-pdf-batch
     - namePattern: hitomi-upload-viewer
       images:
         - alias: app
-          imageName: harbor.qroksera.com/sandbox/hitomi-upload-viewer:latest
+          imageName: harbor.internal.qroksera.com/sandbox/hitomi-upload-viewer:latest
           manifestTargets:
             kustomize:
-              name: harbor.qroksera.com/sandbox/hitomi-upload-viewer
+              name: harbor.internal.qroksera.com/sandbox/hitomi-upload-viewer
     - namePattern: home-camera
       images:
         - alias: app
-          imageName: harbor.qroksera.com/sandbox/home-camera:latest
+          imageName: harbor.internal.qroksera.com/sandbox/home-camera:latest
           manifestTargets:
             kustomize:
-              name: harbor.qroksera.com/sandbox/home-camera
+              name: harbor.internal.qroksera.com/sandbox/home-camera
     - namePattern: nature-remo
       images:
         - alias: app
-          imageName: harbor.qroksera.com/sandbox/nature-remo:latest
+          imageName: harbor.internal.qroksera.com/sandbox/nature-remo:latest
           manifestTargets:
             kustomize:
-              name: harbor.qroksera.com/sandbox/nature-remo
+              name: harbor.internal.qroksera.com/sandbox/nature-remo
     - namePattern: rsshub
       images:
         - alias: app
-          imageName: harbor.qroksera.com/sandbox/rsshub-private:latest
+          imageName: harbor.internal.qroksera.com/sandbox/rsshub-private:latest
           manifestTargets:
             kustomize:
-              name: harbor.qroksera.com/sandbox/rsshub-private
+              name: harbor.internal.qroksera.com/sandbox/rsshub-private

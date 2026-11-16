@@ -32,7 +32,7 @@ VMUI は `https://observability.internal.qroksera.com/vmui/` です。
 Harbor は push・pull・認証を内部 Gateway `192.168.122.100` で完結させます。
 コンソールは `https://harbor.internal.qroksera.com` を LAN / Tailscale 経由で利用します。
 cloudflared と専用 Secret / Namespace / Application は撤去しました。
-旧 `harbor.qroksera.com` の Route は既存イメージ名との互換用に内部で残しています。
+旧名 `harbor.qroksera.com` の Route・listener・証明書は 2026-11-16 に撤去し、イメージ名も内部名に統一しました。
 Internet向けだった `argocd.qroksera.com`、`rustfs.qroksera.com`、`blog.qroksera.com` の
 listener・Route は撤去済みです。現在 Internet 向けの経路はありません。
 
@@ -47,8 +47,8 @@ console の `/` は GET / HEAD のリダイレクトと POST / Authorization 付
 | 共通 Gateway | [gateway.yaml](../manifests/access/gateway/gateway.yaml)、LB `192.168.122.100` |
 | クラスタ内 DNS | [CoreDNS](../manifests/access/dns/core/coredns-configmap.yaml) |
 | Tailnet 向け DNS | [Split DNS](../manifests/access/dns/tailscale/manifest.yaml)、LB `192.168.122.101` |
-| TLS | [cert-manager 設定](../manifests/infrastructure/security/cert-manager/)、DNS-01、`*.internal.qroksera.com` の wildcard 1 枚（旧名 Harbor 用に `*.qroksera.com` も残す） |
-| ノードの名前解決 | [harbor-node-hosts](../manifests/access/harbor/node-hosts.yaml)、両 Harbor hostname を内部 Gateway に固定 |
+| TLS | [cert-manager 設定](../manifests/infrastructure/security/cert-manager/)、DNS-01、`*.internal.qroksera.com` の wildcard 1 枚 |
+| ノードの名前解決 | [harbor-node-hosts](../manifests/access/harbor/node-hosts.yaml)、Harbor の hostname を内部 Gateway に固定（ノードはクラスタ内 DNS を使わないため） |
 
 Gateway の証明書 Secret は `nginx-gateway` namespace に置きます。
 内部 hostname でも公開 ACME issuer の DNS-01 を使っています。「内部 URL だから独自 CA を端末へ追加する」とは限りません。
@@ -96,15 +96,15 @@ Gateway の Programmed、HTTPRoute の Accepted / ResolvedRefs、Certificate の
 
 ## Harbor の内部経路
 
-`harbor-access` が kube-system の `harbor-node-hosts` DaemonSet を管理します。
-ノードの `/etc/hosts` のみをファイルマウントし、両 Harbor hostname の競合を除去して
+`platform-access` が kube-system の `harbor-node-hosts` DaemonSet を管理します。
+ノードの `/etc/hosts` のみをファイルマウントし、Harbor の hostname（旧名を含む）の競合を除去して
 `192.168.122.100` に固定します。他のホスト名は保持し、60 秒ごとに再調整します。
 containerd の設定・再起動、hostNetwork、privileged は不要です。
 Pod DNS は CoreDNS、ノードはこの DaemonSet を使います。
 
-既存の `harbor.qroksera.com/sandbox/...` はそのまま内部で pull できます。
+イメージ名は `harbor.internal.qroksera.com/sandbox/...` です。旧名 `harbor.qroksera.com` では pull できません。
 Harbor の externalURL / EXT_ENDPOINT は内部 hostname に統一し、token realm も内部へ向けます。
-両 hostname の証明書検証は維持します。Cloudflare DNS-01 用の Secret は証明書更新に必要なので残します。
+証明書検証は維持します。Cloudflare DNS-01 用の Secret は証明書更新に必要なので残します。
 
 再構築時は DaemonSet の全ノード Ready と両 hostname の内部 HTTPS 到達を確認し、
 Harbor・Secret・Split DNS を同期して認証付き pull を確認します。

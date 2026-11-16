@@ -58,7 +58,7 @@ Rust のリポジトリは [rust-verify.yml](../.github/workflows/rust-verify.ym
 許可した9アプリの `latest` の digest を検知し、このリポジトリの `main` にある各
 `manifests/apps/<app>/kustomization.yaml` に書き戻します。ArgoCD Application の revision は `HEAD` のままです。
 書き戻しの commit message には `[skip ci]` を付け、digest だけの変更で検証 workflow を起動しません。
-Harbor への接続は内部 URL、マニフェスト内のイメージ名は従来の `harbor.qroksera.com/sandbox/...` を使います。
+Harbor への接続もマニフェスト内のイメージ名も `harbor.internal.qroksera.com/sandbox/...` を使います。
 更新方式は公式の [Git write-back](https://argocd-image-updater.readthedocs.io/en/stable/basics/update-methods/) と
 [digest strategy](https://argocd-image-updater.readthedocs.io/en/stable/basics/update-strategies/#digest---update-to-the-most-recent-pushed-version-of-a-tag) を利用します。
 

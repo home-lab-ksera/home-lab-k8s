@@ -9,7 +9,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = ROOT / "manifests/access/harbor/scripts/reconcile-hosts.sh"
-EXPECTED = "192.168.122.100 harbor.qroksera.com harbor.internal.qroksera.com # managed: harbor-node-hosts"
+EXPECTED = "192.168.122.100 harbor.internal.qroksera.com # managed: harbor-node-hosts"
 
 
 class HarborNodeHostsTests(unittest.TestCase):

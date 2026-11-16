@@ -55,7 +55,7 @@ class ImageDeliveryTests(unittest.TestCase):
                 covered.add(source.name)
         self.assertEqual(kinds, {'Deployment', 'StatefulSet', 'CronJob'})
         expected = {p.parent.name for p in (ROOT / 'manifests/apps').glob('*/manifest.yaml')
-                    if 'harbor.qroksera.com/sandbox/' in p.read_text()}
+                    if 'harbor.internal.qroksera.com/sandbox/' in p.read_text()}
         self.assertEqual(covered, expected)
 
 

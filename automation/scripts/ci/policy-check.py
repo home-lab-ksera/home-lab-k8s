@@ -184,11 +184,11 @@ def check_manifest_rules(issues: list[str]) -> None:
             if kind in WORKLOAD_KINDS:
                 namespace = ident[1]
                 for image in collect_images(doc):
-                    if image.startswith("harbor.qroksera.com/") and image.endswith(":latest"):
+                    if image.startswith("harbor.internal.qroksera.com/") and image.endswith(":latest"):
                         allowed = (
                             path_rel.startswith("manifests/apps/")
                             and namespace == "sandbox"
-                            and image.startswith("harbor.qroksera.com/sandbox/")
+                            and image.startswith("harbor.internal.qroksera.com/sandbox/")
                         )
                         if not allowed:
                             fail(issues, "R-004", f"first-party :latest is not sandbox-scoped: {path_rel} {identity_label(ident)} {image}")
