@@ -144,29 +144,6 @@ data:
     hs.message = "CronJob is configured"
     return hs
   # CR 作成だけでは DB を Healthy とせず、instance とバックアップの準備を待つ。
-  resource.customizations.health.postgres-operator.crunchydata.com_PostgresCluster: |
-    local hs = {status = "Progressing", message = "Waiting for PostgreSQL and backup readiness"}
-    if obj.status == nil or obj.status.observedGeneration ~= obj.metadata.generation then
-      return hs
-    end
-    local desired, ready = 0, 0
-    for _, instance in ipairs(obj.spec.instances or {}) do
-      desired = desired + (instance.replicas or 1)
-    end
-    for _, instance in ipairs(obj.status.instances or {}) do
-      ready = ready + (instance.readyReplicas or 0)
-    end
-    local backupReady = false
-    for _, condition in ipairs(obj.status.conditions or {}) do
-      if condition.type == "PGBackRestReplicaCreate" and condition.status == "True" then
-        backupReady = true
-      end
-    end
-    if desired > 0 and ready >= desired and backupReady then
-      hs.status = "Healthy"
-      hs.message = "PostgreSQL instances and backup repository are ready"
-    end
-    return hs
   # ExternalSecret を ArgoCD 上で正しくヘルス判定する
   resource.customizations.health.external-secrets.io_ExternalSecret: |
     hs = {}

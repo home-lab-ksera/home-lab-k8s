@@ -9,7 +9,7 @@ Application の `source` を辿ったものが通常の GitOps 管理対象で�
 | [bootstrap/](../manifests/bootstrap/) | root と child Application。core / infrastructure / platform / access / user-apps に分類 |
 | [core/](../manifests/core/) | Namespace、基本 NetworkPolicy、StorageClass |
 | [infrastructure/](../manifests/infrastructure/) | ネットワーク・証明書・ストレージコントローラなど |
-| [platform/](../manifests/platform/) | ArgoCD、ESO、Harbor、RustFS、PGO、共通 DB、共有設定、監視 |
+| [platform/](../manifests/platform/) | ArgoCD、ESO、Harbor、RustFS、共通 DB、共有設定、監視 |
 | [access/](../manifests/access/) | Gateway、DNS、基盤コンポーネントの HTTPRoute |
 | [apps/](../manifests/apps/) | アプリの Deployment / Service / CronJob と、そのアプリの HTTPRoute（`access.yaml`） |
 
@@ -21,7 +21,7 @@ Application の `source` を辿ったものが通常の GitOps 管理対象で�
 - cert-manager の Issuer / Certificate は [security/cert-manager](../manifests/infrastructure/security/cert-manager/) に集約します。
   SecretStore / ExternalSecret は [platform/secrets/external-secrets](../manifests/platform/secrets/external-secrets/) に置きます。
 - `core/` に Application を追加しません。同一リソースを別 Application から重複管理しません。
-- Harbor / RustFS / PGO は repo-local Helm wrapper と同梱 chart を持ち、描画に `kustomize build --enable-helm` を使います。
+- Harbor / RustFS は repo-local Helm wrapper と同梱 chart を持ち、描画に `kustomize build --enable-helm` を使います。
 
 `argocd-projects` と `argocd-core` は同じ source directory を使いますが、前者は `directory.include` で
 AppProject ファイルのみ、後者は Kustomize で本体・設定のみを描画します。
@@ -32,7 +32,7 @@ AppProject ファイルのみ、後者は Kustomize で本体・設定のみを�
 |---|---|---|
 | `local-path` | [local-path](../manifests/infrastructure/storage/local-path/) | ノードローカル。Grafana / Loki / Alloy / PostgreSQL（DB 本体）などで使用 |
 | `nfs-external` | [NFS Application](../manifests/bootstrap/applications/infrastructure/nfs-subdir-external-provisioner.yaml) | 動的作成、Delete、archiveOnDelete。共有 NFS を使用 |
-| `nfs-postgresql` | [core](../manifests/core/storage-classes/nfs-postgresql.yaml) | 同じ NFS provisioner、Retain、pgBackRest repo1 用（DB 本体は local-path） |
+| `nfs-postgresql` | [core](../manifests/core/storage-classes/nfs-postgresql.yaml) | 同じ NFS provisioner、Retain、PostgreSQL の日次 dump 用（DB 本体は local-path） |
 
 要求容量は NFS ディレクトリごとの上限や予約を保証しません。Retain も別媒体へのバックアップではありません。
 [core/kustomization.yaml](../manifests/core/kustomization.yaml) には `nfs-postgresql` が登録されています。

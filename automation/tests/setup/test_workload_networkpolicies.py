@@ -9,8 +9,10 @@ ROOT = Path(__file__).resolve().parents[3]
 POLICIES = list(yaml.safe_load_all((ROOT / 'manifests/core/workload-networkpolicies.yaml').read_text()))
 for policy_file in ['manifests/core/application-networkpolicies.yaml',
                     'manifests/platform/observability/logging-networkpolicy.yaml',
-                    'manifests/platform/shared-postgresql/application-networkpolicy.yaml']:
-    POLICIES.extend(yaml.safe_load_all((ROOT / policy_file).read_text()))
+                    'manifests/platform/shared-postgresql/application-networkpolicy.yaml',
+                    'manifests/platform/shared-postgresql/postgresql.yaml']:
+    POLICIES.extend(doc for doc in yaml.safe_load_all((ROOT / policy_file).read_text())
+                    if doc and doc['kind'] == 'NetworkPolicy')
 
 
 def matches(selector, labels):
@@ -63,7 +65,7 @@ class NetworkPolicyTests(unittest.TestCase):
                                      {'app.kubernetes.io/name': 'victoria-metrics'}, '10.244.1.2', port))
 
     def test_application_clients_require_the_database_opt_in_label(self):
-        database = {'postgres-operator.crunchydata.com/cluster': 'shared-postgresql'}
+        database = {'app.kubernetes.io/name': 'postgresql'}
         client = {'app': 'media-api', 'database.k8s-myhome.local/shared-postgresql': 'true'}
         self.assertTrue(allowed('sandbox', client, 'Egress', 'database', database, '10.244.1.2', 5432))
         self.assertTrue(allowed('database', database, 'Ingress', 'sandbox', client, '10.244.1.3', 5432))

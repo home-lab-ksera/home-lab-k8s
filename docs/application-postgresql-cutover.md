@@ -30,7 +30,7 @@ api-hub/media/hitomiのmigrationはPreSync Jobで、migrationだけを実行す�
 
 ## DB復元
 
-1. 統合api-hubとhitomi dispatcher/収集、mediaの書き込みを停止し、既存pgBackRest手順でDBを復元する。別媒体backupは今回の対象外。
+1. 統合api-hubとhitomi dispatcher/収集、mediaの書き込みを停止し、[日次dumpからの復元手順](shared-postgresql.md#復元)でDBを復元する。別媒体backupは今回の対象外。
 2. schema、資格情報、TLS、source/items/outbox/catalogの状態を確認し、migrationを適用する。cameraのPVC/S3は移動・削除しない。
 3. 通常の統合api-hubを起動して配送を再開し、hitomi/mediaを再開する。個人サーバーの運用としてDB巻戻りによる通知再送・重複は許容する。Slackとの事前照合やAPI専用modeを再開条件にしない。
 4. 通常の冪等受付とuncertainの手動対応は維持する。sending/uncertainを無条件にpendingへ戻したり、全件再送したりしない。

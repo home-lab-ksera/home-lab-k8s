@@ -10,6 +10,5 @@ resources:
   - sandbox-config.yaml
   - observability.yaml
   - reloader.yaml
-  - pgo.yaml
   - shared-postgresql.yaml
   - image-updater.yaml

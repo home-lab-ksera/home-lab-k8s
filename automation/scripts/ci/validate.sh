@@ -79,27 +79,18 @@ python3 "$ROOT_DIR/automation/scripts/ci/gitops-check.py"
 log_section "Policy checks"
 "$ROOT_DIR/automation/scripts/ci/policy-check.sh"
 
-log_section "PostgreSQL version consistency"
-python3 "$ROOT_DIR/automation/scripts/ci/postgresql-versions.py"
-
 log_section "Kubeconform"
 require_command kubeconform
 
-pgo_schema_dir="$(mktemp -d)"
-trap 'rm -rf "$pgo_schema_dir"' EXIT
-python3 - "$ROOT_DIR" "$pgo_schema_dir" <<'PY'
+schema_dir="$(mktemp -d)"
+trap 'rm -rf "$schema_dir"' EXIT
+python3 - "$ROOT_DIR" "$schema_dir" <<'PY'
 import json
 from pathlib import Path
 import sys
 import yaml
 
 root, output = map(Path, sys.argv[1:])
-version = yaml.safe_load((root / "manifests/platform/pgo/kustomization.yaml").read_text())["helmCharts"][0]["version"]
-crd = yaml.safe_load((root / f"manifests/platform/pgo/charts/pgo-{version}/pgo/crds/postgres-operator.crunchydata.com_postgresclusters.yaml").read_text())
-for version in crd["spec"]["versions"]:
-    schema = version["schema"]["openAPIV3Schema"]
-    (output / f"postgrescluster_{version['name']}.json").write_text(json.dumps(schema))
-
 # 汎用 CRD カタログは旧 Image Updater の spec.namespace を要求するため、採用 chart と一致させる。
 application = yaml.safe_load((root / "manifests/bootstrap/applications/platform/image-updater.yaml").read_text())
 chart = next(source for source in application["spec"]["sources"] if source.get("chart") == "argocd-image-updater")
@@ -108,7 +99,7 @@ schema = root / "automation/schemas/argocd-image-updater" / chart["targetRevisio
 PY
 
 kubeconform_schema_locations=(
-  -schema-location "$pgo_schema_dir/{{ .ResourceKind }}_{{ .ResourceAPIVersion }}.json"
+  -schema-location "$schema_dir/{{ .ResourceKind }}_{{ .ResourceAPIVersion }}.json"
   -schema-location default
   -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{ .Group }}/{{ .ResourceKind }}_{{ .ResourceAPIVersion }}.json'
 )

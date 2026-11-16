@@ -15,35 +15,7 @@ spec:
               kubernetes.io/metadata.name: database
           podSelector:
             matchLabels:
-              postgres-operator.crunchydata.com/cluster: shared-postgresql
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: database
-          podSelector:
-            matchLabels:
               app.kubernetes.io/name: postgresql
-      ports:
-        - protocol: TCP
-          port: 5432
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-sandbox-postgresql
-  namespace: database
-spec:
-  podSelector:
-    matchLabels:
-      postgres-operator.crunchydata.com/cluster: shared-postgresql
-  policyTypes: [Ingress]
-  ingress:
-    - from:
-        - namespaceSelector:
-            matchLabels:
-              kubernetes.io/metadata.name: sandbox
-          podSelector:
-            matchLabels:
-              database.k8s-myhome.local/shared-postgresql: "true"
       ports:
         - protocol: TCP
           port: 5432

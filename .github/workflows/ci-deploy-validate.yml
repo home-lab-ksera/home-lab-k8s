@@ -2,11 +2,6 @@ name: Deploy Process Validation
 
 on:
   workflow_dispatch:
-    inputs:
-      postgresql_runtime:
-        description: PostgreSQL 実行テストを変更の有無によらず実施する
-        type: boolean
-        default: false
   push:
     branches: [ main, master, develop ]
   pull_request:
@@ -63,42 +58,3 @@ jobs:
 
       - name: Validate deployment assets
         run: mise exec -- automation/scripts/ci/validate.sh
-
-  postgresql-runtime:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - name: Checkout candidate and baseline history
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Detect PostgreSQL changes
-        id: changes
-        env:
-          BASE_REF: ${{ github.event.pull_request.base.sha || 'origin/main' }}
-          FORCE_POSTGRESQL: ${{ inputs.postgresql_runtime || false }}
-        run: |
-          if [[ "$FORCE_POSTGRESQL" == true ]] || ! git diff --quiet "$BASE_REF" HEAD -- \
-            manifests/platform/pgo manifests/platform/shared-postgresql \
-            manifests/platform/harbor/harbor-database-patch.yaml \
-            manifests/platform/harbor/harbor-jobservice-database-patch.yaml \
-            automation/scripts/ci/postgresql-versions.py automation/scripts/ci/postgresql-runtime.py \
-            .github/workflows/ci-deploy-validate.yml; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Install validation toolchain
-        if: steps.changes.outputs.run == 'true'
-        uses: ./.github/actions/setup-toolchain
-      - name: Test PostgreSQL upgrade, backup and restore in kind
-        if: steps.changes.outputs.run == 'true'
-        env:
-          BASE_REF: ${{ github.event.pull_request.base.sha || 'origin/main' }}
-        run: mise exec -- python3 automation/scripts/ci/postgresql-runtime.py --base-ref "$BASE_REF" --logs "$RUNNER_TEMP/postgresql-runtime-logs"
-      - name: Upload PostgreSQL diagnostics
-        if: always() && steps.changes.outputs.run == 'true'
-        uses: actions/upload-artifact@v7
-        with:
-          name: postgresql-runtime-logs
-          path: ${{ runner.temp }}/postgresql-runtime-logs/
-          retention-days: 7

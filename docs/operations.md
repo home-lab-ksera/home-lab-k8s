@@ -22,7 +22,7 @@ Job の Completed は正常終了として扱い、Pod の Running 表示だけ�
 | Secret 同期 | `kubectl get externalsecrets -A`、`kubectl get clustersecretstores` |
 | 公開・TLS | `kubectl get gateway,httproute -A`、`kubectl get certificate -A` |
 | データ領域 | `kubectl get pv`、`kubectl get pvc -A`、ホストの NFS / ディスク空き容量 |
-| DB バックアップ | [pgBackRest の成功・復元確認](shared-postgresql.md#バックアップ) |
+| DB バックアップ | [日次 dump の成功・復元確認](shared-postgresql.md#バックアップ) |
 | RustFS / Harbor の resources | [観測値・設定の根拠・反映後の確認](resource-sizing.md) |
 | worker の一時領域 | [ディスク拡張と容量監視](worker-disk.md)、Grafana「03 ストレージ」のノード容量 |
 

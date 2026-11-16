@@ -9,7 +9,7 @@
 |---|---|
 | api-hub | auto annotation による参照設定 |
 | Alertmanager | `alertmanager-slack`、`alertmanager-heartbeat` |
-| Grafana | `grafana-postgresql`、`shared-postgresql-ca` |
+| Grafana | `grafana-postgresql`、`postgresql-ca` |
 
 Grafana の管理者初期 Secret は自動再起動対象ではありません。
 Harbor の patch に Reloader annotation はありますが、**監視 namespace と RBAC に harbor がないため、自動反映は期待できません**。

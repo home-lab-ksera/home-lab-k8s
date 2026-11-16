@@ -43,7 +43,7 @@ control-plane、NFS、単一 replica のサービスを含むため、構成全�
 | 認証情報 | ESO → Pulumi ESC。初回の ESC token は bootstrap が投入 |
 | 公開 | NGINX Gateway Fabric + cert-manager。Harbor を含む内部接続は LAN / Tailscale 経路 |
 | レジストリ・CI | Harbor。アプリの build・push は GitHub-hosted runner + Tailscale OIDC（workflow はアプリ側リポジトリ） |
-| データ | RustFS（S3）、PGO 管理の共通 PostgreSQL（Harbor DB と Grafana の SQL 接続先） |
+| データ | RustFS（S3）、単一 StatefulSet の共通 PostgreSQL（Harbor DB と Grafana の SQL 接続先） |
 | 監視 | VictoriaMetrics / kube-state-metrics / vmalert / Alertmanager / Grafana / Loki / Alloy |
 
 Grafana 自体の永続データは local-path PVC に保存します。PostgreSQL は Grafana の SQL データソースです。

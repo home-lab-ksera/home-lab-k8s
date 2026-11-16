@@ -27,7 +27,7 @@ Application の削除は finalizer / prune を介して配下の削除につな�
 sync-wave は **その同期操作で扱うリソースの順序**です。root の wave と各 child の独立した自動同期、
 ApplicationSet が後から生成する Application の wave を、単一の全クラスタ依存解決として扱いません。
 
-CRD → Custom Resource、ESO → Secret → Pod、PGO → DB → Harbor などは、各 controller の Ready と実動作を確認します。
+CRD → Custom Resource、ESO → Secret → Pod、DB → Harbor などは、各 controller の Ready と実動作を確認します。
 cert-manager と config は同じ wave 7、証明書が使う ESO 定義は wave 9 なので、一時的な未準備は起こり得ます。
 図と全 Application の source は [Sync Wave](diagrams/app-of-apps-sync-wave.md) を参照してください。
 

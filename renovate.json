@@ -80,37 +80,27 @@
       "overridePackageName": "ghcr.io/nginx/charts/nginx-gateway-fabric"
     },
     {
-      "description": "Crunchy の各イメージは PGO chart の推奨構成から同期する",
+      "description": "PostgreSQL は StatefulSet・バックアップ・Harbor の待機用クライアントを同じ版に揃える。major 更新は dump / restore が要るため自動では行わない",
       "matchManagers": [
         "kubernetes"
       ],
       "matchPackageNames": [
-        "/^registry\\.developers\\.crunchydata\\.com/crunchydata//"
+        "postgres"
       ],
-      "enabled": false
+      "groupName": "PostgreSQL",
+      "automerge": false
     },
     {
-      "description": "PGO chart を起点に PostgreSQL 基盤を一括更新する",
+      "matchManagers": [
+        "kubernetes"
+      ],
       "matchPackageNames": [
-        "registry.developers.crunchydata.com/crunchydata/pgo"
+        "postgres"
       ],
-      "groupName": "PostgreSQL stack",
-      "automerge": false,
-      "minimumReleaseAgeBehaviour": "timestamp-optional"
-    }
-  ],
-  "customManagers": [
-    {
-      "customType": "regex",
-      "managerFilePatterns": [
-        "/^manifests/platform/pgo/kustomization\\.yaml$/"
+      "matchUpdateTypes": [
+        "major"
       ],
-      "matchStrings": [
-        "name: pgo\\s+repo: oci://registry\\.developers\\.crunchydata\\.com/crunchydata\\s+version: (?<currentValue>\\d+\\.\\d+\\.\\d+)"
-      ],
-      "depNameTemplate": "registry.developers.crunchydata.com/crunchydata/pgo",
-      "datasourceTemplate": "docker",
-      "versioningTemplate": "semver"
+      "enabled": false
     }
   ]
 }

@@ -38,7 +38,6 @@ wave は root が作成・更新する Application の annotation です。別 A
 | 7 | [cert-manager-config](../../manifests/bootstrap/applications/infrastructure/cert-manager-config.yaml) | `infrastructure` | [manifests/infrastructure/security/cert-manager](../../manifests/infrastructure/security/cert-manager) | `cert-manager` |
 | 7 | [external-secrets-operator](../../manifests/bootstrap/applications/platform/external-secrets-operator.yaml) | `platform` | Helm `external-secrets`（版は定義を参照） | `external-secrets-system` |
 | 8 | [gateway-shared](../../manifests/bootstrap/applications/access/gateway-shared.yaml) | `access` | [manifests/access/gateway](../../manifests/access/gateway) | `nginx-gateway` |
-| 8 | [pgo](../../manifests/bootstrap/applications/platform/pgo.yaml) | `platform` | [manifests/platform/pgo](../../manifests/platform/pgo) | `postgres-operator` |
 | 9 | [config-secrets](../../manifests/bootstrap/applications/platform/config-secrets.yaml) | `platform` | [manifests/platform/secrets/external-secrets](../../manifests/platform/secrets/external-secrets) | `external-secrets-system` |
 | 11 | [image-updater](../../manifests/bootstrap/applications/platform/image-updater.yaml) | `platform` | Helm `argocd-image-updater` + [digest 更新設定](../../manifests/platform/ci-cd/image-updater) | `argocd` |
 | 10 | [reloader](../../manifests/bootstrap/applications/platform/reloader.yaml) | `platform` | [manifests/platform/reloader](../../manifests/platform/reloader) | `kube-system` |
@@ -77,7 +76,7 @@ root 配下は **47 Application**。`argocd-projects` / `argocd-core` のみ aut
 - kubelet serving 証明書 → root Application。bootstrap が未承認 CSR を承認・検証します。更新時の承認は手動です。
 - CRD → controller / Custom Resource。cert-manager 本体と設定は同じ wave 7 です。
 - ESO → config-secrets → 証明書や workload が使う Secret。
-- PGO → shared-postgresql → 資格情報・CA・復元マーカー → Harbor。
+- cert-manager-config（DB の証明書）→ shared-postgresql → 復元マーカー → Harbor。
   shared-postgresql の通常同期後は PostSync Job が資格情報・CAを反映し、以降は30分ごとの CronJob が再確認します。
 - workload → HTTPRoute → DNS / Tunnel。Gateway の Programmed と実クライアントの疎通を確認します。
 

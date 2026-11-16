@@ -11,7 +11,7 @@ spec:
     spec:
       initContainers:
         - name: wait-for-database
-          image: registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi9-18.6-2633
+          image: postgres:18.6
           command: [/bin/sh, /db-scripts/wait-for-database.sh]
           securityContext:
             allowPrivilegeEscalation: false
