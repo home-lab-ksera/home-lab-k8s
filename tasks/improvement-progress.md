@@ -17,8 +17,8 @@
 | E アプリ整理 | 3 | 2 | 0 | 0 | 0 | 1 |
 | F 長期 | 2 | 0 | 0 | 0 | 2 | 0 |
 | G 追加の最適化（2026-11-15） | 6 | 6 | 0 | 0 | 0 | 0 |
-| H 簡素化（2026-11-16） | 10 | 9 | 1 | 0 | 0 | 0 |
-| 合計 | 49 | 43 | 1 | 0 | 4 | 1 |
+| H 簡素化（2026-11-16） | 11 | 11 | 0 | 0 | 0 | 0 |
+| 合計 | 50 | 45 | 0 | 0 | 4 | 1 |
 
 保留の 4 件は、Renovate の経過観察（B-1）と OCI 関連（C-6、F-1、F-2）。
 
@@ -136,12 +136,13 @@ hitomi は `cargo build --no-default-features` が通らない（`image` の fea
 | H-4 | 配布経路の簡素化 | 完了 | #187 | Image Updater が `latest` を直接追う。Harbor 保守 Job と `deploy` / `retain-*` タグを撤去。保持は Harbor 標準の「直近 5 件」（cooklog-slack は全件保持） |
 | H-5 | kubelet serving 証明書の自作 approver を撤去 | 完了 | #188 | 更新時は `KubeletServingCSRPending` を受けて手動承認 |
 | H-6 | 基盤 5 namespace の default-deny を撤去 | 完了 | #189 | G-5 の取り消し。sandbox / tools / harbor は維持 |
-| H-7 | PostgreSQL を PGO から単一 StatefulSet へ | 確認待ち | #190、#191、#192 | データ移行と接続先の切り替えは完了（全表の行数一致）。PGO 一式の削除（#192）は必須チェック `postgresql-runtime` の扱いが決まるまで未マージ |
+| H-7 | PostgreSQL を PGO から単一 StatefulSet へ | 完了 | #190、#191、#192 | 全表の行数一致を確認して切り替え。必須チェックから `postgresql-runtime` を外して PGO 一式を削除。operator が先に消えたため PostgresCluster の finalizer は手で外した。pgBackRest の旧 PV（20Gi、Retain）は Released のまま残る |
 | H-8 | 手動専用の CI 資産と OCI 計画書を削除 | 完了 | #193 | `version-audit.py`、`setup-integration`、`oci-single-cluster-plan.md`。失敗していた `oci-always-free` Job と PVC も削除（データは NFS の `archived-*` に残る） |
 | H-9 | ArgoCD の Dex と ApplicationSet controller を撤去 | 完了 | #194 | ログインは組み込みの admin |
 | H-10 | 旧名 `harbor.qroksera.com` を撤去 | 完了 | #195 | イメージ名を内部名に統一。`*.qroksera.com` の証明書も削除 |
+| H-11 | ログ収集を `sandbox` に限定 | 完了 | 本 PR | Loki は残す。基盤 Pod のログは `kubectl logs` |
 
-見送ったもの: ログ基盤（Loki / Alloy のログ収集）の停止。検索頻度による判断のため保留。
+変更したもの: ArgoCD の Dex は H-9 で撤去した後、GitHub ログインを残すため #197 で戻した（ApplicationSet controller は撤去のまま）。
 
 ## 残作業（次に行うこと）
 
