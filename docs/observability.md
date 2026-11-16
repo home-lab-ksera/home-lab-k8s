@@ -1,181 +1,175 @@
-# 監視・ログ・通知
+# 監視
 
-[observability Kustomization](../manifests/platform/observability/kustomization.yaml) が構成の正本です。
-データ収集・評価・通知・表示は `observability` Application、HTTPRoute は `platform-access` が管理します。
+構成の正本は [observability/](../manifests/platform/observability/) です。すべて `observability` namespace の 1 つの Application で管理します。
 
-## 構成と保存先
+## 構成
 
-| コンポーネント | 役割 | 保存 |
+| コンポーネント | 役割 | データ |
 |---|---|---|
-| VictoriaMetrics | metrics 収集・保存、VMUI | nfs-external 20Gi、保持 30 日 |
-| kube-state-metrics | Kubernetes / ArgoCD / ESO / Gateway / HTTPRoute / Certificate の状態 | metrics を出力 |
-| vmalert | 30 秒間隔のルール評価 | 状態は VictoriaMetrics に保存・復元 |
-| Alertmanager | 集約・Slack 通知 | emptyDir。silence / 通知履歴は Pod 再作成で消失 |
-| Grafana | ダッシュボード、metrics / logs / SQL の探索 | local-path 2Gi |
-| Loki | `sandbox` の Pod ログ保存 | local-path 20Gi、filesystem、保持 168 時間 |
-| Alloy | Kubernetes API 経由の Pod ログ収集・転送（`sandbox` のみ）、外形監視 | local-path 1Gi に WAL |
-
-local-path はノードローカルの単一コピーです。PVC の要求サイズや保持期間は実ディスクの容量制限ではありません。
-保存先の障害や監視基盤全体の停止を、この構成だけで外部から監視する仕組みはありません。
+| VictoriaMetrics | メトリクスの収集と保存、VMUI | NFS、30 日 |
+| vmalert | 30 秒ごとにルールを評価 | 状態は VictoriaMetrics に保存 |
+| Alertmanager | 通知の集約と送信 | なし（silence は Pod の再作成で消える） |
+| kube-state-metrics | Kubernetes、ArgoCD、ESO、Gateway、Certificate の状態 | なし |
+| metrics-server | `kubectl top` | なし |
+| Grafana | ダッシュボード、探索 | local-path（内部 DB） |
+| Loki | `sandbox` の Pod ログ | local-path、7 日 |
+| Alloy | ログの収集と転送、外形監視 | local-path（送信待ち） |
 
 ## 画面
 
 - Grafana: `https://grafana.internal.qroksera.com`
 - VMUI: `https://observability.internal.qroksera.com/vmui/`
 
-どちらも内部経路です。DNS / Tailnet の設定は [access](access.md) を参照してください。
-
-| Grafana のダッシュボード | 内容 |
+| ダッシュボード | 内容 |
 |---|---|
-| 01 全体概要 | Node / Pod / ArgoCD、CPU・メモリ、requests |
-| 02 アプリ・ログ | workload、再起動、CronJob、Pod ログ |
-| 03 ストレージ | PVC、容量と未取得対象 |
-| 04 PostgreSQL / SQL | registry の現在の SQL 統計と Explore |
+| 01 全体概要 | Node、Pod、ArgoCD、CPU とメモリ、requests |
+| 02 アプリ・ログ | アプリや CronJob を選ぶと、配下の全 Pod のログと CPU・メモリを表示 |
+| 03 ストレージ | PVC の容量、ノードのディスク |
+| 04 PostgreSQL / SQL | registry DB の統計と SQL の実行 |
 
-データソース・画面の正本は [config/](../manifests/platform/observability/config/) です。
-Git 管理の画面を変更する場合は JSON に反映します。SQL は [DB の権限](shared-postgresql.md#grafana-から-sql-を使う) を確認します。
+ダッシュボードとデータソースは [config/](../manifests/platform/observability/config/) の JSON / YAML が正本です。UI で変えても、Pod の再作成で Git の内容に戻ります。
 
-「02 アプリ・ログ」は「アプリ / CronJob」で名前を選ぶと、配下の全 Pod・全コンテナのログを
-1つのパネルに時刻順で表示します。種類や Pod 名の選択は不要です。
-例えば `hitomi-monitor` は選択期間内の各実行のログをまとめます。ログがあるのは `sandbox` の Pod だけです。
-Namespace は任意の追加絞り込みです。ログ詳細から元の Pod / コンテナを確認できます。
-CPU・メモリの内訳表示は Pod 単位で、アプリの選択に連動します。
-
-[workload-rules.yaml](../manifests/platform/observability/config/workload-rules.yaml) で
-所有関係とアプリへの所属を30秒間隔で記録します（metrics の保持は30日）。
-CronJob は CronJob 名、それ以外は Pod の `app.kubernetes.io/name` → `app` → 所有者名の順に使います。
-同じアプリラベルを持つ複数 Deployment / StatefulSet なども1つの候補にまとまります。
-kube-state-metrics に公開する Pod ラベルはこの2つだけに限定します。
-選択期間内に所属の記録があれば削除済み Pod も対象です。導入前や収集前に消えた Pod は
-Explore で namespace / pod を直接指定します。種類・Pod の古い URL パラメーターは絞り込みに使いません。
-ログ本文の追加保存や Loki ラベルの追加は行いません。ログ保持168時間・自動削除を維持します。
-削除には Compactor の処理待ちと2時間の猶予があり、容量に応じた早期削除はしません。
-
-初回管理者は `admin`、ESO Password generator が `grafana-admin` を CreatedOnce で生成します。
-管理端末で必要なときだけ値を取得します。
+Grafana の初回の管理者は `admin` で、パスワードは Secret にあります（UI で変えたあとは一致しません）。
 
 ```bash
 kubectl -n observability get secret grafana-admin -o jsonpath='{.data.admin-password}' | base64 -d
 ```
 
-この Secret は DB 初期化用です。UI で変更したパスワードと一致するとは限りません。
-Secret の削除・再生成を既存ユーザーのパスワードリセットとして使いません。
+Alertmanager と vmalert の画面は port-forward で見ます。
 
-## 収集範囲
+```bash
+kubectl -n observability port-forward svc/alertmanager 9093:9093    # http://localhost:9093/
+kubectl -n observability port-forward svc/vmalert 8880:8880          # http://localhost:8880/vmalert/
+```
 
-[VictoriaMetrics](../manifests/platform/observability/victoria-metrics.yaml) は kube-state-metrics、
-kubelet volume stats、kubelet `/metrics/resource`、annotation 付き Pod の metrics を収集します。
-`/metrics/cadvisor` は60秒間隔で収集し、全ノードのルートディスク `/dev/vda1` の
-`container_fs_limit_bytes` / `container_fs_usage_bytes`（`id="/"`）だけを保存します。
-クラスタ内に追加のexporterは置きません。Grafana「03 ストレージ」にノードの空き推定値・使用率を表示します。
-Namespace/PVCのフィルタには依存せず、emptyDir・イメージキャッシュ・ノードログを含みます。
-kubelet は各ノードの InternalIP:10250 に直接接続し、ServiceAccount とクラスタ CA で認証・検証します。
-権限は `nodes/metrics` の `get` と探索用の Node / Pod 読み取りだけで、`nodes/proxy` は付与しません。
-初回導入・既存クラスタの切り替えには [kubelet 証明書の準備と検証](kubelet-metrics.md) が必要です。
-`kubectl top` が使う Metrics API は [metrics-server](../manifests/bootstrap/applications/infrastructure/metrics-server.yaml) が提供します。
-解像度は60秒で、HPA には使っていません。同じ kubelet 証明書を検証して接続し、`--kubelet-insecure-tls` は使いません。
+## メトリクス
 
-[Alloy](../manifests/platform/observability/config/config.alloy) は Pod ログに
-namespace / pod / container / node / cluster を付けます。Grafana Explore の Loki では例えば次を検索します。
+[victoria-metrics.yaml](../manifests/platform/observability/victoria-metrics.yaml) の scrape 設定が正本です。
+
+| job | 対象 |
+|---|---|
+| `kube-state-metrics` | Kubernetes のオブジェクトの状態 |
+| `kubelet-volume-stats`、`kubelet-resources` | 各ノードの kubelet（10250）。PVC の容量、Pod の CPU とメモリ |
+| `kubelet-node-filesystem` | 各ノードのルートディスクの容量と使用量だけ（60 秒間隔） |
+| `host-node` | ホストの node_exporter（`192.168.122.1:9100`） |
+| `kubernetes-pods-annotated` | `prometheus.io/scrape` の annotation を付けた Pod |
+
+- kubelet には ServiceAccount の token で接続し、クラスタ CA で証明書を検証します（[serving 証明書](nodes.md#kubelet-の-serving-証明書) が前提）。
+  権限は `nodes/metrics` の `get` だけで、`nodes/proxy` は与えていません。
+- アプリの metrics を集めるには、Pod に annotation を付け、VictoriaMetrics からの受信を [NetworkPolicy](network-policy.md#許可を足す) で許可します。
+- CPU の throttling は収集していません。
+
+## ログ
+
+Alloy が Kubernetes の API 経由で **`sandbox` の Pod のログだけ** を集め、Loki に送ります。保持は 7 日です。
 
 ```logql
 {namespace="sandbox", container="api-hub"}
 ```
 
-Alloy は内蔵の blackbox exporter で外形監視も行います。1分ごとに、クラスタ内 DNS → Gateway（TLS）→
-ArgoCD / Harbor / Grafana / blog / cooklog / api-hub / RSSHub / viewer の応答、Split DNS（`192.168.122.101`）の名前解決、
-API サーバーの `/livez`（証明書の期限の取得を兼ねる。クラスタ CA の発行のため検証は省く）を確認し、
-結果を VictoriaMetrics へ remote write します。対象の追加は `config.alloy` の `target` ブロックで行います。
+- 基盤の Pod（ArgoCD、Harbor、監視、kube-system など）のログは `kubectl logs` で見ます。
+- ノードの journald、API サーバーの監査ログは集めていません。
+- 「02 アプリ・ログ」は、[workload-rules.yaml](../manifests/platform/observability/config/workload-rules.yaml) が記録する
+  「Pod がどのアプリに属するか」を使ってログをまとめます。CronJob は CronJob 名、ほかは Pod の `app.kubernetes.io/name` → `app` → 所有者名の順です。
+  消えた Pod のログも、保持期間内なら選べます。
 
-収集対象は `sandbox` namespace だけです（2026-11-16 から）。基盤 Pod（ArgoCD、Harbor、監視、kube-system など）のログは
-`kubectl logs` で確認します。journald・監査ログ・収集前に消えた Pod のログも対象外です。
-Alloy は 167 時間より古いログを転送前に除外し、Loki は Compactor で期限切れを削除します。
-長時間停止やローテーションでの無欠損収集を保証しません。
+## 外形監視
+
+Alloy が 1 分ごとに、クラスタ内から次を確認します（[config.alloy](../manifests/platform/observability/config/config.alloy) の `target`）。
+
+- ArgoCD、Harbor、Grafana、blog、cooklog、api-hub、rsshub、hitomi-upload-viewer の HTTPS 応答（CoreDNS → Gateway → TLS → アプリ）
+- Split DNS（`192.168.122.101`）の名前解決
+- API サーバーの `/livez`（証明書の期限の取得を兼ねる）
+
+クラスタの中からの確認なので、LAN や tailnet の端末から届くか（MetalLB の広告、subnet router）は分かりません。
 
 ## アラート
 
-正確な式と継続時間は [alert-rules.yaml](../manifests/platform/observability/config/alert-rules.yaml) が正本です。
+式と継続時間は [alert-rules.yaml](../manifests/platform/observability/config/alert-rules.yaml) が正本です。
+ルールには [promtool のテスト](../automation/tests/observability/) があり、変えたらテストも直します。
 
-| 対象 | 条件の概要 / 継続時間 |
-|---|---|
-| NetworkPolicy controller / metrics | 利用不能・欠損 / 5 分 |
-| kube-state-metrics | scrape 失敗・欠損 / 5 分 |
-| Node / Pod | NotReady / 5 分・15 分 |
-| コンテナ | 15 分間に 3 回以上再起動 / 5 分 |
-| Deployment / PVC | replica 不足 / 10 分、Pending・Lost / 15 分 |
-| ArgoCD | sync 異常 / 15 分、health 異常 / 10 分 |
-| ESO / Gateway / Certificate | Ready・Programmed が false / 10 分・10 分・15 分 |
-| volume | 空き 20% 未満・10% 未満 / 15 分 |
-| kubelet volume scrape | 失敗・欠損 / 5 分 |
-| ノードのルートディスク | 空き推定値12GiBまたは20%未満 / 10 分、9GiBまたは15%未満 / 5 分 |
-| ノードのルートディスク計測 | Node台帳にあるノードの容量・使用量が欠損、または容量が0 / 5 分 |
-| ホスト（`Host*`） | node_exporter 欠損 / 10 分、利用可能メモリ 768MiB 未満 / 30 分、swap in/out 継続 / 15 分、CPU PSI 25% 超 / 30 分、ルート空き 15% 未満 / 15 分 |
-| CronJob（`KubernetesCronJobFailed`） | 開始から6時間以内の Job が失敗 / 1 分 |
-| 外形監視（`Endpoint*`） | 応答・名前解決の失敗 / 5 分、結果の欠損 / 15 分、証明書の期限 14 日未満 / 1 時間 |
-| control-plane 証明書（`ControlPlaneCertificateExpiring`） | API サーバーの証明書の期限 45 日未満 / 1 時間。kubeadm の証明書は 1 年有効で、upgrade 時に更新される |
-| ホストの更新（`HostRebootRequired`、`HostSecurityUpdatesPending`） | 再起動待ち / 7 日、セキュリティ更新の残留 / 7 日 |
-| PostgreSQL の日次 dump（`PostgreSQLBackupStale`） | 26 時間成功なし、またはメトリクス欠損 / 30 分 |
+| 分類 | アラート | 条件の概要 |
+|---|---|---|
+| クラスタ | `KubernetesNodeNotReady`、`KubernetesPodNotReady`、`KubernetesPodRestarting`、`KubernetesDeploymentUnavailable` | NotReady、15 分間に 3 回以上の再起動、replica 不足 |
+| | `KubernetesCronJobFailed` | 直近 6 時間に始まった Job が失敗 |
+| | `KubernetesPVCNotBound`、`KubernetesVolumeSpaceLow` / `Critical` | PVC が Pending、空き 20% / 10% 未満 |
+| | `KubernetesNodeDiskSpaceLow` / `Critical`、`KubernetesNodeDiskMetricsUnavailable` | ノードのルートディスクの空き、計測の欠損 |
+| GitOps・基盤 | `ArgoCDApplicationOutOfSync`、`ArgoCDApplicationUnhealthy` | 15 分 / 10 分続く |
+| | `ExternalSecretNotReady`、`GatewayNotProgrammed`、`CertificateNotReady` | Ready でない |
+| | `NetworkPolicyControllerUnavailable`、`NetworkPolicyControllerMetricsUnavailable` | controller の停止 |
+| 証明書 | `EndpointCertificateExpiring`（14 日未満）、`ControlPlaneCertificateExpiring`（45 日未満）、`KubeletServingCSRPending` | [対処](nodes.md#kubelet-の-serving-証明書) |
+| 外形 | `EndpointProbeFailed`、`EndpointProbeMissing` | 応答や名前解決の失敗が 5 分、結果の欠損が 15 分 |
+| ホスト | `HostMetricsUnavailable`、`HostMemoryLow`、`HostSwapThrashing`、`HostCPUPressure`、`HostDiskSpaceLow` | [容量の考え方](nodes.md#容量の考え方) |
+| | `HostRebootRequired`、`HostSecurityUpdatesPending` | 7 日続く |
+| データ | `PostgreSQLBackupStale` | dump が 26 時間成功していない |
+| | `RustFSScannerStalled`、`RustFSScannerMonitorMissing` | [scanner](storage.md#scanner) |
+| 監視自体 | `KubeStateMetricsUnavailable`、`KubeletVolumeScrapeUnavailable` | 収集の失敗 |
+| アプリ | `ApplicationQueue*`、`ApplicationUnreviewedFailure`、`Camera*` | 下記 |
 
-condition や対象時系列そのものの欠損をすべて検出する構成ではありません。
-HTTPRoute metrics はあっても現行 alert rule はありません。DB 復元成功は別途確認します。
-外形監視はクラスタ内からの確認で、LAN / Tailnet 端末からの到達（MetalLB の広告、サブネットルータ）は対象外です。
-NFS の volume stats は共有ファイルシステムの容量で、PVC 固有の使用率ではなく、PVC 間で合算できません。
-ノードの空き推定値はcapacity−usageで、非rootユーザーが使える `f_bavail` と完全一致する保証はありません。
-アプリ側の4GiB空き保護は維持します。rootデバイスを変更するときはscrape・alert・dashboardを併せて変更します。
+監視していないもの: HDD の RAID の状態、LAN / tailnet からの到達、HTTPRoute ごとの状態、バックアップが実際に復元できるか。
 
-## Slack と週次レポート
+## 通知
 
-[Alertmanager 設定](../manifests/platform/observability/config/alertmanager.yaml) は
-ESC の `alertmanager-slack-webhook-url` → Secret `alertmanager-slack` を参照します。
-初回集約待ち 30 秒、グループ更新 5 分、未復旧の再通知 4 時間。発火・復旧の両方を送ります。
-Secret が準備できるまで Pod は起動できません。アプリ用の Slack Bot token とは別です。
+- **Slack**: Alertmanager が発火と復旧の両方を送ります。集約の待ちは 30 秒、未復旧の再通知は 4 時間ごとです
+  （[alertmanager.yaml](../manifests/platform/observability/config/alertmanager.yaml)）。Webhook は Secret `alertmanager-slack` です。
+- **デッドマンスイッチ**: 常に発火している `Watchdog` を、Alertmanager が 1 分ごとに healthchecks.io へ送ります（Secret `alertmanager-heartbeat`）。
+  クラスタ、ホスト、回線、vmalert、Alertmanager のどれが止まっても送信が途絶え、healthchecks.io がクラスタの外から通知します。
+  healthchecks.io 側の設定（Period 5 分 / Grace 5 分、通知先）は Git にありません。
+- **週次レポート**: CronJob [weekly-observability-report](../manifests/platform/observability/weekly-report.yaml) が月曜 09:00 JST に直近 7 日の状態を Slack へ送ります。
+  送らずに本文を見るには次を実行します。CronJob から手で Job を作ると、実際に Slack へ送られます。
 
-## デッドマンスイッチ
+  ```bash
+  kubectl -n observability port-forward svc/victoria-metrics 18428:8428 &
+  VICTORIA_METRICS_URL=http://localhost:18428 \
+    python3 -B manifests/platform/observability/scripts/weekly-report.py --dry-run
+  ```
 
-vmalert の `Watchdog` は常に発火し、Alertmanager は Slack ではなく `heartbeat` receiver へ1分ごとに送ります。
-送信先は ESC の `alertmanager-heartbeat-url` → Secret `alertmanager-heartbeat`（healthchecks.io の Ping URL）です。
-healthchecks.io 側で受信が途絶えると、クラスタ外から通知されます。クラスタ・ホスト・回線の停止、
-vmalert / Alertmanager の停止、vmalert → Alertmanager の経路断のいずれでも途絶します。
-healthchecks.io の check は Period 5 分 / Grace 5 分を目安とし、通知先は Slack やメールなどクラスタ外に依存しない経路にします。
-Secret は optional でマウントするため、未作成でも Alertmanager は起動します（その間は送信のみ失敗）。
-Grafana の発火中アラート表示からは `Watchdog` を除外しています。
+ArgoCD の同期の成功・失敗は、ArgoCD が別に通知します（[GitOps](gitops.md#通知)）。
 
-[weekly-observability-report](../manifests/platform/observability/weekly-report.yaml) は月曜 09:00 Asia/Tokyo に
-直近 7 日の状態を集計し、同じ Webhook へ送ります。Alertmanager の silence とは独立しています。
-5 分刻みの状態集計と推定再起動回数で、稼働率や確定した障害件数ではありません。
-欠損は正常と扱わず、PVC 容量は現在値を表示します。
+## アプリのキュー
 
-送信せずに本文を確認する場合:
+Pod が Ready でも、仕事が進んでいるとは限りません。アプリは自分のキューの状態を metrics で出し、それを監視しています。
 
-```bash
-kubectl -n observability port-forward svc/victoria-metrics 18428:8428
-# 別ターミナル
-VICTORIA_METRICS_URL=http://localhost:18428 \
-  python3 -B manifests/platform/observability/scripts/weekly-report.py --dry-run
+| queue ラベル | 出どころ | 内容 |
+|---|---|---|
+| `notifications` | api-hub:3000 | Slack への配送 |
+| `hitomi_outbox` | hitomi-outbox:9090 | api-hub への受け渡し |
+| `hitomi_items` | hitomi-outbox:9090 | 収集した項目の処理 |
+| `media` | media-api:3000 | メディアの取得 |
+
+主な metrics:
+
+- `application_queue_jobs{queue,state}`: 状態ごとの件数
+- `application_queue_oldest_pending_age_seconds{queue}`: いちばん古い未完了の経過時間
+- `application_queue_last_success_timestamp_seconds{queue}`: 最後に成功した時刻
+- `application_failure_records{queue,disposition}`: 失敗の件数（`unreviewed` / `acknowledged` / `excluded`）
+
+```promql
+sum by (queue, state) (max by (queue, state) (application_queue_jobs{namespace="sandbox"}))
 ```
 
-CronJob から手動 Job を作ると実際に Slack へ送信します。再試行時は重複通知も確認してください。
+| アラート | 条件 | 最初に見るところ |
+|---|---|---|
+| `ApplicationQueueFailed` | 通知に failed / uncertain がある | Slack に届いているか確認してから手で再試行する。一括で再送しない |
+| `ApplicationUnreviewedFailure` | 取得や収集に、未確認の失敗がある | hitomi の管理 CLI、または viewer の「失敗の管理」で原因を見て、確認済みにするか対象外にする |
+| `ApplicationQueueBacklog` | 通知と outbox は 15 分、media と収集は 2 時間たっても未完了 | worker のログ、DB、S3、取得元。減っているのか止まっているのかを見る |
+| `ApplicationQueueMetricsUnavailable` | metrics を取れない | Pod、NetworkPolicy、DB 接続。DB 障害のときに worker を再起動し続けない |
+| `CameraRecordingStalled`、`CameraNotRecording` | 録画する時間帯なのにファイルが確定しない | recorder のログ、カメラへの接続 |
+| `CameraSpoolBlocked`、`CameraUploadBacklog` | spool が上限、未送信が溜まっている | uploader のログ、api-hub、S3 |
+| `CameraPartialSegment`、`CameraInvalidManifest` | 書きかけ、壊れたファイルがある | [home-camera](apps.md#home-camera) の隔離手順 |
+| `CameraSpoolStatisticsUnavailable` | spool の集計に失敗 | recorder のログ、NFS |
 
-## 障害時・同期後の確認
+キューが空の時間帯は、最後の成功が古くても通知しません。「確認済み」にした失敗は通知が止まりますが、自動の再試行は続きます。
+
+各 worker は、キューが空のときに確認の間隔を 1 秒から 30 秒まで延ばします。新しい仕事が処理され始めるまで、最大 30 秒ほど待つことがあります。
+
+## 動かないとき
 
 ```bash
 kubectl -n observability get pods,pvc,externalsecrets,cronjobs
-kubectl -n argocd get applications observability platform-access
-kubectl -n observability logs deployment/alloy --tail=50
 kubectl -n observability logs deployment/vmalert --tail=50
 kubectl -n observability logs deployment/alertmanager --tail=50
+kubectl -n observability logs deployment/alloy --tail=50
 ```
 
-Alertmanager / vmalert の UI は必要に応じて個別に port-forward します。
-
-```bash
-kubectl -n observability port-forward svc/alertmanager 9093:9093
-# 別ターミナルで必要なら実行
-kubectl -n observability port-forward svc/vmalert 8880:8880
-```
-
-`http://localhost:9093/` と `http://localhost:8880/vmalert/` で通知・評価を確認します。
-Grafana の metrics / logs / SQL 接続と直近データも確認します。CI の設定検証は [reference](reference.md) を参照してください。
-
-アプリの非同期処理は[業務キューと録画の監視](application-queue-monitoring.md)を参照。
-通知・outbox・mediaの滞留、失敗・結果不明、メトリクス欠損をPodの正常性とは別に監視する。
+VMUI の `/targets` で、収集に失敗している対象とエラーを見られます。

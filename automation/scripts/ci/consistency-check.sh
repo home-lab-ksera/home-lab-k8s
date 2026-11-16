@@ -32,11 +32,11 @@ if [[ "$python_ready" -eq 1 ]]; then
   fi
 fi
 
-if [[ -f "$ROOT_DIR/docs/diagrams/app-of-apps-sync-wave.md" ]] \
-  && grep -q 'docs/diagrams/app-of-apps-sync-wave.md' "$ROOT_DIR/README.md"; then
-  check_ok "README の構成図リンク先が存在します"
+if [[ -f "$ROOT_DIR/docs/gitops.md" ]] \
+  && grep -q 'docs/gitops.md' "$ROOT_DIR/README.md"; then
+  check_ok "README の Application 一覧リンク先が存在します"
 else
-  check_ng "README の構成図リンクが不正です"
+  check_ng "README の Application 一覧リンクが不正です"
 fi
 
 if [[ "$check_failed" -ne 0 ]]; then

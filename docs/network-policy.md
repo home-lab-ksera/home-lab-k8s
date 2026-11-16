@@ -1,80 +1,78 @@
-# NetworkPolicy の運用
+# NetworkPolicy
 
-[Flannel](../automation/infrastructure/main.tf) に加え、
-[kube-network-policies](../manifests/infrastructure/networking/kube-network-policies/manifest.yaml) が Linux ノード上でポリシーを実行します。
-宣言済みの controller は全 Linux ノードが対象で、初回カナリア導入途中の構成ではありません。
+Flannel は NetworkPolicy を実行しないため、[kube-network-policies](../manifests/infrastructure/networking/kube-network-policies/manifest.yaml)
+の DaemonSet が全ノードで実行します。
 
-## ポリシーの所有者
+## どこを絞っているか
 
-| 正本 | 選択する対象と許可 |
+| Namespace | 方針 |
 |---|---|
-| [core/networkpolicies.yaml](../manifests/core/networkpolicies.yaml) | Gateway → RustFS:9001、sandbox の `app=api-hub` → RustFS:9000 |
-| [RustFS lifecycle](../manifests/platform/rustfs/lifecycle-networkpolicy.yaml) | 同 namespace の lifecycle Job → RustFS:9000 |
-| [PostgreSQL](../manifests/platform/shared-postgresql/credentials.yaml) | database 内 Pod、harbor の `app=harbor`、observability の Grafana → DB（namespace 外は TCP 5432） |
-| [Loki](../manifests/platform/observability/logging-networkpolicy.yaml) | Grafana / Alloy → Loki:3100 |
+| `sandbox`、`tools`、`harbor` | 受信・送信とも default-deny。必要な通信だけを許可 |
+| `database`、`rustfs` | 受信だけを絞る（PostgreSQL、RustFS への接続元を限定） |
+| `observability` | Loki への受信だけを絞る |
+| `argocd` | upstream が同梱するポリシー |
+| それ以外（`cert-manager`、`external-secrets-system`、`nginx-gateway`、`tailscale` など） | 制限なし |
 
-[workload-networkpolicies.yaml](../manifests/core/workload-networkpolicies.yaml) は
-`sandbox`・`tools`・`harbor` に Ingress/Egress 両方の default-deny を設定します。
+基盤の namespace を絞っていないのは、入口が LAN と Tailscale に限られていて、保守の手間に見合わないためです。
 
-| 接続元 | 許可する宛先 |
+## 定義の場所
+
+| ファイル | 内容 |
 |---|---|
-| 各対象 namespace | kube-system の CoreDNS TCP/UDP 53 |
-| NGINX Gateway | sandbox の公開アプリ（80 / 3000 / 1200）、Harbor core / portal:8080 |
-| home-camera / hitomi-pdf | api-hub:3000（hitomi-pdf も内部 Service を使用） |
-| api-hub | RustFS:9000、外部 HTTP/HTTPS（Slack 等） |
-| hitomi-monitor（Selenium sidecar を含む） | 外部 HTTP/HTTPS。WebDriver は同一 Pod の loopback:4444 |
-| hitomi-pdf / rsshub | 外部 HTTP/HTTPS |
-| hitomi-pdf | Gateway:443（内部 RSSHub URL） |
+| [core/workload-networkpolicies.yaml](../manifests/core/workload-networkpolicies.yaml) | `sandbox`・`tools`・`harbor` の default-deny と、アプリ・Harbor の許可 |
+| [core/application-networkpolicies.yaml](../manifests/core/application-networkpolicies.yaml) | Gateway → media API、VictoriaMetrics → アプリの metrics |
+| [core/networkpolicies.yaml](../manifests/core/networkpolicies.yaml) | RustFS への受信（Gateway、api-hub） |
+| [shared-postgresql/postgresql.yaml](../manifests/platform/shared-postgresql/postgresql.yaml)、[application-networkpolicy.yaml](../manifests/platform/shared-postgresql/application-networkpolicy.yaml) | PostgreSQL への受信と、sandbox からの送信 |
+| [rustfs/lifecycle-networkpolicy.yaml](../manifests/platform/rustfs/lifecycle-networkpolicy.yaml) | lifecycle Job → RustFS |
+| [observability/logging-networkpolicy.yaml](../manifests/platform/observability/logging-networkpolicy.yaml) | Alloy・Grafana → Loki |
+| [apps/nature-remo/access.yaml](../manifests/apps/nature-remo/access.yaml) | nature-remo の受信と、Remo 本体への送信 |
+
+## sandbox で許可している通信
+
+| 送信元 | 宛先 |
+|---|---|
+| すべての Pod | CoreDNS（53） |
+| 共有 Gateway | blog:80、cooklog:80、hitomi-upload-viewer:80、media-api:3000、api-hub:3000、rsshub:1200、nature-remo:8080 |
+| home-camera-recorder、hitomi-monitor、hitomi-outbox、hitomi-pdf-monitor、media-api | api-hub:3000 |
+| api-hub | RustFS:9000 |
+| `database.k8s-myhome.local/shared-postgresql: "true"` のラベルを持つ Pod | PostgreSQL:5432 |
 | rsshub | rsshub-redis:6379 |
-| home-camera | 192.168.10.4:554/TCP と RTSP の RTP/RTCP 用 UDP 1024–65535（同カメラからの受信も許可） |
-| Harbor 内部（cleanup Job 含む） | 同 namespace の Harbor Pod の TCP 8080 / 5000 / 8082 / 6379 |
-| Harbor | shared-postgresql:5432 |
+| hitomi-monitor、hitomi-pdf-monitor | 共有 Gateway:443（内部の RSSHub URL を使うため） |
+| api-hub、hitomi-monitor、hitomi-pdf-monitor、rsshub | 外部の 80 / 443 |
+| cooklog-slack | 外部の 443 |
+| home-camera-recorder | カメラ `192.168.10.4` の RTSP（TCP 554、UDP 1024-65535。UDP は受信も許可） |
+| nature-remo | Remo 本体 `192.168.10.2:80` |
+| VictoriaMetrics | api-hub:3000、media-api:3000、hitomi-outbox:9090、home-camera-recorder:9090（metrics） |
 
-## 基盤 namespace
+`harbor` では、Harbor の Pod 同士、Gateway → core / portal（8080）、Harbor → PostgreSQL（5432）を許可しています。
 
-`observability`・`cert-manager`・`external-secrets-system`・`nginx-gateway`・`tailscale` には default-deny を置きません。
-2026-11-15 に導入した基盤 5 namespace の default-deny（32 ポリシー）は、入口が LAN と Tailscale に限られる構成に対して
-保守の負担が大きいため 2026-11-16 に撤去しました。Loki は [専用ポリシー](../manifests/platform/observability/logging-networkpolicy.yaml)、
-`argocd` は upstream のポリシー、`database` と `rustfs` は各コンポーネントのポリシーで受信を絞っています。
-アプリが動く `sandbox`・`tools` と `harbor` の default-deny は維持します。
+「外部」は `0.0.0.0/0` から private・loopback・link-local・CGNAT の範囲を除いたものです。IPv6 の許可はありません。
 
-### kube-network-policies の実測した性質（2026-11-15）
+## 知っておくこと
 
-- 同じノードの root プロセス（kubelet の probe、API サーバー、containerd）から Pod への通信は評価されない。
-- 別ノードのホストから Pod への通信は、送信元が送信側ノードの flannel.1 のアドレスになる。
-  API サーバー（control-plane）から別ノードの webhook へは `10.244.0.0` から届く。
-  control-plane は最初に参加するノードのため `10.244.0.0/24` を受け持つ。再構築で変わった場合は
-  cert-manager webhook の許可も直す。
-- 確認方法: 別ノードに置いた検証 Pod へ、送信元を 1 つだけ許可したポリシーを付け、ホストから接続する。
+- **宛先のドメインは絞れません。** 外部 443 を許可した Pod は、どの HTTPS サイトにも接続できます。
+- **Gateway を許可すると、同じ Gateway の他の URL にも届きます。** hitomi からは RSSHub 以外の内部 URL にも到達できます。
+- **許可は足し算です。** 狭いポリシーを足しても、別の広い許可は消えません。
+- **Service の port と Pod の port は別です。** Service が 80 → 8080 なら、HTTPRoute は 80、NetworkPolicy は 8080 を書きます。
+- **Gateway 経由の通信の送信元は NGINX の Pod です。** 利用者の IP や HTTP のパスでは絞れません。
+- **イメージの pull はノードの通信です。** Pod の Egress の許可とは関係ありません。
+- **同じノードのホストから Pod への通信は評価されません。** kubelet の probe や API サーバーからの通信が該当します。
+  別ノードのホストからの通信は、送信元がそのノードの `flannel.1` のアドレス（control-plane なら `10.244.0.0`）になります。
+- **Gateway の VIP は IP で書いています。** `192.168.122.100` を変えるときは、ポリシーも直します。
+- controller は `--fail-open=true` で動かしています。controller が止まると通信は遮断されず、すべて通ります。
+  停止は `NetworkPolicyControllerUnavailable` が通知します。
 
-外部 HTTP/HTTPS は IPv4 の private / loopback / link-local / CGNAT 宛を除外しています。
-標準 NetworkPolicy は FQDN や HTTP の宛先を制限できないため、許可された HTTPS を使った情報持ち出しは防げません。
-宛先ドメインの制限には別途 egress proxy 等が必要です。IPv6 の外部許可はありません。
-Gateway の許可は共有 VIP を使うため、CI と hitomi-pdf から同じ Gateway 上の他の HTTPS route にも到達可能です。
-API Service と Gateway VIP は DNAT の前後の違いを考慮して明記しており、IP 変更時は本ポリシーも更新します。
-イメージ pull は kubelet によるノード通信で、Pod の Egress 許可とは別です。
-RustFS は api-hub と lifecycle Job の両方に S3 の許可があり、「api-hub 以外は一切接続できない」という説明は不正確です。
+## 許可を足す
 
-## controller の設定と限界
+1. 送信元と宛先の namespace・Pod のラベル、Pod の待受 port を決める。
+2. `sandbox` は送信も default-deny なので、Pod 同士の通信は **送信側の Egress と受信側の Ingress の両方** を書く。
+3. 同じ `from` / `to` の要素に `namespaceSelector` と `podSelector` を並べると「両方を満たす」、別の要素に書くと「どちらかを満たす」になる。
+4. DB を使う Pod には `database.k8s-myhome.local/shared-postgresql: "true"` のラベルを付ける（ポリシーの追加は不要）。
+5. metrics を収集させるなら、[application-networkpolicies.yaml](../manifests/core/application-networkpolicies.yaml) に VictoriaMetrics からの受信を足す。
 
-- `--disable-nri=true`：Pod 情報は API informer から取得します。
-- `--strict-mode=true`：既存接続への影響も含めて更新時に確認します。
-- `--fail-open=true`：controller / queue 障害時の可用性を優先します。常時遮断を保証する境界ではありません。
-- nftables / NFQUEUE とホストネットワークを使います。readiness の成功は通信遮断の実測を代替しません。
+`automation/tests/setup/test_workload_networkpolicies.py` が許可の組み合わせを検証しています。許可を変えたらテストも直します。
 
-実際の引数・権限・マウントは上記 DaemonSet が正本です。controller の利用不能と metrics 欠落は
-[alert-rules.yaml](../manifests/platform/observability/config/alert-rules.yaml) に監視があります。
-
-## 許可を追加するとき
-
-[アクセス追加](access.md#新しく到達可能な-api-を追加する手順) と合わせて、宛先 namespace / Pod selector、
-接続元 namespace / Pod selector、Pod の待受 port を指定します。
-同じ peer に namespaceSelector と podSelector を書くと両方を満たす対象、別の peer に書くとどちらかを満たす対象です。
-
-既存の許可は合算されるため、狭いポリシーを足しても別の広い許可は取り消せません。
-Gateway 経由の backend から見た接続元は NGINX Pod です。NetworkPolicy で HTTP パスや利用者の認可を表現しません。
-
-## 検証と切り戻し
+## 確認
 
 ```bash
 kubectl -n kube-system get ds kube-network-policies
@@ -82,35 +80,9 @@ kubectl get networkpolicy -A
 kubectl -n kube-system logs daemonset/kube-network-policies --tail=100
 ```
 
-導入前に home-camera の新しい Pod ラベルと hitomi-pdf の接続先変更を同期し、古い Job の完了を確認します。
-core の同期で default-deny と許可ポリシーが順次作られるため、初回同期は短時間の通信断があり得ます。
+拒否の確認は、Pod から Pod へ実際に接続して行います。port-forward やノードからの接続では確認になりません。
+HTTP 403 が返るのは、通信がアプリまで届いている状態です。
+検証用の Pod に本番の Service と同じラベルを付けると、Service の配信先に入ってしまうので避けます。
 
-許可された実アプリ経由の操作、無関係な Pod からの Service IP / Pod IP への接続拒否を複数ノードで確認します。
-port-forward やノード発の通信だけでは Pod 間の拒否試験になりません。HTTP 403 はアプリへの到達を意味します。
-検証 Pod に本番 Service と同じラベルを付けて、誤って Service の配信対象にしないでください。
-
-通常の切り戻しはポリシー変更の Git revert と同期です。
-GitOps 自体が通信障害で止まった場合は、影響する namespace と port に限定した暫定許可を検討し、
-Git 修正の反映後に撤去します。controller 全停止は全ポリシーへ影響するため、局所修正と分けて判断します。
-
-最低限の疎通試験:
-
-- Gateway から api-hub / blog / cooklog / viewer / RSSHub と Harbor にアクセスできる。
-- hitomi-pdf から `https://rsshub.internal.qroksera.com/twivideo/ranking` を取得できる。
-- api-hub の S3 操作、RSSHub のキャッシュ、hitomi の Selenium 操作、カメラ収録が成功する。
-- Harbor の DB 接続が成功する。
-- VictoriaMetrics の全収集対象が `up == 1`、外形監視が全件 `probe_success == 1`、Loki にログが入り続ける。
-- Alertmanager の Slack / heartbeat 送信が失敗しない（`alertmanager_notifications_failed_total` が増えない）。
-- cert-manager の webhook が応答し（`kubectl apply --dry-run=server` で Certificate を検証）、証明書を発行できる。
-- ExternalSecret の `force-sync` 後に Ready のまま更新時刻が進む。
-- subnet router から Gateway VIP と Split DNS に届き、Tailnet の端末との直接通信が維持される。
-- 無関係な Pod から Grafana / VictoriaMetrics / Alertmanager / cert-manager webhook への接続が失敗する。
-- 無関係な sandbox Pod から hitomi Pod の WebDriver:4444、Redis、API Server、LAN への通信が失敗する。
-- 許可されていない Pod の外向き TCP 443 と、許可された Pod の外向き TCP 22 が失敗する。
-- api-hub Service が ClusterIP であり、ノードの旧 32001/TCP から到達できない。
-
-これらの実測は宣言の静的検証では代替できません。ノード自身や hostNetwork Pod に対する標準 NetworkPolicy の制約も考慮します。
-公式の [NetworkPolicy の動作](https://kubernetes.io/docs/concepts/services-networking/network-policies/) も参照してください。
-
-Selenium の Service と tools 向け WebDriver 許可は廃止しました。同一 Pod の loopback 通信に
-NetworkPolicy の追加許可は不要です。ブラウザも hitomi Pod の外向き通信許可を共有します。
+切り戻しは Git の revert です。ポリシーの誤りで ArgoCD 自体が同期できなくなった場合は、
+該当の NetworkPolicy を `kubectl delete` で外してから Git を直します（selfHeal で戻るため、先に Git を直せるならそうします）。

@@ -51,7 +51,7 @@ redis:
         cpu: 250m
         memory: 256Mi
 
-# 観測値と反映後の確認方法: docs/resource-sizing.md
+# 見直し方: docs/operations.md の「リソースを見直す」
 nginx:
   resources:
     requests:

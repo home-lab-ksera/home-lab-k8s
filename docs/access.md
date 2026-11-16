@@ -1,125 +1,130 @@
-# アクセス経路と公開の追加
+# アクセス経路
 
-アプリの公開経路は各アプリの `apps/<app>/access.yaml`、Gateway・DNS・基盤コンポーネントの経路は [access/](../manifests/access/) です。HTTPRoute・Gateway・DNS の YAML が正本で、
-別の台帳は持ちません（公開台帳と専用 checker は 2026-11-16 に撤去）。
-
-## 公開経路のCI検証
-
-[policy-check.py](../automation/scripts/ci/policy-check.py) の R-010 が、各 Application の render 結果から
-`NodePort` / `LoadBalancer` / `externalIPs` を持つ Service と、Tailscale 以外の Ingress を拒否します。
-許可する Service は同ファイルの `ALLOWLISTED_EXPOSED_SERVICES` に登録します（現在は Split DNS のみ）。
-Gateway の LoadBalancer は NGINX Gateway Fabric が生成するため、この検査の対象外です。
-
-ホスト名・DNS 設定・CI 成功だけでは Internet からの到達を遮断できません。
-Tailnet ACL、ルーター/NAT、証明書の実値、operator 生成後の Service / Pod は別途確認します。
-
-## Tailnet のアクセス制御
-
-Tailnet の ACL（tagOwners / autoApprovers / grants）は [tailscale/policy.hujson](../tailscale/policy.hujson) が正本です。
-[tailscale-policy.yml](../.github/workflows/tailscale-policy.yml) が PR で tailnet 側の構文と `tests` を検証し、
-`main` への push で適用します。`tests` が失敗した場合、tailnet は変更されません。
-
-- 認証は `policy_file` スコープだけを持つ OAuth クライアントで、repository secret の
-  `TS_POLICY_CLIENT_ID` / `TS_POLICY_CLIENT_SECRET` に登録しています。Harbor 公開用の `TS_OAUTH_CLIENT_ID` とは別です。
-- 管理画面では直接編集しません。手で変えた内容は、次にこのファイルを適用したときに上書きされます。
-- 許可を誤ると CI から Harbor、端末から Gateway への経路を塞ぎます。経路を増減するときは `tests` も合わせて更新します。
-- 公開経路を追加・削除する PR では、同じ PR でこのファイルも見直します。
+Internet に公開している経路はありません。入口は共有 Gateway（`192.168.122.100`）の 1 つで、LAN か Tailscale から届きます。
 
 ```mermaid
 flowchart LR
-  Nodes[kubelet / containerd] --> GW[NGINX Gateway :443]
-  Client[LAN / Tailnet 端末] --> GW
-  Client -. 名前解決 .-> DNS[Split DNS 192.168.122.101]
-  GW --> Route[HTTPRoute]
-  Route --> Service[Service / Pod]
+  Client[LAN / Tailnet の端末] -. 名前解決 .-> SDNS[Split DNS 192.168.122.101]
+  Client --> GW[共有 Gateway 192.168.122.100:443]
+  CI[アプリの CI] -->|Tailscale| GW
+  Node[ノードの containerd] -->|/etc/hosts| GW
+  Pod[クラスタ内の Pod] -. CoreDNS .-> GW
+  GW --> Route[HTTPRoute] --> Svc[Service / Pod]
 ```
 
-## 利用する URL
+## URL
 
-通常の内部 URL は `https://<名前>.internal.qroksera.com` です。
-名前は `argocd`、`harbor`、`rustfs`、`blog`、`cooklog`、`api-hub`、`hitomi-upload-viewer`、
-`observability`、`rsshub`、`grafana` が宣言されています。
-VMUI は `https://observability.internal.qroksera.com/vmui/` です。
+すべて `https://<名前>.internal.qroksera.com` です。
 
-Harbor は push・pull・認証を内部 Gateway `192.168.122.100` で完結させます。
-コンソールは `https://harbor.internal.qroksera.com` を LAN / Tailscale 経由で利用します。
-cloudflared と専用 Secret / Namespace / Application は撤去しました。
-旧名 `harbor.qroksera.com` の Route・listener・証明書は 2026-11-16 に撤去し、イメージ名も内部名に統一しました。
-Internet向けだった `argocd.qroksera.com`、`rustfs.qroksera.com`、`blog.qroksera.com` の
-listener・Route は撤去済みです。現在 Internet 向けの経路はありません。
+| 名前 | 宛先 | 備考 |
+|---|---|---|
+| `argocd` | ArgoCD | GitHub でログイン |
+| `harbor` | Harbor | イメージの push / pull もこの名前 |
+| `grafana` | Grafana | |
+| `observability` | VictoriaMetrics | VMUI は `/vmui/` |
+| `rustfs` | RustFS のコンソール（9001） | |
+| `s3` | RustFS の S3（9000） | `pdfs/hitomi/`、`pdfs/videos/`、`home-camera-recordings/` の GET / HEAD / OPTIONS だけ |
+| `api-hub` | api-hub | viewer が使う読み取りの経路だけ（下記） |
+| `hitomi-upload-viewer` | viewer と media API | |
+| `blog` / `cooklog` / `rsshub` | 各アプリ | |
+| `nature-remo` | nature-remo | 送信元を制限（下記） |
 
-RustFS の Gateway backend は console の 9001 のみです。S3 の 9000 はクラスタ内で api-hub などが利用します。
-console の `/` は GET / HEAD のリダイレクトと POST / Authorization 付き GET の転送を
-[HTTPRoute](../manifests/access/rustfs/manifest.yaml) で分岐しています。
+認証を持つのは ArgoCD、Harbor、Grafana、RustFS のコンソールだけです。ほかのアプリに利用者認証はなく、
+「LAN と tailnet にいる端末は信頼する」前提です。そのため、次の 3 つは経路側で絞っています。
 
-## DNS・TLS・外部設定
+- **api-hub**: Gateway に通すのは `/health`、`/s3/list_objects_v2`、`/s3/browser_get_object`、`/s3/browser_open`、`/s3/preview/` だけです。
+  更新・削除・Slack・通知の API は、クラスタ内の `api-hub.sandbox.svc:3000` からしか呼べません。
+- **s3**: 上の表のパスの読み取りだけを通します。書き込みと bucket の一覧は通しません。
+  ブラウザーは api-hub が発行した署名付き URL で PDF や動画を直接取得します。
+- **nature-remo**: NGINX Gateway Fabric の AccessPolicy で、LAN（`192.168.10.0/24`）、ノード（`192.168.122.0/24`）、
+  Pod と subnet router（`10.244.0.0/16`）、tailnet（`100.64.0.0/10`）以外を 403 にします。
+  Gateway の `externalTrafficPolicy: Local` で送信元 IP が保たれることが前提です。前段にプロキシや SNAT を足すときは見直します。
 
-| 対象 | 宣言元・役割 |
+## Gateway
+
+[gateway.yaml](../manifests/access/gateway/gateway.yaml) の listener は 2 つです。
+
+| listener | 用途 |
 |---|---|
-| 共通 Gateway | [gateway.yaml](../manifests/access/gateway/gateway.yaml)、LB `192.168.122.100` |
-| クラスタ内 DNS | [CoreDNS](../manifests/access/dns/core/coredns-configmap.yaml) |
-| Tailnet 向け DNS | [Split DNS](../manifests/access/dns/tailscale/manifest.yaml)、LB `192.168.122.101` |
-| TLS | [cert-manager 設定](../manifests/infrastructure/security/cert-manager/)、DNS-01、`*.internal.qroksera.com` の wildcard 1 枚 |
-| ノードの名前解決 | [harbor-node-hosts](../manifests/access/harbor/node-hosts.yaml)、Harbor の hostname を内部 Gateway に固定（ノードはクラスタ内 DNS を使わないため） |
+| `http`（80） | HTTPS へのリダイレクト |
+| `https-internal`（443、`*.internal.qroksera.com`） | すべての経路。証明書は wildcard 1 枚 |
 
-Gateway の証明書 Secret は `nginx-gateway` namespace に置きます。
-内部 hostname でも公開 ACME issuer の DNS-01 を使っています。「内部 URL だから独自 CA を端末へ追加する」とは限りません。
+Route を置ける namespace は `argocd`・`harbor`・`observability`・`rustfs`・`sandbox` に限っています。
+Harbor の Route には、イメージの push のために本文サイズの上限を外す ClientSettingsPolicy を付けています。
 
-Tailnet 側では `192.168.122.0/24` の subnet route 承認、端末での route 受け入れ、
-`internal.qroksera.com` の Split DNS を `.101` に向ける設定が必要です。
-DNS の UDP/TCP 53、Gateway の TCP 443（HTTP redirect を使うなら 80）の到達性も確認します。
-Harbor internal は CoreDNS と Tailscale Split DNS の両方に登録しています。
+## DNS
 
-ArgoCD は GitHub（Dex）でログインします。GitHub OAuth App の callback は ArgoCD の URL と `/api/dex/callback` を一致させます。
-Cloudflare 側の旧 Tunnel と argocd・rustfs・blog・harbor の DNS レコードは 2026-11-10 に削除済みです。
-Cloudflare 側の設定、Tailnet ACL、OAuth App の設定はこのリポジトリから自動反映されません。
+同じ hosts の一覧を 2 か所に持ちます。名前を足すときは両方に書きます。
 
-## 新しく到達可能な API を追加する手順
+| 利用者 | 解決する場所 |
+|---|---|
+| クラスタ内の Pod | [CoreDNS の ConfigMap](../manifests/access/dns/core/coredns-configmap.yaml) の `hosts` |
+| LAN / tailnet の端末 | [Split DNS](../manifests/access/dns/tailscale/manifest.yaml)（`192.168.122.101`、ゾーン `internal.qroksera.com`） |
+| ノード（containerd、kubelet） | `/etc/hosts`（Harbor だけ。下記） |
 
-1. 公開範囲（クラスタ内 / LAN・Tailnet / Internet）、hostname、backend Service と port、呼び出し元を決めます。
-2. [アプリ配布](app-delivery.md) に従って workload / Service / Secret を追加します。
-   クラスタ内 Service DNS のみで利用するなら Gateway / hostname の追加は不要です。
-3. `apps/<app>/access.yaml` に HTTPRoute を追加し、同じ Kustomization に登録します。
-   `parentRefs.sectionName` は `https-internal`（redirect は `http`）、hostname は `<名前>.internal.qroksera.com`、
-   backend は **Service port** を指定します。listener と証明書は wildcard のため追加不要です。
-   `sandbox` 以外の namespace から公開する場合だけ、listener の `allowedRoutes` に namespace を追加します。
-4. 必要な CoreDNS / Split DNS の hosts を更新します。
-   ConfigMap の変更時は Pod template も変更し、新しい設定を読み込ませます。
-5. [NetworkPolicy](network-policy.md) の受信先・送信元と **Pod の待受 port** を確認し、必要な許可を追加します。
-6. 静的検証後、Secret / workload の準備、公開経路の同期、クライアントからの実操作を順に確認します。
-
-Service が 80 → 8080 なら HTTPRoute は 80、NetworkPolicy は 8080 です。
-既存 HTTPRoute の PathPrefix 内で API のパスだけを追加する場合、接続先・port・公開範囲が変わらなければ
-新しい Route は通常不要です。認証・認可はアプリ側で実装します。
-
-## 反映後の確認
+tailnet 側では、`internal.qroksera.com` の Split DNS を `192.168.122.101` に向けています（Tailscale の管理画面の設定）。
+LAN の端末で使う場合も、このゾーンを `.101` に転送する設定が要ります。
 
 ```bash
-kubectl -n argocd get applications
-kubectl -n nginx-gateway get gateway,svc,certificate
-kubectl -n <namespace> describe httproute <route-name>
-kubectl -n <namespace> get svc,endpointslices
+dig @192.168.122.101 blog.internal.qroksera.com A +short
 ```
 
-Gateway の Programmed、HTTPRoute の Accepted / ResolvedRefs、Certificate の Ready を確認します。
-利用端末で DNS と HTTPS、ログイン後の主要操作を確認し、通信制限を追加した場合は拒否される経路も実測します。
-初回公開や依存変更の順序を、別 Application の wave だけに依存させないでください。
+### Harbor とノードの名前解決
 
-## Harbor の内部経路
+ノードはクラスタ内の DNS を使わないため、`platform-access` の DaemonSet
+[harbor-node-hosts](../manifests/access/harbor/node-hosts.yaml) が各ノードの `/etc/hosts` に
+`192.168.122.100 harbor.internal.qroksera.com` を書き、60 秒ごとに直します。containerd の設定変更や再起動は要りません。
 
-`platform-access` が kube-system の `harbor-node-hosts` DaemonSet を管理します。
-ノードの `/etc/hosts` のみをファイルマウントし、Harbor の hostname（旧名を含む）の競合を除去して
-`192.168.122.100` に固定します。他のホスト名は保持し、60 秒ごとに再調整します。
-containerd の設定・再起動、hostNetwork、privileged は不要です。
-Pod DNS は CoreDNS、ノードはこの DaemonSet を使います。
+DaemonSet を消しても `/etc/hosts` の行は残ります。やめるときは `# managed: harbor-node-hosts` の行を全ノードで消します。
 
-イメージ名は `harbor.internal.qroksera.com/sandbox/...` です。旧名 `harbor.qroksera.com` では pull できません。
-Harbor の externalURL / EXT_ENDPOINT は内部 hostname に統一し、token realm も内部へ向けます。
-証明書検証は維持します。Cloudflare DNS-01 用の Secret は証明書更新に必要なので残します。
+## TLS
 
-再構築時は DaemonSet の全ノード Ready と両 hostname の内部 HTTPS 到達を確認し、
-Harbor・Secret・Split DNS を同期して認証付き pull を確認します。
-App-of-Apps の sync wave だけで既存 Application の同期完了順を保証しないでください。
+[cert-manager の設定](../manifests/infrastructure/security/cert-manager/) が、Let's Encrypt の DNS-01（Cloudflare）で
+`*.internal.qroksera.com` の証明書を 1 枚発行し、`nginx-gateway/wildcard-internal-tls` に置きます。
+公開 CA の証明書なので、端末に独自 CA を入れる必要はありません。
+更新は期限の 30 日前に自動で行われ、失敗が続くと `CertificateNotReady` と `EndpointCertificateExpiring` が通知します。
 
-DaemonSet を削除しても `/etc/hosts` のエントリは残ります。
-固定先を廃止する場合は DaemonSet を停止し、全ノードで `# managed: harbor-node-hosts` の行を除去します。
+PostgreSQL 用のクラスタ内 CA は別です（[PostgreSQL](postgresql.md#証明書)）。
+
+## Tailnet
+
+- クラスタ内の Connector（[connector.yaml](../manifests/infrastructure/networking/tailscale-operator/connector.yaml)）が
+  subnet router として `192.168.122.0/24` を広告します。
+- ACL の正本は [tailscale/policy.hujson](../tailscale/policy.hujson) です。
+  [tailscale-policy.yml](../.github/workflows/tailscale-policy.yml) が PR で構文と `tests` を検証し、`main` への push で適用します。
+  管理画面で直接編集しても、次の適用で上書きされます。
+
+許可している通信は 3 つだけです。
+
+| 送信元 | 宛先 |
+|---|---|
+| tailnet の利用者 | 共有 Gateway の 80 / 443 |
+| tailnet の利用者 | Split DNS の 53 |
+| `tag:ci-harbor`（アプリの CI の一時端末） | 共有 Gateway の 443 |
+
+経路を増減するときは `tests` も直します。許可を誤ると、CI から Harbor、端末から Gateway への経路を塞ぎます。
+workflow は `policy_file` スコープだけの OAuth クライアントを使います（repository secret の `TS_POLICY_CLIENT_ID` / `TS_POLICY_CLIENT_SECRET`）。
+
+## URL を足す
+
+1. Service の port と、呼び出し元を決める。クラスタ内からしか呼ばないなら、Route は要りません（Service の DNS 名を使う）。
+2. `manifests/apps/<app>/access.yaml` に HTTPRoute を 2 つ書く（既存のアプリを写す）。
+   - リダイレクト用: `sectionName: http`
+   - 本体: `sectionName: https-internal`、hostname は `<名前>.internal.qroksera.com`、backend は **Service の port**
+3. CoreDNS と Split DNS の `hosts` に名前を足す。
+4. `sandbox` は default-deny なので、Gateway から Pod への NetworkPolicy を足す。こちらは **Pod の待受 port** を書く（[NetworkPolicy](network-policy.md#許可を足す)）。
+5. 必要なら Alloy の外形監視に足す（[監視](observability.md#外形監視)）。
+
+listener と証明書は wildcard なので追加は要りません。`sandbox` など上記 5 つ以外の namespace に Route を置く場合だけ、
+Gateway の `allowedRoutes` に namespace を足します。
+
+反映後の確認:
+
+```bash
+kubectl -n nginx-gateway get gateway,svc,certificate
+kubectl -n <namespace> describe httproute <route>     # Accepted / ResolvedRefs
+kubectl -n <namespace> get svc,endpointslices
+curl --fail https://<名前>.internal.qroksera.com/
+```
+
+`NodePort`・`LoadBalancer`・Ingress で公開する変更は CI が拒否します（[policy-check の R-010](validation.md#静的検証)）。

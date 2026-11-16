@@ -1,56 +1,89 @@
 # 全体構成
 
-Ubuntu ホスト上の libvirt VM に kubeadm クラスタを構築し、ArgoCD が基盤とアプリを管理します。
-VM・OS 準備はローカルスクリプトと Terraform、Kubernetes リソースの継続管理は GitOps が担当します。
+1 台の Ubuntu ホスト上に libvirt の VM を 2 台立て、kubeadm で作った Kubernetes クラスタを ArgoCD で管理しています。
+VM と OS の準備は Terraform とスクリプト、クラスタ内のリソースはすべて GitOps です。
 
 ```mermaid
 flowchart TD
-  Host[Ubuntu / KVM / libvirt] --> TF[Terraform / cloud-init / kubeadm]
-  TF --> K8s[control-plane 1台 + worker 1台 / Flannel]
-  K8s --> Boot[bootstrap: ArgoCD / ESC token / root Application]
-  Boot --> Argo[ArgoCD child Applications]
-  Argo --> Infra[Storage / MetalLB / Gateway API / cert-manager]
-  Argo --> Platform[ESO / Harbor / RustFS / PostgreSQL / 監視]
-  Argo --> Access[Gateway / HTTPRoute / DNS]
-  Argo --> Apps[ユーザーアプリ]
+  Host[Ubuntu ホスト / KVM / NFS] --> VM[VM 2 台: control-plane + worker]
+  VM --> K8s[kubeadm クラスタ / Flannel]
+  K8s --> Argo[ArgoCD: bootstrap-root]
+  Argo --> Infra[infrastructure: ストレージ / MetalLB / Gateway / cert-manager / Tailscale]
+  Argo --> Platform[platform: ESO / Harbor / RustFS / PostgreSQL / 監視]
+  Argo --> Access[access: Gateway / DNS / 基盤の経路]
+  Argo --> Apps[apps: 9 アプリ]
 ```
 
-## ノード・ネットワーク
+## ノードとネットワーク
 
-[Terraform 変数](../automation/infrastructure/variables.tf) の宣言値です。
-
-| 対象 | 宣言 |
+| 対象 | 値 |
 |---|---|
-| control-plane | `k8s-control-plane` / `192.168.122.10` |
-| workers | `k8s-worker2` / `.12`（同じ `192.168.122.0/24`）。worker1 は 2026-11-12 に撤去 |
-| スケジュール | control-plane も taint なしで workload を受ける。MetalLB の広告対象にするため `exclude-from-external-load-balancers` label も外す |
-| VM 既定リソース | control-plane 2 vCPU / 5120 MiB、worker2 4 vCPU / 8192 MiB、CPU mode は `host-model`、memballoon は free page reporting 有効（[ホスト容量](host-capacity.md)） |
-| VM ディスク | control-plane 50GiB、worker 60GiB（[既存VMの拡張](worker-disk.md)） |
+| ホスト | `ksera-T100`、LAN `192.168.10.11`、VM 側 `192.168.122.1`（libvirt の default ネットワーク） |
+| control-plane | `k8s-control-plane` / `192.168.122.10`。taint なしでアプリの Pod も受ける |
+| worker | `k8s-worker2` / `192.168.122.12`。local-path の PV はこのノードに固定される |
 | Pod / Service CIDR | `10.244.0.0/16` / `10.96.0.0/12` |
-| MetalLB | `192.168.122.100-192.168.122.150`、L2 |
-| Gateway / Split DNS | `192.168.122.100` / `192.168.122.101` |
+| MetalLB（L2） | `192.168.122.100-192.168.122.150` |
+| 共有 Gateway | `192.168.122.100`（HTTP 80 / HTTPS 443） |
+| Split DNS | `192.168.122.101`（`internal.qroksera.com`） |
 | NFS | `192.168.122.1:/mnt/k8s-storage/nfs-share` |
 
-Flannel は [Terraform](../automation/infrastructure/main.tf) が導入します。
-NetworkPolicy の実行は別の [kube-network-policies DaemonSet](../manifests/infrastructure/networking/kube-network-policies/manifest.yaml) が担当します。
-control-plane、NFS、単一 replica のサービスを含むため、構成全体が冗長化されているとは扱いません。
+CNI は Flannel で、NetworkPolicy は別の DaemonSet（kube-network-policies）が実行します。
+VM のサイズやノード個別の設定は [ホストとノード](nodes.md) を参照してください。
 
-## 基盤と依存先
+## 入口
 
-| 領域 | 実装と用途 |
+Internet に公開している経路はありません。利用者は LAN または Tailscale から共有 Gateway に届きます。
+
+- Tailnet の端末は、クラスタ内の subnet router が広告する `192.168.122.0/24` を経由します。
+- アプリリポジトリの CI（GitHub-hosted runner）は、Tailscale で Harbor にだけ届きます。
+- すべての URL は `https://<名前>.internal.qroksera.com` で、wildcard 証明書 1 枚を使います。
+
+詳細は [アクセス経路](access.md) です。
+
+## コンポーネント
+
+| 領域 | 構成 |
 |---|---|
-| GitOps | ArgoCD 本体・設定の自己管理、AppProject、GitHub ログイン（Dex）。ApplicationSet controller は配備しない |
-| 認証情報 | ESO → Pulumi ESC。初回の ESC token は bootstrap が投入 |
-| 公開 | NGINX Gateway Fabric + cert-manager。Harbor を含む内部接続は LAN / Tailscale 経路 |
-| レジストリ・CI | Harbor。アプリの build・push は GitHub-hosted runner + Tailscale OIDC（workflow はアプリ側リポジトリ） |
-| データ | RustFS（S3）、単一 StatefulSet の共通 PostgreSQL（Harbor DB と Grafana の SQL 接続先） |
-| 監視 | VictoriaMetrics / kube-state-metrics / vmalert / Alertmanager / Grafana / Loki / Alloy |
+| GitOps | ArgoCD（本体と設定も自己管理）、GitHub ログイン（Dex）、Image Updater |
+| 認証情報 | External Secrets Operator → Pulumi ESC |
+| ネットワーク | MetalLB、NGINX Gateway Fabric、cert-manager（Let's Encrypt DNS-01 / Cloudflare）、Tailscale Operator、kube-network-policies |
+| ストレージ | local-path（ノードのディスク）、NFS subdir provisioner（ホストの HDD） |
+| レジストリ | Harbor（自作イメージの保管。Trivy は無効） |
+| データ | RustFS（S3 互換）、PostgreSQL（単一の StatefulSet） |
+| 監視 | VictoriaMetrics、vmalert、Alertmanager、kube-state-metrics、metrics-server、Grafana、Loki、Alloy |
+| 補助 | Reloader（Secret / ConfigMap の変更で Pod を再起動） |
 
-Grafana 自体の永続データは local-path PVC に保存します。PostgreSQL は Grafana の SQL データソースです。
-ストレージの保持方針は [配置規約](manifests.md)、通信経路は [アクセス経路](access.md)、
-適用定義は [Application 一覧](diagrams/app-of-apps-sync-wave.md) を参照してください。
+アプリは api-hub、blog、cooklog、hitomi、hitomi-pdf、hitomi-upload-viewer、home-camera、nature-remo、rsshub の 9 つで、
+すべて `sandbox` namespace に置きます。役割は [アプリ一覧](apps.md) を参照してください。
 
-## リポジトリ外の設定
+## Namespace
 
-Pulumi ESC の値、Cloudflare の DNS、Tailscale の route 承認・DNS・ACL、GitHub OAuth App・GitHub App の設定、
-NFS 上の既存データは Git の YAML だけでは復元できません。初回構築では [bootstrap](bootstrap.md) と [secrets](secrets.md) を併せて確認します。
+| Namespace | 中身 | Pod Security（enforce） |
+|---|---|---|
+| `argocd` | ArgoCD、Image Updater | baseline |
+| `cert-manager` / `external-secrets-system` | 証明書、Secret 同期 | baseline |
+| `nginx-gateway` / `metallb-system` / `tailscale` / `kube-system` | Gateway、LB、subnet router と Split DNS、システム | privileged |
+| `nfs-storage` / `local-path-storage` | ストレージ provisioner | baseline（local-path は定義なし） |
+| `harbor` / `rustfs` / `database` / `observability` | 基盤サービス | baseline |
+| `sandbox` | 全アプリ | baseline |
+| `tools` | 空（default-deny だけを置いた予備） | baseline |
+
+定義は [namespaces.yaml](../manifests/core/namespaces.yaml) です。
+
+## 冗長性
+
+冗長化はしていません。ホスト、control-plane、NFS、各サービス（replica 1）のどれが止まっても、その機能は止まります。
+停止は許容する前提で、[デッドマンスイッチ](observability.md#通知) がクラスタ全体の停止を外から知らせます。
+データの保護は「消えても取り直せるか」で決めており、別媒体へのバックアップはありません（[ストレージ](storage.md#データの保護)）。
+
+## リポジトリの外にある設定
+
+次のものは Git の YAML だけでは復元できません。作り直すときは [構築と再構築](bootstrap.md#リポジトリの外で用意するもの) を見てください。
+
+- Pulumi ESC の値（すべての Secret の元）
+- Cloudflare の API token と DNS ゾーン（証明書の DNS-01 用）
+- Tailscale の OAuth クライアント、Split DNS の設定、CI 用の trust credential
+- GitHub の OAuth App（ArgoCD ログイン）、Deploy Key（Image Updater）、Actions の Secret
+- Harbor の project・Robot Account・保持ルール（Harbor の DB に保存）
+- ホストの OS 設定（NFS export、ufw、node_exporter）
+- NFS 上のデータと PostgreSQL のデータ

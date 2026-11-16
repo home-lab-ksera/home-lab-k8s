@@ -204,7 +204,7 @@ Pod 生成は 1 時間に 13 回、各 4〜9 秒で終わる。クラスタ全�
 
 ## 再測定
 
-2 週間ごとに追記する。取得方法は [ホスト容量](../docs/host-capacity.md) の「再測定」と `kubectl describe node`。
+2 週間ごとに追記する。取得方法は [ホストとノード](../docs/nodes.md#容量の考え方)と `kubectl describe node`。
 ホストの値は Grafana / VMUI の `job="host-node"` でも確認できる。
 
 | 日付 | ホスト available | ホスト swap | ホスト CPU PSI avg300 | CP CPU requests | CP メモリ実使用 | worker2 ディスク | etcd DB | 発火中アラート |

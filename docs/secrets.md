@@ -1,69 +1,98 @@
 # Secret 管理
 
-ESO 本体は [external-secrets-operator Application](../manifests/bootstrap/applications/platform/external-secrets-operator.yaml) の
-外部 Helm chart と inline values が正本です。
-`config-secrets` は [Kustomization](../manifests/platform/secrets/external-secrets/kustomization.yaml) から
-Store / ExternalSecret / generator を管理します。
+Secret の値は Pulumi ESC に置き、External Secrets Operator（ESO）が Kubernetes の Secret にします。
+Git には参照（ExternalSecret）だけを置きます。
 
 ```mermaid
 flowchart LR
-  Token[bootstrap: pulumi-esc-token] --> Store[pulumi-esc-store]
-  ESC[Pulumi ESC] --> Store
-  Store --> ES[ExternalSecret]
-  ES --> Secret[Kubernetes Secret]
-  Secret --> Pod[workload]
+  ESC[Pulumi ESC: ksera/k8s/secret] --> Store[ClusterSecretStore: pulumi-esc-store]
+  Token[Secret: pulumi-esc-token] --> Store
+  Store --> ES[ExternalSecret] --> Secret[Secret] --> Pod
 ```
 
-[Store](../manifests/platform/secrets/external-secrets/stores/pulumi-esc-secretstore.yaml) は
-organization `ksera` / project `k8s` / environment `secret`、token の参照先は
-`external-secrets-system/pulumi-esc-token` の `accessToken` です。
-ローカル設定の environment を変えるだけではこのマニフェストは変わりません。
+- ESC に接続する token（`external-secrets-system/pulumi-esc-token`）だけは、`make bootstrap` が直接作ります。
+- ExternalSecret はすべて [platform/secrets/external-secrets/](../manifests/platform/secrets/external-secrets/) に置きます（CI が配置を検査します）。
+- 参照する ESC のキーは、各 ExternalSecret の `remoteRef.key` が正本です。
 
-## 入力を用意する
+## 一覧
 
-値は ESC に登録し、Git には参照とテンプレートだけを置きます。
-具体的なキー構造は各 domain の `remoteRef.key` / `property` / `dataFrom` が正本です。
+| ディレクトリ | 作る Secret（namespace） | ESC のキー |
+|---|---|---|
+| `argocd/` | `argocd-secret` に追記（argocd） | `argocd` の `client-secret`（GitHub OAuth） |
+| | `argocd-notifications-secret` に追記（argocd） | `alertmanager-slack-webhook-url` |
+| | `image-updater-git`、`image-updater-harbor`（argocd） | `image_updater.git_ssh_private_key`、`harbor.image_updater_username` / `_password` |
+| `harbor/` | `harbor-admin-secret`（harbor） | `harbor.admin_password` |
+| | `harbor-internal-secret`（harbor） | `harbor.core_secret` ほか（下記） |
+| | `harbor-registry`（sandbox、argocd、default） | `harbor.admin_password`（イメージの pull 用） |
+| `networking/` | `cloudflare-api-token`（cert-manager） | `dns-01` |
+| | `operator-oauth`（tailscale） | `tailscale.client_id` / `client_secret` |
+| `app-runtime/` | `slack`、`cooklog-slack`（sandbox） | `slack`、`cooklog-slack-app-token`、`github` |
+| | `rustfs-auth`（rustfs、sandbox） | `rustfs.access_key` / `secret_key` |
+| `observability/` | `alertmanager-slack`、`alertmanager-heartbeat`（observability） | `alertmanager-slack-webhook-url`、`alertmanager-heartbeat-url` |
+| | `grafana-postgresql`（observability） | `postgresql.password` |
+| | `grafana-admin`（observability） | なし（ESO の Password generator が 1 度だけ生成） |
+| `postgresql/` | `postgresql-input`（database） | `postgresql.admin_password` / `postgresql.password` |
+| | `application-postgresql`（sandbox）、`harbor-database-secret`（harbor） | `postgresql.password` |
 
-| domain | 主な入力・用途 |
-|---|---|
-| [argocd](../manifests/platform/secrets/external-secrets/argocd/) | `argocd` の `client-secret`、`alertmanager-slack-webhook-url` |
-| [harbor](../manifests/platform/secrets/external-secrets/harbor/) | `harbor.admin_password`、内部認証、namespace ごとの pull Secret |
-| [networking](../manifests/platform/secrets/external-secrets/networking/) | `dns-01`、`tailscale.client_id` / `client_secret` |
-| [app-runtime](../manifests/platform/secrets/external-secrets/app-runtime/) | `slack`、`rustfs.access_key` / `secret_key` |
-| [observability](../manifests/platform/secrets/external-secrets/observability/) | Slack Webhook、デッドマンスイッチの Ping URL（`alertmanager-heartbeat-url`）、PostgreSQL 共用パスワード、Grafana 初期管理者 generator |
-| [postgresql](../manifests/platform/secrets/external-secrets/postgresql/) | `postgresql.admin_password` / `postgresql.password` |
+`argocd-secret` と `argocd-notifications-secret` は `creationPolicy: Merge` です。ArgoCD 本体が作った Secret に値を足すため、
+本体が先に入っている必要があります。
 
-## 反映・ローテーション
+## 値を変える
 
-1. ESC の値と ExternalSecret の参照を揃えます。
-2. 定義変更がある場合は Git 検証・反映を行います。
-3. Store と ExternalSecret の Ready、target Secret の存在を確認します。
-4. 値を利用するプロセスが設定を読み直したことを確認します。
+1. ESC の値を変える。
+2. ESO は 1 時間ごとに取り直します（GitHub OAuth だけ 15 分）。すぐ反映するなら次を実行します。
+
+   ```bash
+   kubectl -n <namespace> annotate externalsecret <name> force-sync="$(date +%s)" --overwrite
+   ```
+
+3. Secret を使う Pod が新しい値を読んだことを確認する。環境変数で読む Pod は、再起動するまで古い値のままです（下の Reloader）。
+
+状態の確認:
 
 ```bash
 kubectl get clustersecretstores
-kubectl describe clustersecretstore pulumi-esc-store
 kubectl get externalsecrets -A
 kubectl -n <namespace> describe externalsecret <name>
 ```
 
-周期同期の ExternalSecret を即時に再確認させる場合:
+値を変えるだけでは済まないもの:
+
+- **PostgreSQL のパスワード**: Secret を変えても DB の中のパスワードは変わりません。[手順](postgresql.md#パスワードを変える) に従います。
+  `app` のパスワードは全アプリ・Harbor・Grafana が共用しています。
+- **Harbor の内部認証**（下記）: 鍵と証明書、password と htpasswd の組を揃えて変えます。`encryption_key` を変えると、Harbor の DB に保存済みの値を復号できなくなります。
+- **Grafana の管理者**: `grafana-admin` は初回の DB 初期化にだけ使われます。UI で変えたパスワードとは連動しません。Secret を消してもリセットにはなりません。
+
+## Reloader
+
+[Reloader](../manifests/platform/reloader/manifest.yaml) は、Secret や ConfigMap が変わったときに、annotation を付けた workload を再起動します。
+見ているのは **`sandbox` と `observability` だけ** で、Job と CronJob は対象外です。
+
+| 対象 | 再起動のきっかけ |
+|---|---|
+| api-hub、hitomi-outbox、media-api、media-worker、home-camera | 参照しているすべての Secret / ConfigMap（`reloader.stakater.com/auto`） |
+| Alertmanager | `alertmanager-slack`、`alertmanager-heartbeat` |
+| Grafana | `grafana-postgresql` |
+
+`harbor` と `database` は Reloader の対象外です。Harbor と PostgreSQL のマニフェストにも annotation はありますが、効きません。
+これらの Secret を変えたら、手で再起動します。
 
 ```bash
-kubectl -n <namespace> annotate externalsecret <name> force-sync="$(date +%s)" --overwrite
+kubectl -n harbor rollout restart deployment harbor-core harbor-jobservice
+kubectl -n database rollout restart statefulset postgresql
 ```
 
-同期間隔は 1 時間です（ArgoCD の GitHub OAuth のみ 15 分）。ESC の値を変えた直後に反映したい場合は上の `force-sync` を使います。
-以前は 20 秒〜1 分で、ESO から API サーバーと Pulumi ESC への問い合わせが監査ログの大半を占めていました。Grafana 初期管理者は `CreatedOnce` なので周期的なローテーションの対象ではありません。
-ArgoCD の `argocd-secret` / `argocd-notifications-secret` は `creationPolicy: Merge` で、upstream が作る Secret が必要です。
-環境変数で読む Secret は更新だけで既存プロセスに反映されないため、[Reloader の監視範囲](platform-extensions.md) も確認します。
+対象を増やすときは、workload の annotation、Reloader の `--namespaces`、その namespace の Role / RoleBinding を揃えます。
+Reloader が Pod template に書く annotation を ArgoCD が差分と見なさないよう、Application の `ignoreDifferences` も足します
+（[observability の例](../manifests/bootstrap/applications/platform/observability.yaml)）。
 
-## Harbor 内部認証情報
+## Harbor の内部認証
 
-[harbor-internal-secret](../manifests/platform/secrets/external-secrets/harbor/harbor-internal-secret.yaml) を
-[values.yaml](../manifests/platform/harbor/values.yaml) から参照し、chart 描画ごとのランダム生成を避けます。
+Harbor の chart は、放っておくと描画のたびに内部の鍵を乱数で作り直します。
+それを避けるため、[harbor-internal-secret](../manifests/platform/secrets/external-secrets/harbor/harbor-internal-secret.yaml) に固定の値を入れ、
+[values.yaml](../manifests/platform/harbor/values.yaml) から参照しています。
 
-| ESC の `harbor` 配下 | Secret キー |
+| ESC の `harbor.` 配下 | Secret のキー |
 |---|---|
 | `core_secret` / `encryption_key` | `secret` / `secretKey` |
 | `token_cert` / `token_key` | `tls.crt` / `tls.key` |
@@ -71,8 +100,11 @@ ArgoCD の `argocd-secret` / `argocd-notifications-secret` は `creationPolicy: 
 | `registry_secret` | `REGISTRY_HTTP_SECRET` |
 | `registry_password` / `registry_htpasswd` | `REGISTRY_PASSWD` / `REGISTRY_HTPASSWD` |
 
-証明書と秘密鍵、password と htpasswd の整合を維持します。暗号化キーの変更は保存済みデータへの影響を確認します。
-Harbor namespace は現行 Reloader の監視対象外なので、annotation があっても自動再起動を前提にしません。
+## GitHub 側の Secret
 
-共通 DB は ESO の入力 Secret（`postgresql-input`）を初期化時のパスワードに使います。既存 DB のローテーションは [手順](shared-postgresql.md#初期化と資格情報) を参照。
-共用 `app` パスワードを変えると Harbor と Grafana の SQL 接続に影響します。[DB 運用](shared-postgresql.md) を参照してください。
+クラスタの外で使う認証情報は、GitHub の Actions Secret にあります。
+
+| Secret | 場所 | 用途 |
+|---|---|---|
+| `TS_OAUTH_CLIENT_ID`、`TS_AUDIENCE`、`HARBOR_USERNAME`、`HARBOR_PASSWORD` | Organization（private のリポジトリは個別） | アプリの CI が Tailscale 経由で Harbor に push する（[アプリ配布](app-delivery.md#ci-の認証情報)） |
+| `TS_POLICY_CLIENT_ID`、`TS_POLICY_CLIENT_SECRET` | このリポジトリ | Tailnet の ACL の適用（[アクセス経路](access.md#tailnet)） |
