@@ -39,7 +39,7 @@ control-plane、NFS、単一 replica のサービスを含むため、構成全�
 
 | 領域 | 実装と用途 |
 |---|---|
-| GitOps | ArgoCD 本体・設定の自己管理、AppProject（Dex と ApplicationSet controller は配備しない） |
+| GitOps | ArgoCD 本体・設定の自己管理、AppProject、GitHub ログイン（Dex）。ApplicationSet controller は配備しない |
 | 認証情報 | ESO → Pulumi ESC。初回の ESC token は bootstrap が投入 |
 | 公開 | NGINX Gateway Fabric + cert-manager。Harbor を含む内部接続は LAN / Tailscale 経路 |
 | レジストリ・CI | Harbor。アプリの build・push は GitHub-hosted runner + Tailscale OIDC（workflow はアプリ側リポジトリ） |
@@ -52,5 +52,5 @@ Grafana 自体の永続データは local-path PVC に保存します。PostgreS
 
 ## リポジトリ外の設定
 
-Pulumi ESC の値、Cloudflare の DNS、Tailscale の route 承認・DNS・ACL、GitHub App の設定、
+Pulumi ESC の値、Cloudflare の DNS、Tailscale の route 承認・DNS・ACL、GitHub OAuth App・GitHub App の設定、
 NFS 上の既存データは Git の YAML だけでは復元できません。初回構築では [bootstrap](bootstrap.md) と [secrets](secrets.md) を併せて確認します。
