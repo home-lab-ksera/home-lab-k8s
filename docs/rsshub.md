@@ -7,7 +7,7 @@
 | Application | `rsshub` / `rsshub-access` |
 | Namespace / Deployment | `sandbox` / `rsshub-private` |
 | Service | `rsshub:1200` |
-| image | `harbor.qroksera.com/sandbox/rsshub-private:latest`。digest 固定のため `IfNotPresent` |
+| image | `harbor.internal.qroksera.com/sandbox/rsshub-private:latest`。digest 固定のため `IfNotPresent` |
 | URL | `https://rsshub.internal.qroksera.com` |
 | アプリ repo | `home-lab-ksera/RSSHub-private`（GitHub-hosted runner + Tailscale OIDC） |
 

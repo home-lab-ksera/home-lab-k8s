@@ -27,7 +27,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: migrate
-        image: harbor.qroksera.com/sandbox/hitomi-pdf-batch:latest
+        image: harbor.internal.qroksera.com/sandbox/hitomi-pdf-batch:latest
         imagePullPolicy: IfNotPresent
         command:
         - /app/hitomi-pdf-batch
@@ -104,7 +104,7 @@ spec:
               type: RuntimeDefault
           containers:
           - name: plan
-            image: harbor.qroksera.com/sandbox/hitomi-pdf-batch:latest
+            image: harbor.internal.qroksera.com/sandbox/hitomi-pdf-batch:latest
             imagePullPolicy: IfNotPresent
             command:
             - /app/hitomi-pdf-batch
@@ -193,7 +193,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: serve
-        image: harbor.qroksera.com/sandbox/hitomi-pdf-batch:latest
+        image: harbor.internal.qroksera.com/sandbox/hitomi-pdf-batch:latest
         imagePullPolicy: IfNotPresent
         command:
         - /app/hitomi-pdf-batch
@@ -288,7 +288,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: worker
-        image: harbor.qroksera.com/sandbox/hitomi-pdf-batch:latest
+        image: harbor.internal.qroksera.com/sandbox/hitomi-pdf-batch:latest
         imagePullPolicy: IfNotPresent
         command:
         - /app/hitomi-pdf-batch
@@ -400,7 +400,7 @@ spec:
               type: RuntimeDefault
           containers:
           - name: reconcile
-            image: harbor.qroksera.com/sandbox/hitomi-pdf-batch:latest
+            image: harbor.internal.qroksera.com/sandbox/hitomi-pdf-batch:latest
             imagePullPolicy: IfNotPresent
             command:
             - /app/hitomi-pdf-batch
@@ -489,7 +489,7 @@ spec:
               type: RuntimeDefault
           containers:
           - name: verify-objects
-            image: harbor.qroksera.com/sandbox/hitomi-pdf-batch:latest
+            image: harbor.internal.qroksera.com/sandbox/hitomi-pdf-batch:latest
             imagePullPolicy: IfNotPresent
             command:
             - /app/hitomi-pdf-batch

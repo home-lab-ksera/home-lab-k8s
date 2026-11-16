@@ -4,7 +4,7 @@ resources:
   - manifest.yaml
 
 images:
-  - name: harbor.qroksera.com/sandbox/hitomi-pdf-batch
+  - name: harbor.internal.qroksera.com/sandbox/hitomi-pdf-batch
     newTag: latest
-    newName: harbor.qroksera.com/sandbox/hitomi-pdf-batch
+    newName: harbor.internal.qroksera.com/sandbox/hitomi-pdf-batch
     digest: sha256:e3da0b9ca84e2b7e6c0fb162e42e12c9d593d90cca03f40c7b4a2bf94d37e5ad

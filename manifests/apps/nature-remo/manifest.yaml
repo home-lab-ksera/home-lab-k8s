@@ -44,7 +44,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: nature-remo
-          image: harbor.qroksera.com/sandbox/nature-remo:build-975d107
+          image: harbor.internal.qroksera.com/sandbox/nature-remo:build-975d107
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

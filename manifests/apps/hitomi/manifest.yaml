@@ -27,7 +27,7 @@ spec:
           type: RuntimeDefault
       containers:
       - name: migrate
-        image: harbor.qroksera.com/sandbox/hitomi:latest
+        image: harbor.internal.qroksera.com/sandbox/hitomi:latest
         imagePullPolicy: IfNotPresent
         command:
         - /app/hitomi
@@ -115,7 +115,7 @@ spec:
               mountPath: /dev/shm
           containers:
           - name: hitomi-monitor
-            image: harbor.qroksera.com/sandbox/hitomi:latest
+            image: harbor.internal.qroksera.com/sandbox/hitomi:latest
             imagePullPolicy: IfNotPresent
             # イメージは distroless の nonroot。Selenium sidecar は対象外（Chrome の要件を変えない）。
             securityContext:
@@ -221,7 +221,7 @@ spec:
         ports:
         - name: metrics
           containerPort: 9090
-        image: harbor.qroksera.com/sandbox/hitomi:latest
+        image: harbor.internal.qroksera.com/sandbox/hitomi:latest
         imagePullPolicy: IfNotPresent
         command:
         - /app/hitomi

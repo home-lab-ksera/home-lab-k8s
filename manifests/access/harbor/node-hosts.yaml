@@ -35,7 +35,7 @@ spec:
               command:
                 - sh
                 - -c
-                - grep -q '^192.168.122.100 harbor.qroksera.com harbor.internal.qroksera.com ' /host/hosts
+                - grep -q '^192.168.122.100 harbor.internal.qroksera.com ' /host/hosts
             periodSeconds: 5
           resources:
             requests:

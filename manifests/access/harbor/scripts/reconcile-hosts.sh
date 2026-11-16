@@ -1,5 +1,6 @@
 #!/bin/sh
 # ノードの名前解決を内部 Gateway に固定する。containerd の再起動は不要。
+# 旧名 harbor.qroksera.com の行は取り除く（2026-11-16 に廃止）。
 set -eu
 hosts_file=${HOSTS_FILE:-/host/hosts}
 while :; do
@@ -28,7 +29,7 @@ while :; do
       else if (count) print kept (comment == "" ? "" : " " comment)
       else if (comment != "" && comment != "# managed: harbor-node-hosts") print comment
     }
-    END { print "192.168.122.100 harbor.qroksera.com harbor.internal.qroksera.com # managed: harbor-node-hosts" }
+    END { print "192.168.122.100 harbor.internal.qroksera.com # managed: harbor-node-hosts" }
   ' "$hosts_file" > "$temporary"
   if ! cmp -s "$temporary" "$hosts_file"; then
     # hostPath のファイルマウントに対して rename せず、既存 inode を更新する。

@@ -6,7 +6,7 @@ resources:
   - redis.yaml
 
 images:
-  - name: harbor.qroksera.com/sandbox/rsshub-private
+  - name: harbor.internal.qroksera.com/sandbox/rsshub-private
     newTag: latest
-    newName: harbor.qroksera.com/sandbox/rsshub-private
+    newName: harbor.internal.qroksera.com/sandbox/rsshub-private
     digest: sha256:7525e8a082c844983af75a8f4ee4757d2f6b176d71b83c1d41019d81a9730391

@@ -27,7 +27,7 @@ spec:
           type: RuntimeDefault
       containers:
         - name: rsshub
-          image: harbor.qroksera.com/sandbox/rsshub-private:latest
+          image: harbor.internal.qroksera.com/sandbox/rsshub-private:latest
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false
