@@ -136,7 +136,7 @@ hitomi は `cargo build --no-default-features` が通らない（`image` の fea
 | H-4 | 配布経路の簡素化 | 完了 | #187 | Image Updater が `latest` を直接追う。Harbor 保守 Job と `deploy` / `retain-*` タグを撤去。保持は Harbor 標準の「直近 5 件」（cooklog-slack は全件保持） |
 | H-5 | kubelet serving 証明書の自作 approver を撤去 | 完了 | #188 | 更新時は `KubeletServingCSRPending` を受けて手動承認 |
 | H-6 | 基盤 5 namespace の default-deny を撤去 | 完了 | #189 | G-5 の取り消し。sandbox / tools / harbor は維持 |
-| H-7 | PostgreSQL を PGO から単一 StatefulSet へ | 完了 | #190、#191、#192 | 全表の行数一致を確認して切り替え。必須チェックから `postgresql-runtime` を外して PGO 一式を削除。operator が先に消えたため PostgresCluster の finalizer は手で外した。pgBackRest の旧 PV は削除（NFS 上のディレクトリは残るが中身は 104K で、バックアップ本体はクラスタ削除時に消えている） |
+| H-7 | PostgreSQL を PGO から単一 StatefulSet へ | 完了 | #190、#191、#192 | 全表の行数一致を確認して切り替え。必須チェックから `postgresql-runtime` を外して PGO 一式を削除。operator が先に消えたため PostgresCluster の finalizer は手で外した。pgBackRest の旧 PV は削除。NFS 上のディレクトリ `database-shared-postgresql-repo1-pvc-9e9cb1ab-…` は残っており、`archive` / `backup` は一般ユーザーで読めないため中身は未確認（削除にはホストの sudo が要る）。移行時のダンプ（ホストの `~/pg-migration-20261116/`）は 2026-11-16 に削除 |
 | H-8 | 手動専用の CI 資産と OCI 計画書を削除 | 完了 | #193 | `version-audit.py`、`setup-integration`、`oci-single-cluster-plan.md`。失敗していた `oci-always-free` Job と PVC も削除（データは NFS の `archived-*` に残る） |
 | H-9 | ArgoCD の Dex と ApplicationSet controller を撤去 | 完了 | #194 | ログインは組み込みの admin |
 | H-10 | 旧名 `harbor.qroksera.com` を撤去 | 完了 | #195 | イメージ名を内部名に統一。`*.qroksera.com` の証明書も削除 |

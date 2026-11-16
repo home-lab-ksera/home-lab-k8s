@@ -99,4 +99,4 @@ generation があるまで Harbor を起動しません。空の DB で Harbor �
 
 PGO 管理のクラスタ（Crunchy 18.6）から移行しました。旧 DB を読み取り専用にして DB ごとに `pg_dump` → `pg_restore` し、
 全テーブルの行数一致（registry 50 表、api_hub 2、hitomi 6、media 9、camera 2）を確認してから接続先を切り替えました。
-Crunchy 固有の `pgaudit` 拡張は移していません。当時の dump はホストの `~/pg-migration-20261116/` にあります。
+Crunchy 固有の `pgaudit` 拡張は移していません。移行時の dump は切り替えの確認後に削除しました。
