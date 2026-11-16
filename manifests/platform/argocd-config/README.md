@@ -5,18 +5,13 @@
 ## 含まれるリソース
 
 ### 1. ArgoCD ConfigMaps
-- `argocd-cm`: ArgoCD基本設定とGitHub OAuth設定
+- `argocd-cm`: ArgoCD基本設定（ログインは組み込みの admin のみ）
 - `argocd-rbac-cm`: RBAC権限設定
 - ソース: `argocd-config.yaml`
 
 ### 1.5. ArgoCD AppProject
 - `argocd-projects.yaml`: Project境界（core/infrastructure/platform/apps）
 - 同期順序の都合で `argocd-projects` Application から先に適用される
-
-### 2. ArgoCD GitHub OAuth Secret
-- `argocd-github-oauth-secret.yaml`: GitHub OAuth client secretをExternal Secrets経由で取得
-- Pulumi ESCの`argocd.client-secret`キーから取得
-- 既存の`argocd-secret`にマージ
 
 ### 3. Harbor Docker Registry Secrets
 - `harbor-docker-registry-secrets.yaml`: 各namespace用のDocker認証情報
@@ -55,13 +50,4 @@ kubectl get externalsecrets -A
 
 # Pulumi Access Token確認
 kubectl get secret pulumi-esc-token -n external-secrets-system
-```
-
-### ArgoCD OAuth設定が反映されない場合
-```bash
-# ArgoCD再起動
-kubectl rollout restart deployment argocd-server -n argocd
-
-# Secret確認
-kubectl get secret argocd-secret -n argocd -o jsonpath='{.data.dex\.github\.clientSecret}' | base64 -d
 ```

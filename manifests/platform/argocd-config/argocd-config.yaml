@@ -24,16 +24,7 @@ data:
   # repo-local wrapper で helmCharts を render する
   kustomize.buildOptions: --enable-helm
 
-  # GitHub OAuth設定（Dex）
-  dex.config: |
-    connectors:
-    - type: github
-      id: github
-      name: GitHub
-      config:
-        clientId: Ov23li8T6IFuiuLcoSJa
-        clientSecret: $dex.github.clientSecret
-        redirectURI: https://argocd.internal.qroksera.com/api/dex/callback
+  # ログインは組み込みの admin アカウントだけを使う（Dex / GitHub OAuth は 2026-11-16 に撤去）。
 
   # 既存のリソース除外設定
   resource.exclusions: |
@@ -199,11 +190,7 @@ metadata:
     app.kubernetes.io/name: argocd-rbac-cm
     app.kubernetes.io/part-of: argocd
 data:
-  # GitHubユーザーID（99033723 = ksera631@gmail.com）に完全な管理者権限を付与
   policy.csv: |
-    # GitHubユーザーID（99033723 = ksera631@gmail.com）に完全な管理者権限を付与
-    g, 99033723, role:admin
-
     # 明示的なアクション権限を追加
     p, role:admin, applications, *, */*, allow
     p, role:admin, clusters, *, *, allow
@@ -222,21 +209,3 @@ data:
     p, role:admin, applications, action/apps/StatefulSet/restart, */*, allow
   # 管理者以外はログイン不可（デフォルト権限なし）
   policy.default: ""
----
-# ArgoCD Secret with GitHub OAuth Client ID (permanent)
-apiVersion: v1
-kind: Secret
-metadata:
-  name: argocd-secret
-  namespace: argocd
-  labels:
-    app.kubernetes.io/name: argocd-secret
-    app.kubernetes.io/part-of: argocd
-  annotations:
-    # External Secretとの競合を避けるためのアノテーション
-    argocd.argoproj.io/sync-options: "Merge"
-type: Opaque
-stringData:
-  # GitHub OAuth Client ID (固定値)
-  dex.github.clientId: "Ov23li8T6IFuiuLcoSJa"
-  # dex.github.clientSecret は External Secret から動的に注入される
