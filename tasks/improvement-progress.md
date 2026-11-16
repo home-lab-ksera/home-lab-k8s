@@ -2,7 +2,7 @@
 
 対象: [全体改善計画](improvement-plan.md)
 
-最終更新: 2026-11-15
+最終更新: 2026-11-16
 
 状態の値: `未着手` / `進行中` / `確認待ち`（反映済みで完了条件の確認前） / `完了` / `保留`（判断または前提待ち） / `取り下げ`
 
@@ -17,7 +17,8 @@
 | E アプリ整理 | 3 | 2 | 0 | 0 | 0 | 1 |
 | F 長期 | 2 | 0 | 0 | 0 | 2 | 0 |
 | G 追加の最適化（2026-11-15） | 6 | 6 | 0 | 0 | 0 | 0 |
-| 合計 | 39 | 34 | 0 | 0 | 4 | 1 |
+| H 簡素化（2026-11-16） | 10 | 9 | 1 | 0 | 0 | 0 |
+| 合計 | 49 | 43 | 1 | 0 | 4 | 1 |
 
 保留の 4 件は、Renovate の経過観察（B-1）と OCI 関連（C-6、F-1、F-2）。
 
@@ -123,6 +124,25 @@ hitomi は `cargo build --no-default-features` が通らない（`image` の fea
 3. HDD（H/W RAID1）の状態監視。片側の故障に気づく手段がない。
 4. VictoriaMetrics を NFS から VM のローカルディスクへ移し、非 root にする。
 
+### Phase H 簡素化（2026-11-16 に追加）
+
+「home-lab として過剰な箇所」の点検で挙げ、同日に実施した。停止は許容する前提。
+
+| ID | 内容 | 状態 | PR / 記録 | メモ |
+|---|---|---|---|---|
+| H-1 | digest 固定イメージの `imagePullPolicy` を `IfNotPresent` に | 完了 | #183、#187 | 再起動時に Harbor を待たない。`:latest@sha256` は既定が Always になるため全コンテナに明示 |
+| H-2 | 公開経路の contract 台帳と checker を撤去 | 完了 | #184 | 約 3,000 行。`policy-check.py` R-010（NodePort / LoadBalancer / Ingress の拒否）だけ残す |
+| H-3 | wildcard listener と経路の統合 | 完了 | #185、#186 | listener 13 → 2、Certificate 12 → 1、Application 49 → 39。アプリの HTTPRoute は `apps/<app>/access.yaml` |
+| H-4 | 配布経路の簡素化 | 完了 | #187 | Image Updater が `latest` を直接追う。Harbor 保守 Job と `deploy` / `retain-*` タグを撤去。保持は Harbor 標準の「直近 5 件」（cooklog-slack は全件保持） |
+| H-5 | kubelet serving 証明書の自作 approver を撤去 | 完了 | #188 | 更新時は `KubeletServingCSRPending` を受けて手動承認 |
+| H-6 | 基盤 5 namespace の default-deny を撤去 | 完了 | #189 | G-5 の取り消し。sandbox / tools / harbor は維持 |
+| H-7 | PostgreSQL を PGO から単一 StatefulSet へ | 確認待ち | #190、#191、#192 | データ移行と接続先の切り替えは完了（全表の行数一致）。PGO 一式の削除（#192）は必須チェック `postgresql-runtime` の扱いが決まるまで未マージ |
+| H-8 | 手動専用の CI 資産と OCI 計画書を削除 | 完了 | #193 | `version-audit.py`、`setup-integration`、`oci-single-cluster-plan.md`。失敗していた `oci-always-free` Job と PVC も削除（データは NFS の `archived-*` に残る） |
+| H-9 | ArgoCD の Dex と ApplicationSet controller を撤去 | 完了 | #194 | ログインは組み込みの admin |
+| H-10 | 旧名 `harbor.qroksera.com` を撤去 | 完了 | #195 | イメージ名を内部名に統一。`*.qroksera.com` の証明書も削除 |
+
+見送ったもの: ログ基盤（Loki / Alloy のログ収集）の停止。検索頻度による判断のため保留。
+
 ## 残作業（次に行うこと）
 
 | 順 | 内容 | 担当 |
@@ -205,3 +225,4 @@ Pod 生成は 1 時間に 13 回、各 4〜9 秒で終わる。クラスタ全�
 | 2026-11-14 | B-5、E-1、判断 4・6・7・8・10 を完了。D-8〜D-10 を追加。監査ポリシーを反映 |
 | 2026-11-15 | Phase G（G-1〜G-4）を追加して実施。未実施の候補 6 件を記録 |
 | 2026-11-15 | G-5（基盤 namespace の default-deny）、G-6（media の途中切断の分類）を実施 |
+| 2026-11-16 | Phase H（簡素化 10 項目）を追加して実施。OCI 計画書を削除 |
