@@ -107,7 +107,7 @@ kubectl -n database exec postgresql-0 -- psql -U postgres -c 'select usename, co
 ```
 
 - `too many connections` は [接続数](postgresql.md#接続数) の割り当てを見ます。
-- 証明書のエラー（`certificate has expired`）は、サーバー証明書の更新後に再起動していない可能性があります（[証明書](postgresql.md#証明書)）。
+- 証明書のエラー（`certificate has expired`）は、サーバー証明書の更新後に PostgreSQL が再起動されていない可能性があります（[証明書](postgresql.md#証明書)）。
 - データが壊れた、消えた場合は [復元](postgresql.md#復元) です。
 
 ## Secret

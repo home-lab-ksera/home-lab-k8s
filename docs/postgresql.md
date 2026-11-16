@@ -63,13 +63,16 @@ Grafana では、ダッシュボード「04 PostgreSQL / SQL」と Explore の `
 
 DB を使う namespace を増やすときは、同じファイルに Certificate を 1 つ足します。
 
-サーバー証明書が更新されても、PostgreSQL は自動では再起動されません（[Reloader](secrets.md#reloader) は `database` を見ていません）。
-更新後の 30 日以内に再起動しないと、古い証明書の期限切れでクライアントが接続できなくなります。
+サーバー証明書が更新されると、[Reloader](secrets.md#reloader) が PostgreSQL を再起動して新しい証明書を読み込ませます（年 1 回、数十秒つながらなくなります）。
+再起動されたかは次で確かめられます。
 
 ```bash
-kubectl -n database get certificate postgresql-server     # 更新日時を確認
-kubectl -n database rollout restart statefulset postgresql
+kubectl -n database get certificate postgresql-server -o jsonpath='{.status.notBefore}{"\n"}'
+kubectl -n database get pod postgresql-0 -o jsonpath='{.status.startTime}{"\n"}'   # notBefore より後なら読み込み済み
 ```
+
+Reloader が止まっていて再起動されなかった場合は、30 日以内に手で `kubectl -n database rollout restart statefulset postgresql` を実行します。
+そうしないと、古い証明書の期限切れでクライアントが接続できなくなります。
 
 ## 初期化
 

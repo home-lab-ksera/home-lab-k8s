@@ -60,7 +60,6 @@ kubectl -n <namespace> create job "<name>-manual-$(date +%s)" --from=cronjob/<cr
 |---|---|
 | `KubeletServingCSRPending`（年 1 回、ノードごと） | [CSR を承認する](nodes.md#kubelet-の-serving-証明書) |
 | `ControlPlaneCertificateExpiring` | Kubernetes を upgrade するか、[証明書を更新する](nodes.md#control-plane-の証明書) |
-| PostgreSQL のサーバー証明書の更新（年 1 回） | [PostgreSQL を再起動する](postgresql.md#証明書)。これにはアラートがありません |
 | `HostRebootRequired` | ホストを再起動する（下記） |
 | Renovate の PR | 確認してマージする（[更新](updates.md)） |
 | 2 週間ごと | [ホストの容量を測り直し](nodes.md#容量の考え方)、tasks/improvement-progress.md に記録する |

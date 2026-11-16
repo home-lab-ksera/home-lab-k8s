@@ -16,11 +16,18 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: database
+  # Reloader がサーバー証明書の更新時に Pod template へ書く annotation を差分にしない。
+  ignoreDifferences:
+    - group: apps
+      kind: StatefulSet
+      jsonPointers:
+        - /spec/template/metadata/annotations/reloader.stakater.com~1last-reloaded-from
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
     syncOptions:
+      - RespectIgnoreDifferences=true
       - CreateNamespace=true
       - ServerSideApply=true
     retry:
