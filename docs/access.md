@@ -13,6 +13,18 @@ Gateway の LoadBalancer は NGINX Gateway Fabric が生成するため、この
 ホスト名・DNS 設定・CI 成功だけでは Internet からの到達を遮断できません。
 Tailnet ACL、ルーター/NAT、証明書の実値、operator 生成後の Service / Pod は別途確認します。
 
+## Tailnet のアクセス制御
+
+Tailnet の ACL（tagOwners / autoApprovers / grants）は [tailscale/policy.hujson](../tailscale/policy.hujson) が正本です。
+[tailscale-policy.yml](../.github/workflows/tailscale-policy.yml) が PR で tailnet 側の構文と `tests` を検証し、
+`main` への push で適用します。`tests` が失敗した場合、tailnet は変更されません。
+
+- 認証は `policy_file` スコープだけを持つ OAuth クライアントで、repository secret の
+  `TS_POLICY_CLIENT_ID` / `TS_POLICY_CLIENT_SECRET` に登録しています。Harbor 公開用の `TS_OAUTH_CLIENT_ID` とは別です。
+- 管理画面では直接編集しません。手で変えた内容は、次にこのファイルを適用したときに上書きされます。
+- 許可を誤ると CI から Harbor、端末から Gateway への経路を塞ぎます。経路を増減するときは `tests` も合わせて更新します。
+- 公開経路を追加・削除する PR では、同じ PR でこのファイルも見直します。
+
 ```mermaid
 flowchart LR
   Nodes[kubelet / containerd] --> GW[NGINX Gateway :443]

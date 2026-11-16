@@ -1,0 +1,49 @@
+// Tailnet のアクセス制御。このファイルが正本で、main への push で tailnet に適用する
+// （.github/workflows/tailscale-policy.yml）。管理画面では直接編集しない。
+// 経路の説明は docs/access.md を参照。
+{
+	"tagOwners": {
+		// Tailscale Operator 自身と、Operator が作る端末の既定タグ。
+		"tag:k8s-operator": ["autogroup:admin", "tag:k8s-operator"],
+		// 192.168.122.0/24 を広告する subnet router（Connector）。
+		"tag:k8s-subnet-router": ["tag:k8s-operator"],
+		// アプリリポジトリの CI が Harbor へ push するときの一時端末。
+		"tag:ci-harbor": ["autogroup:admin"],
+	},
+
+	"autoApprovers": {
+		"routes": {
+			"192.168.122.0/24": ["tag:k8s-subnet-router"],
+		},
+	},
+
+	"grants": [
+		// CI は Harbor（共有 Gateway の HTTPS）だけに届く。
+		{
+			"src": ["tag:ci-harbor"],
+			"dst": ["192.168.122.100"],
+			"ip":  ["tcp:443"],
+		},
+		// 利用者は共有 Gateway（80 は HTTPS へのリダイレクト用）。
+		{
+			"src": ["autogroup:member"],
+			"dst": ["192.168.122.100"],
+			"ip":  ["tcp:80", "tcp:443"],
+		},
+		// 利用者は internal.qroksera.com の Split DNS。
+		{
+			"src": ["autogroup:member"],
+			"dst": ["192.168.122.101"],
+			"ip":  ["udp:53", "tcp:53"],
+		},
+	],
+
+	// 適用前に検証される。失敗すると tailnet は変更されない。
+	"tests": [
+		{
+			"src":    "tag:ci-harbor",
+			"accept": ["192.168.122.100:443"],
+			"deny":   ["192.168.122.100:80", "192.168.122.101:53"],
+		},
+	],
+}
