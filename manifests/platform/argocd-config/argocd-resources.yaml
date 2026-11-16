@@ -1,4 +1,5 @@
-# 利用者は1人で ApplicationSet も使っていないため、Dex と ApplicationSet controller は配備しない（下の $patch: delete）。
+# ApplicationSet は使っていないため、ApplicationSet controller は配備しない（下の $patch: delete）。
+# Dex は GitHub ログインに使うため残す。
 # upstream の install.yaml は resources を持たず、全 Pod が BestEffort になる。
 # requests は 2026-11-14 の実測（kubectl top）の約 1.2 倍。limits は置かない。
 apiVersion: apps/v1
@@ -61,7 +62,15 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: argocd-dex-server
-$patch: delete
+spec:
+  template:
+    spec:
+      containers:
+        - name: dex
+          resources:
+            requests:
+              cpu: 10m
+              memory: 48Mi
 ---
 apiVersion: apps/v1
 kind: Deployment

@@ -58,10 +58,9 @@ Tailnet 側では `192.168.122.0/24` の subnet route 承認、端末での rout
 DNS の UDP/TCP 53、Gateway の TCP 443（HTTP redirect を使うなら 80）の到達性も確認します。
 Harbor internal は CoreDNS と Tailscale Split DNS の両方に登録しています。
 
-ArgoCD のログインは組み込みの `admin` だけです（Dex / GitHub OAuth は撤去）。初期パスワードは
-`kubectl -n argocd get secret argocd-initial-admin-secret -o jsonpath='{.data.password}' | base64 -d` で確認できます。
+ArgoCD は GitHub（Dex）でログインします。GitHub OAuth App の callback は ArgoCD の URL と `/api/dex/callback` を一致させます。
 Cloudflare 側の旧 Tunnel と argocd・rustfs・blog・harbor の DNS レコードは 2026-11-10 に削除済みです。
-Cloudflare 側の設定、Tailnet ACL はこのリポジトリから自動反映されません。
+Cloudflare 側の設定、Tailnet ACL、OAuth App の設定はこのリポジトリから自動反映されません。
 
 ## 新しく到達可能な API を追加する手順
 
