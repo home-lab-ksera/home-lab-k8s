@@ -26,9 +26,6 @@ log_section "Setup behavior tests (isolated stubs)"
 require_command python3
 python3 -m unittest discover -s "$ROOT_DIR/automation/tests/setup" -v
 
-log_section "Version update tests (no network)"
-python3 -m unittest discover -s "$ROOT_DIR/automation/tests/version_updates" -v
-
 log_section "Observability report tests (no network)"
 python3 -m unittest discover -s "$ROOT_DIR/automation/tests/observability" -v
 

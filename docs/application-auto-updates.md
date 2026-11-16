@@ -10,7 +10,7 @@ PR を作成して検証し、**マージは手動**です。Kubernetes / contai
 | 公開コンテナ、bootstrap の外部 Helm chart | [renovate.json](../renovate.json) の Kubernetes / ArgoCD manager |
 | PGO と関連イメージ | PGO chart を起点に同梱 chart・DB・pgBackRest・補助コンテナを同期。[専用手順](postgresql-updates.md) |
 | Harbor / RustFS 同梱 chart | 手動 Application Version Updates workflow |
-| ArgoCD / Gateway API の配布 URL | 手動 updater |
+| ArgoCD / Gateway API の配布 URL | 手動で版を書き換える（専用 updater は 2026-11-16 に撤去） |
 | private Harbor のアプリ | アプリ側 workflow。[アプリ配布](app-delivery.md) |
 | アプリリポジトリの依存（言語パッケージ・Dockerfile・Actions） | Mend Renovate App。下の「アプリリポジトリ」 |
 
@@ -40,25 +40,6 @@ GITHUB_TOKEN を使い、Renovate workflow は contents / pull-requests / issues
 workflow は [dispatch-renovate-validation.py](../automation/scripts/ci/dispatch-renovate-validation.py) を使い、
 同一リポジトリの bot 作成 `renovate/*` PR の HEAD に `ci-deploy-validate.yml` を明示 dispatch します。
 GitHub 側の必須チェック設定と、実際の最新 HEAD の検証結果を確認してからマージします。
-
-## 手動 updater
-
-名前は weekly ですが、[weekly-version-audit.yml](../.github/workflows/weekly-version-audit.yml) は現在 **workflow_dispatch のみ**です。
-[version-audit.py](../automation/scripts/ci/version-audit.py) が候補を作成し、追跡対象の候補ツリーで validate を実行してから
-`automation/update-applications` ブランチの PR を作成・更新します。
-
-```bash
-# 調査のみ（外部 registry / release 情報へアクセス）
-mise exec -- python3 automation/scripts/ci/version-audit.py
-# 専用ブランチで作業ツリーに候補を反映
-mise exec -- python3 automation/scripts/ci/version-audit.py --apply
-mise exec -- automation/scripts/ci/validate.sh
-# GitHub 上で PR 作成まで実行する場合
-gh workflow run weekly-version-audit.yml
-```
-
-可変タグ・private image・Kubernetes 本体の自動更新手段としては使いません。
-同梱 chart の image は chart と揃え、バージョン文字列だけを書き換えて配布物を古いまま残さないようにします。
 
 ## 更新レビュー
 

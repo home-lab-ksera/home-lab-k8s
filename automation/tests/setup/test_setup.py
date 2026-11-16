@@ -27,7 +27,6 @@ class SetupTests(unittest.TestCase):
             'TRACE': str(self.trace), 'LC_ALL': 'C',
         }
         for path in ('automation/scripts/run.sh',
-                     'automation/scripts/ci/setup-integration.sh',
                      'automation/scripts/common-logging.sh',
                      'automation/scripts/verify.sh',
                      'automation/platform/platform-deploy.sh',
@@ -193,41 +192,6 @@ fi
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(self.events(), [])
             self.assertFalse((self.root / '.kube/config').exists())
-
-    def test_integration_rejects_non_disposable_environment(self):
-        for env in ({}, {'GITHUB_ACTIONS': 'true', 'RUNNER_ENVIRONMENT': 'self-hosted'},
-                    {'GITHUB_ACTIONS': 'true', 'RUNNER_ENVIRONMENT': 'github-hosted',
-                     'RUNNER_TEMP': str(self.root), 'SETUP_CI_DIR': '/unexpected'}):
-            with self.subTest(env=env):
-                result = self.run_script('automation/scripts/ci/setup-integration.sh', 'prepare', **env)
-                self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-                self.assertEqual(self.events(), [])
-
-    def test_integration_reapply_stops_on_drift_or_error(self):
-        self.stub('sg', 'exec bash -c "$3"')
-        self.stub('terraform', r'''
-echo "$*" >> "$TRACE"
-if [[ "$*" == *' plan '* ]]; then exit "${PLAN_STATUS:-0}"; fi
-if [[ "$*" == *' apply '* ]]; then exit "${APPLY_STATUS:-0}"; fi
-exit 99
-''')
-        env = {'GITHUB_ACTIONS': 'true', 'RUNNER_ENVIRONMENT': 'github-hosted',
-               'RUNNER_TEMP': str(self.root),
-               'SETUP_CI_DIR': str(self.root / 'setup-integration')}
-        for plan_status, apply_status, expected, count in (
-                ('0', '0', 0, 3), ('2', '0', 2, 1),
-                ('1', '0', 1, 1), ('0', '42', 42, 2)):
-            with self.subTest(plan_status=plan_status, apply_status=apply_status):
-                self.trace.unlink(missing_ok=True)
-                result = self.run_script('automation/scripts/ci/setup-integration.sh',
-                                         'reapply', **env, PLAN_STATUS=plan_status,
-                                         APPLY_STATUS=apply_status)
-                self.assertEqual(result.returncode, expected, result.stdout + result.stderr)
-                self.assertEqual(len(self.events()), count)
-                self.assertIn('plan -detailed-exitcode', self.events()[0])
-                if count == 3:
-                    self.assertIn('apply -auto-approve', self.events()[1])
-                    self.assertIn('plan -detailed-exitcode', self.events()[2])
 
 
 if __name__ == '__main__':

@@ -35,11 +35,10 @@
 
 ## 検証
 - CI 相当: `automation/scripts/ci/validate.sh`
-- `validate.sh` は actionlint、setup / version update / 監視レポート / GitOps 検証の回帰テスト、shellcheck、yamllint、GitOps 参照・登録チェック、policy check、全 `manifests/**/kustomization.yaml` の Kustomize + kubeconform、consistency check を実行する。
+- `validate.sh` は actionlint、setup / 監視レポート / GitOps 検証の回帰テスト、shellcheck、yamllint、GitOps 参照・登録チェック、policy check、全 `manifests/**/kustomization.yaml` の Kustomize + kubeconform、consistency check を実行する。
 - `automation/scripts/ci/gitops-check.py` はローカル Application の HEAD / source path / directory.include と、アプリの所有定義・bootstrap Kustomize への登録漏れを検証する。directory.include は現行構成の単一ファイル指定のみ対応。
 - 個別確認: `shellcheck -S error -x automation/scripts/<file>.sh`, `yamllint -f parsable -c .yamllint.yml manifests/<dir-or-file>`, `kustomize build manifests/<kustomize-dir>`
 - `make phase5` は既定で `k8suser@192.168.122.10` に SSH し、`/etc/kubernetes/admin.conf` をローカル `~/.kube/config` に同期してから検証する。CI または `VERIFY_SKIP_SSH=true` ではライブ検証をスキップして終了する。
 
 ## CIで落ちる既知条件
 - `manifests/bootstrap/**` の `targetRevision` は `HEAD` を維持する。`main` は不可。
-- `.github/workflows/weekly-version-audit.yml` と `automation/scripts/ci/version-audit.py` は bootstrap Application 名と一部マニフェストパスをハードコードしている。名前変更や移動時は同時に更新する。
