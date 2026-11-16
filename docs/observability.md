@@ -12,8 +12,8 @@
 | vmalert | 30 秒間隔のルール評価 | 状態は VictoriaMetrics に保存・復元 |
 | Alertmanager | 集約・Slack 通知 | emptyDir。silence / 通知履歴は Pod 再作成で消失 |
 | Grafana | ダッシュボード、metrics / logs / SQL の探索 | local-path 2Gi |
-| Loki | Pod ログ保存 | local-path 20Gi、filesystem、保持 168 時間 |
-| Alloy | Kubernetes API 経由の Pod ログ収集・転送 | local-path 1Gi に WAL |
+| Loki | `sandbox` の Pod ログ保存 | local-path 20Gi、filesystem、保持 168 時間 |
+| Alloy | Kubernetes API 経由の Pod ログ収集・転送（`sandbox` のみ）、外形監視 | local-path 1Gi に WAL |
 
 local-path はノードローカルの単一コピーです。PVC の要求サイズや保持期間は実ディスクの容量制限ではありません。
 保存先の障害や監視基盤全体の停止を、この構成だけで外部から監視する仕組みはありません。
@@ -37,7 +37,7 @@ Git 管理の画面を変更する場合は JSON に反映します。SQL は [D
 
 「02 アプリ・ログ」は「アプリ / CronJob」で名前を選ぶと、配下の全 Pod・全コンテナのログを
 1つのパネルに時刻順で表示します。種類や Pod 名の選択は不要です。
-例えば `coredns` は各 replica、`hitomi-monitor` は選択期間内の各実行のログをまとめます。
+例えば `hitomi-monitor` は選択期間内の各実行のログをまとめます。ログがあるのは `sandbox` の Pod だけです。
 Namespace は任意の追加絞り込みです。ログ詳細から元の Pod / コンテナを確認できます。
 CPU・メモリの内訳表示は Pod 単位で、アプリの選択に連動します。
 
@@ -87,7 +87,8 @@ ArgoCD / Harbor / Grafana / blog / cooklog / api-hub / RSSHub / viewer の応答
 API サーバーの `/livez`（証明書の期限の取得を兼ねる。クラスタ CA の発行のため検証は省く）を確認し、
 結果を VictoriaMetrics へ remote write します。対象の追加は `config.alloy` の `target` ブロックで行います。
 
-journald・監査ログ・収集前に消えた Pod のログは対象外です。
+収集対象は `sandbox` namespace だけです（2026-11-16 から）。基盤 Pod（ArgoCD、Harbor、監視、kube-system など）のログは
+`kubectl logs` で確認します。journald・監査ログ・収集前に消えた Pod のログも対象外です。
 Alloy は 167 時間より古いログを転送前に除外し、Loki は Compactor で期限切れを削除します。
 長時間停止やローテーションでの無欠損収集を保証しません。
 

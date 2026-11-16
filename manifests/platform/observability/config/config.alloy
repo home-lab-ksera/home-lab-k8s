@@ -3,8 +3,13 @@ logging {
   format = "logfmt"
 }
 
+// ログを集めるのは自作アプリが動く sandbox だけ。基盤 Pod のログは kubectl logs で見る。
+// 全 Pod のログを API サーバー経由で取得する負荷を避けるため（2026-11-16）。
 discovery.kubernetes "pods" {
   role = "pod"
+  namespaces {
+    names = ["sandbox"]
+  }
 }
 
 discovery.relabel "pod_logs" {
