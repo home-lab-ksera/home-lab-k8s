@@ -1,4 +1,4 @@
-# Nature Remo の内部URLとTailscale公開
+# Nature Remo の内部URL
 
 Local API を利用する家電リモコン Web アプリです。
 Nature のクラウド障害時の代替操作が目的です。保存済み信号を LAN 経由で送信し、Cloud API への接続やトークンを必要としません。
@@ -17,7 +17,8 @@ LAN (`192.168.10.0/24`)、クラスタノード (`192.168.122.0/24`)、
 Pod / subnet-router (`10.244.0.0/16`)、Tailnet (`100.64.0.0/10`) の送信元だけを許可します。
 それ以外は403です。`internal`というDNS名自体がアクセス制御になるわけではありません。
 許可ネットワーク内の端末・Podはアプリを操作できるため、これらを信頼する構成です。
-既存のTailscale Ingress URLも維持し、そちらは引き続きTailnet ACL/grantsで制御します。
+公開経路はこの共有Gateway (`192.168.122.100`) だけです。専用のTailscale Ingress (`nature-remo.<tailnet>.ts.net`) は廃止しました。
+Tailnetの端末はsubnet router経由で同じURLを開きます。
 
 Gatewayの `externalTrafficPolicy: Local` と、HTTPヘッダーで送信元IPを上書きしない現行設定を前提とします。
 外部プロキシやSNATを追加する場合は、Internetからの通信が許可ネットワークのIPに見えないか再確認してください。
@@ -70,7 +71,7 @@ LAN端末でもこのDNSゾーンの転送設定が必要です。Tailscale接�
    ```
 
    Pod のネットワークから Remo の LAN への経路も必要です。
-   Tailscale Ingress はブラウザーからアプリへの経路を提供するもので、Remo 側への LAN 経路を自動で追加しません。
+   Gateway はブラウザーからアプリへの経路を提供するもので、Remo 側への LAN 経路を自動で追加しません。
 
 4. アプリのイメージをビルドし、既存の認証方法で Harbor にログインして push します。
 
@@ -87,12 +88,8 @@ LAN端末でもこのDNSゾーンの転送設定が必要です。Tailscale接�
    その digest が Git に書き戻されて配布されます。
    アプリの GitHub Actions はテストとビルドのみで、Harbor への自動 push は行いません。
 
-5. Tailscale Operator が稼働し、MagicDNS と HTTPS が有効であることを確認します。
-   Tailnet の `tagOwners` に `"tag:k8s": ["tag:k8s-operator"]` が必要です。
-   2026-11-05 に既存ポリシーの他の設定を保持して追加しました。
-   [Tailscale の公式 Ingress 説明](https://tailscale.com/docs/kubernetes-operator/ingress)を参照してください。
-   利用者の ACL/grants を `nature-remo` の TCP 443 に許可します。
-   アプリにログイン画面はなく、許可した利用者は信号の登録・削除・送信ができます。
+5. Tailnet の端末から使う場合は、subnet router (`192.168.122.0/24`) と Split DNS が有効であることを確認します。
+   アプリにログイン画面はなく、AccessPolicy の許可ネットワークにいる利用者は信号の登録・削除・送信ができます。
 6. 変更を通常の GitOps フローで反映します。bootstrap の Kustomization には
    `nature-remo` を登録済みです（公開経路も同じ Application）。
    イメージ未登録の段階ではこの変更を本番ブランチへ反映しないでください。
@@ -102,16 +99,14 @@ LAN端末でもこのDNSゾーンの転送設定が必要です。Tailscale接�
 ```bash
 kubectl -n sandbox get deployment nature-remo
 kubectl -n sandbox get pvc nature-remo-data
-kubectl -n sandbox get ingress nature-remo
+kubectl -n sandbox get httproute nature-remo-internal
 kubectl -n sandbox logs deployment/nature-remo
 ```
 
-Ingress の ADDRESS に表示される `nature-remo.<tailnet>.ts.net` を使って、
-Tailscale に接続した端末から `https://nature-remo.<tailnet>.ts.net` を開きます。
-初回の TLS 証明書発行には時間がかかる場合があります。実際の URL は Ingress の結果を確認してください。
+内部DNSを利用できる端末から `https://nature-remo.internal.qroksera.com` を開きます。
 
-HTTP の Service は ClusterIP のみです。NetworkPolicy は tailscale namespaceと、
-nginx-gateway namespaceの共有Gateway Podから8080番への接続を許可します。
+HTTP の Service は ClusterIP のみです。NetworkPolicy は nginx-gateway namespaceの共有Gateway Podからだけ
+8080番への接続を許可します。
 core の既定 deny と DNS 許可を前提とし、Remo への TCP 80 は上記の IP 個別指定で許可します。
 
 ヘルスチェックは Web サーバーの生存を示します。実機の接続状態は登録画面の受信待ちで確認してください。
@@ -127,4 +122,4 @@ Local API は受信日時を提供しないため、開始時の信号と比較�
 - エアコンは設定を含む信号を登録します。家電の現在状態を推定して表示しません。
 - 送信は自動再送しません。通信が失敗しても実機が操作済みの可能性があるため、家電の状態を確認します。
 - `REMO_DEVICES` の変更は ConfigMap のハッシュ経由で再作成を引き起こします。既存ボタンを保つには `id` を維持します。
-- Nature のクラウド障害に備える構成です。Kubernetes、PVC、家庭内 LAN、Remo、Tailscale 接続が稼働していることが前提です。
+- Nature のクラウド障害に備える構成です。Kubernetes、PVC、家庭内 LAN、Remo、Gateway までの経路（LAN または Tailscale）が稼働していることが前提です。
