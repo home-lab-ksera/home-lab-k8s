@@ -1,0 +1,48 @@
+# Tailnet のアクセス制御（tailscale/policy.hujson）を検証・適用する。
+# PR では tailnet 側で構文と tests を検証するだけで、適用は main への push で行う。
+# 認証は policy_file スコープだけを持つ OAuth クライアント（docs/access.md）。
+
+name: Tailscale policy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - tailscale/policy.hujson
+      - .github/workflows/tailscale-policy.yml
+  pull_request:
+    branches: [ main ]
+    paths:
+      - tailscale/policy.hujson
+      - .github/workflows/tailscale-policy.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tailscale-policy
+  cancel-in-progress: false
+
+jobs:
+  policy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      # 適用は main だけ。PR と他ブランチの手動実行は検証のみ。
+      POLICY_ACTION: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' && 'apply' || 'test' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+
+      - name: Test or apply the tailnet policy
+        uses: tailscale/gitops-acl-action@5a4a17f5708e9bf96f4ee915a95e9f83c2eebe1a # v1.5.2
+        with:
+          oauth-client-id: ${{ secrets.TS_POLICY_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_POLICY_CLIENT_SECRET }}
+          # "-" は認証情報が属する tailnet を指す。
+          tailnet: "-"
+          policy-file: tailscale/policy.hujson
+          action: ${{ env.POLICY_ACTION }}
