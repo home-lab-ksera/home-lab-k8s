@@ -57,7 +57,8 @@ variable "control_plane_vcpu" {
 variable "kubernetes_version" {
   description = "Kubernetesバージョン"
   type        = string
-  default     = "v1.33.0"
+  # 稼働中のクラスタと同じ版にする。upgrade のあとに合わせる（docs/updates.md）。
+  default     = "v1.36.0"
 }
 
 variable "pod_network_cidr" {
