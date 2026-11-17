@@ -1,0 +1,9 @@
+[Unit]
+Description=Kubernetes の自動更新の判定（1 時間ごと）
+
+[Timer]
+OnCalendar=*-*-* *:15:00
+Persistent=false
+
+[Install]
+WantedBy=timers.target

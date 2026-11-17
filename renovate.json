@@ -101,6 +101,34 @@
         "major"
       ],
       "enabled": false
+    },
+    {
+      "description": "Kubernetes は minor を 1 つずつ PR にする（kubeadm は minor を飛ばせない）。マージがそのまま適用の承認になる",
+      "matchPackageNames": [
+        "kubernetes/kubernetes"
+      ],
+      "separateMultipleMinor": true,
+      "minimumReleaseAge": "7 days",
+      "commitMessageTopic": "Kubernetes",
+      "prBodyNotes": [
+        "**マージすると、ホストの `k8s-auto-upgrade.timer` が 1 時間以内（毎時 15 分）にクラスタを更新します。** API サーバーと worker の Pod が一時的に止まります。",
+        "マージの前に: [CHANGELOG](https://github.com/kubernetes/kubernetes/tree/master/CHANGELOG) の Urgent Upgrade Notes と削除される API、Flannel・NGINX Gateway Fabric・ArgoCD・metrics-server が新しい版に対応しているか。手順と止まったときの対処は [docs/updates.md](https://github.com/home-lab-ksera/home-lab-k8s/blob/main/docs/updates.md#kubernetes)。"
+      ]
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "kubeadm クラスタの版。マージするとホストの k8s-auto-upgrade.timer が 1 時間以内に適用する",
+      "managerFilePatterns": [
+        "/^kubernetes-version\\.txt$/"
+      ],
+      "matchStrings": [
+        "^(?<currentValue>v\\d+\\.\\d+\\.\\d+)\\s*$"
+      ],
+      "depNameTemplate": "kubernetes/kubernetes",
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver"
     }
   ]
 }

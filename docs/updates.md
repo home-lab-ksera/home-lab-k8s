@@ -8,10 +8,11 @@
 | ArgoCD、Gateway API の CRD | 手作業 |
 | 自作アプリのイメージ | 自動（[アプリ配布](app-delivery.md)） |
 | アプリのリポジトリの依存 | 各リポジトリの Renovate の PR |
-| Kubernetes、containerd | スクリプト（下記） |
+| Kubernetes | Renovate の PR をマージすると、ホストの timer が自動で適用（下記） |
+| containerd | スクリプト（下記） |
 | ホストの OS | unattended-upgrades。再起動は手作業（[日常運用](operations.md#ホストを再起動したあと)） |
 
-自動でマージされる更新はありません。
+自動でマージされる更新はありません。Kubernetes だけは、マージがそのままクラスタへの適用になります。
 
 ## Renovate（このリポジトリ）
 
@@ -21,6 +22,7 @@
 - 公開から 3 日待ちます。同時に開く PR は 3 件までです。
 - major の更新は、Dependency Dashboard（issue）でチェックを入れてから PR が作られます。
 - Loki と Alloy、VictoriaMetrics と vmalert、PostgreSQL は、それぞれ 1 つの PR にまとまります。
+- [kubernetes-version.txt](../kubernetes-version.txt)（Kubernetes の版）も対象です。minor は 1 つずつ PR になり、公開から 7 日待ちます。
 - `targetRevision: HEAD`、自作イメージの `latest`、同梱した chart、upstream の取り込み、`automation/` は対象外です。
   GitHub Actions の版も更新しません。
 
@@ -90,23 +92,76 @@ ArgoCD が自分自身を更新するので、bootstrap の再実行は要りま
 
 ## Kubernetes
 
-入口は Makefile、実体は [upgrade/](../automation/scripts/upgrade/) です。minor は 1 つずつ上げます。
+版は [kubernetes-version.txt](../kubernetes-version.txt) の 1 行だけで決まります。
+更新スクリプト、自動更新、作り直し（[variables.tf](../automation/infrastructure/variables.tf) は既定でこのファイルを読む）が同じ値を使います。
 
-1. `automation/settings.toml` の `[upgrade].target_version` に上げ先を書く（例: `v1.36.1`）。`apt_channel` は空なら自動で決まります。
-2. 実行する。
+```mermaid
+flowchart LR
+  R[Renovate の PR<br/>kubernetes-version.txt] -->|マージ| M[main]
+  M -->|毎時 15 分に取得| T[ホストの<br/>k8s-auto-upgrade.timer]
+  T -->|版がずれていたら| U[make upgrade-safe と同じ処理]
+  T --> S[Slack]
+```
 
-   ```bash
-   kubectl get nodes -o wide
-   make upgrade-safe
-   ```
+### マージの前に見ること
+
+- [CHANGELOG](https://github.com/kubernetes/kubernetes/tree/master/CHANGELOG) の Urgent Upgrade Notes と、削除される API。
+- Flannel、NGINX Gateway Fabric、ArgoCD、metrics-server、kube-state-metrics が新しい版に対応しているか。
+- マージすると 1 時間以内に始まります。API サーバーは短く止まり、worker の Pod は drain で止まります。見ていられる時間にマージします。
+
+### 自動更新（ホスト）
+
+[auto-upgrade.sh](../automation/scripts/upgrade/auto-upgrade.sh) が毎時 15 分に、自動更新専用の clone（`~/home-lab-k8s-auto`）を main に合わせてから判定します。
+
+| 状態 | 動き |
+|---|---|
+| クラスタが目標の版 | 何もしない |
+| pkgs.k8s.io にまだパッケージがない、API につながらない | 何もしない（次の回に再判定） |
+| 事前ゲート（Node、Pod、ArgoCD）が通らない | Slack に 1 回知らせて待つ。通ったら始める |
+| patch、または minor 1 つ上 | Slack に開始を知らせて `upgrade-safe` を実行し、結果を知らせる |
+| 失敗、版の後退、minor の飛び越し、ノード間で版が混在 | Slack に知らせて **停止**。解除するまで何もしない |
+
+通知先は Alertmanager と同じ Slack です（設置時に Secret `alertmanager-slack` から写します）。
+
+```bash
+# ホストで
+journalctl -u k8s-auto-upgrade -n 200 --no-pager            # 直近の判定と実行のログ
+~/home-lab-k8s-auto/automation/scripts/upgrade/auto-upgrade.sh --dry-run   # 次に何をするか
+systemctl list-timers k8s-auto-upgrade.timer
+```
+
+**停止したとき**: ログ（`journalctl` と `~/home-lab-k8s-auto/automation/run.log`）で止まった段階を確かめます。
+worker の途中で止まった場合、そのノードは cordon されたままです。直したら、手で `make upgrade-safe` を最後まで通すか、
+状態を戻してから `auto-upgrade.sh --clear-failure` で再開します。
+
+**設置**（1 回だけ。ホストで実行し、systemd への登録で sudo のパスワードを聞かれます）:
+
+```bash
+git clone https://github.com/home-lab-ksera/home-lab-k8s.git ~/home-lab-k8s-auto
+~/home-lab-k8s-auto/automation/host-setup/install-auto-upgrade.sh
+```
+
+設置スクリプトは `settings.toml` を作り（なければ）、dry-run の結果を表示してから timer を有効にします。
+止めるときは `sudo systemctl disable --now k8s-auto-upgrade.timer` です。
+
+### 手で上げるとき
+
+入口は Makefile、実体は [upgrade/](../automation/scripts/upgrade/) です。版は kubernetes-version.txt から読みます
+（`settings.toml` の `[upgrade].target_version` は使いません。残っていて値が違うと止まります）。
+自動更新と同時に動かさないよう、先に timer を止めるか、kubernetes-version.txt の PR をマージしてから実行します。
+
+```bash
+kubectl get nodes -o wide
+make upgrade-safe
+```
 
 `upgrade-safe` の順序:
 
 1. 事前ゲート: Node、異常な Pod、ArgoCD の状態を確認（失敗したら 30 秒おきに 3 回まで再試行）
 2. precheck: SSH、etcd の snapshot、`kubeadm upgrade plan`
 3. control-plane を更新
-4. worker を更新
-5. postcheck と事後ゲート
+4. worker を更新（drain は 10 分で打ち切り）
+5. postcheck（apiserver と全ノードが目標の版か）と事後ゲート
 
 分けて実行することもできます。順序は守ります。
 
@@ -121,9 +176,8 @@ make upgrade-postcheck
 - precheck は etcd の snapshot を etcd の Pod の中（`/var/lib/etcd/etcd-snapshot-<時刻>.db`）に作ります。control-plane の外へは退避しません。
 - 更新中、API サーバーは短く止まります。worker の更新中は、そのノードの Pod が止まります。
 - kubeadm の upgrade は control-plane の証明書も更新します。
+- 更新後、`kubeadm`、`kubelet`、`kubectl` は `apt-mark hold` で固定されます。
 - 終わったら [日々の確認](operations.md#日々の確認) に加えて、URL、Harbor の pull、DB を使うアプリを確かめます。
-- 終わったら、[variables.tf](../automation/infrastructure/variables.tf) の `kubernetes_version` を新しい版に直して PR にします。
-  ここが古いままだと、作り直したときに古い版でクラスタが立ち上がります。
 
 ## containerd
 

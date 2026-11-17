@@ -45,7 +45,7 @@ output "deployment_summary" {
   description = "デプロイメント完了情報"
   value = {
     cluster_name       = "k8s-cluster-${random_id.cluster.hex}"
-    kubernetes_version = var.kubernetes_version
+    kubernetes_version = local.kubernetes_version
     nodes_total        = 1 + length(var.workers)
     control_plane_ip   = var.control_plane_ip
     worker_ips         = [for worker in var.workers : worker.ip]
