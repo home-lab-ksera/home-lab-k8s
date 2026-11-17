@@ -1,0 +1,44 @@
+rule_files:
+  - ../../../manifests/platform/observability/config/alert-rules.yaml
+evaluation_interval: 1m
+tests:
+  # 毎週成功している通常状態では通知しない。7日後に次の成功時刻へ更新される。
+  - interval: 1h
+    input_series:
+      - series: 'kube_cronjob_status_last_successful_time{namespace="database",cronjob="postgresql-restore-drill"}'
+        values: '0x168 604800x100'
+    alert_rule_test:
+      - eval_time: 10d
+        alertname: PostgreSQLRestoreDrillStale
+        exp_alerts: []
+  # 成功が止まると8日+30分後に通知。
+  - interval: 10m
+    input_series:
+      - series: 'kube_cronjob_status_last_successful_time{namespace="database",cronjob="postgresql-restore-drill"}'
+        values: '0x1300'
+    alert_rule_test:
+      - eval_time: 8d20m
+        alertname: PostgreSQLRestoreDrillStale
+        exp_alerts: []
+      - eval_time: 8d40m
+        alertname: PostgreSQLRestoreDrillStale
+        exp_alerts:
+          - exp_labels:
+              namespace: database
+              severity: warning
+              cronjob: postgresql-restore-drill
+            exp_annotations:
+              summary: "共通PostgreSQLの復元訓練が8日以上成功していません。kubectl -n database get jobs と postgresql-restore-drill の Job ログを確認してください"
+  # メトリクス自体が無い場合も通知する。
+  - interval: 1m
+    input_series: []
+    alert_rule_test:
+      - eval_time: 31m
+        alertname: PostgreSQLRestoreDrillStale
+        exp_alerts:
+          - exp_labels:
+              namespace: database
+              severity: warning
+              cronjob: postgresql-restore-drill
+            exp_annotations:
+              summary: "共通PostgreSQLの復元訓練が8日以上成功していません。kubectl -n database get jobs と postgresql-restore-drill の Job ログを確認してください"
