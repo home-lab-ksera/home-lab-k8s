@@ -66,21 +66,23 @@ kubectl -n <namespace> describe externalsecret <name>
 ## Reloader
 
 [Reloader](../manifests/platform/reloader/manifest.yaml) は、Secret や ConfigMap が変わったときに、annotation を付けた workload を再起動します。
-見ているのは **`sandbox` と `observability` だけ** で、Job と CronJob は対象外です。
+見ているのは **`sandbox`・`observability`・`database` だけ** で、Job と CronJob は対象外です。
 
 | 対象 | 再起動のきっかけ |
 |---|---|
 | api-hub、hitomi-outbox、media-api、media-worker、home-camera | 参照しているすべての Secret / ConfigMap（`reloader.stakater.com/auto`） |
 | Alertmanager | `alertmanager-slack`、`alertmanager-heartbeat` |
 | Grafana | `grafana-postgresql` |
+| PostgreSQL | `postgresql-server-tls`（サーバー証明書の更新、年 1 回） |
 
-`harbor` と `database` は Reloader の対象外です。Harbor と PostgreSQL のマニフェストにも annotation はありますが、効きません。
-これらの Secret を変えたら、手で再起動します。
+`harbor` は Reloader の対象外です。Harbor のマニフェストにも annotation はありますが、効きません。
+Harbor の Secret を変えたら、手で再起動します。
 
 ```bash
 kubectl -n harbor rollout restart deployment harbor-core harbor-jobservice
-kubectl -n database rollout restart statefulset postgresql
 ```
+
+PostgreSQL が再起動するのは、サーバー証明書が更新されたときだけです。パスワード（`postgresql-input`）の変更では再起動しません（[パスワードを変える](postgresql.md#パスワードを変える)）。
 
 対象を増やすときは、workload の annotation、Reloader の `--namespaces`、その namespace の Role / RoleBinding を揃えます。
 Reloader が Pod template に書く annotation を ArgoCD が差分と見なさないよう、Application の `ignoreDifferences` も足します

@@ -51,7 +51,7 @@ spec:
             memory: 256Mi
         args:
         - --reload-strategy=annotations
-        - --namespaces=sandbox,observability
+        - --namespaces=sandbox,observability,database
         - --ignored-workload-types=jobs,cronjobs
         readinessProbe:
           httpGet:
@@ -160,6 +160,54 @@ kind: RoleBinding
 metadata:
   name: reloader
   namespace: observability
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: reloader
+subjects:
+- kind: ServiceAccount
+  name: reloader
+  namespace: kube-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: reloader
+  namespace: database
+rules:
+- apiGroups:
+  - ''
+  resources:
+  - secrets
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - apps
+  resources:
+  - deployments
+  - daemonsets
+  - statefulsets
+  verbs:
+  - get
+  - list
+  - update
+  - patch
+- apiGroups:
+  - ''
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: reloader
+  namespace: database
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
