@@ -75,6 +75,7 @@ promtool test rules automation/tests/observability/*.test.yaml
 | workflow | 起動 | 内容 |
 |---|---|---|
 | [ci-deploy-validate.yml](../.github/workflows/ci-deploy-validate.yml) | push、PR、手動 | `validate`（validate.sh）、`setup-behavior`（構築スクリプトの回帰テスト）、`platform-configs`（Loki / Alloy / Renovate の設定を実際のイメージで検証） |
+| [rebuild-drill.yml](../.github/workflows/rebuild-drill.yml) | 日曜 05:00 JST、手動、構築スクリプトを変える PR | 0 からの再構築訓練（[構築と再構築](bootstrap.md#再構築訓練)）。必須チェックではない |
 | [renovate.yml](../.github/workflows/renovate.yml) | 毎日 09:00 JST、手動 | 更新 PR の作成（[更新](updates.md)） |
 | [tailscale-policy.yml](../.github/workflows/tailscale-policy.yml) | `tailscale/` の変更、手動 | Tailnet の ACL を PR で検証し、`main` で適用（[アクセス経路](access.md#tailnet)） |
 | [publish-harbor.yml](../.github/workflows/publish-harbor.yml) | アプリリポジトリから呼ぶ | イメージの build と Harbor への push（[アプリ配布](app-delivery.md)） |

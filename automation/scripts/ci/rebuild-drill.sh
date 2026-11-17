@@ -16,6 +16,7 @@ fi
 # Secret が無くても Synced / Healthy になるべき Application。
 # Secret（Pulumi ESC）、Harbor のイメージ、Tailscale、Cloudflare に依存するものは含めない。
 REQUIRED_HEALTHY=(
+  bootstrap-root
   argocd-projects
   argocd-core
   local-path-provisioner
@@ -30,6 +31,8 @@ REQUIRED_HEALTHY=(
   cert-manager
   external-secrets-operator
   reloader
+  sandbox-config
+  dns-core
 )
 
 SSH_CP=(ssh -T -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR
