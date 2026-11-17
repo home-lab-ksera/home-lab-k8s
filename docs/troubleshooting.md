@@ -18,6 +18,7 @@ kubectl get pods -A | grep -vE 'Running|Completed'
 | `kubectl` がつながらない | kubeconfig の context → VM が動いているか → control-plane の kubelet / containerd → API サーバー |
 | Node が NotReady | `kubectl describe node` → kubelet → containerd → Flannel |
 | 多くの Pod が ContainerCreating のまま | NFS（[下記](#ストレージ)） |
+| `HostStorageUnavailable` / `HostStorageReadOnly` | [HDD が外れた](#hdd-が外れた) |
 | Pod が Pending | Pod の Events → requests とノードの空き → PVC |
 | ImagePullBackOff | イメージ名と digest → Harbor が動いているか → ノードの `/etc/hosts` → pull Secret（[下記](#harbor)） |
 | CrashLoopBackOff | `--previous` のログ → 設定と Secret → 依存先（DB、api-hub） |
@@ -53,6 +54,26 @@ ssh ksera@192.168.10.11 'sudo /usr/sbin/exportfs -v; systemctl is-active nfs-ker
 
 - NFS の export がなくなると、RustFS、Harbor、VictoriaMetrics、home-camera が起動できません。Harbor が止まると、
   イメージを持たないノードでアプリも起動できなくなります。`/etc/exports` を直して `sudo /usr/sbin/exportfs -ra` を実行します。
+### HDD が外れた
+
+ケースが抜けた、USB が切れたなどで HDD が外れると、カーネルがファイルシステムを切り離し、NFS サーバーも止まります。
+ケースを接続し直したら、ホストで次の順に戻します。
+
+```bash
+journalctl -k --since "-1h" | grep -iE "usb|sda|EXT4|I/O error"    # 何が起きたか
+lsblk -d -o NAME,SIZE,MODEL,TRAN                                   # sda（H/W RAID1）が見えていること
+sudo /usr/sbin/e2fsck -p /dev/sda1                                 # ジャーナルの再生と確認
+sudo /usr/bin/mount /mnt/k8s-storage
+findmnt /mnt/k8s-storage                                           # /dev/sda1 であること
+sudo /usr/bin/systemctl start nfs-kernel-server
+sudo /usr/sbin/exportfs -v                                         # /mnt/k8s-storage/nfs-share が出ること
+```
+
+- `e2fsck -p` が `UNEXPECTED INCONSISTENCY; RUN fsck MANUALLY` で止まったら、マウントしません。出力を見てから `-y` で直すかを決めます。
+- マウントせずに NFS を起動しないでください。SSD 側の空のディレクトリを配ってしまい、Pod がそこへ書き込みます。
+- NFS の mount は `hard`（Linux の既定）なので、NFS が戻れば VM 側は自動で再開します。RustFS と home-camera は I/O エラーで一度再起動することがありますが、自動で戻ります。
+- 戻ったら、`kubectl get pods -A | grep -vE 'Running|Completed'` と、Slack の発火中アラートが消えたことを確認します。
+
 - local-path の Pod が Pending のままなら、PV のあるノード（`k8s-worker2`）が使えるかを見ます。
 - PVC を消して作り直すのは最後の手段です。local-path は実データごと消えます。
 

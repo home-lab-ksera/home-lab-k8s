@@ -140,3 +140,94 @@ tests:
       - eval_time: 8d
         alertname: HostSecurityUpdatesPending
         exp_alerts: []
+  - name: HDD が正常
+    interval: 1m
+    input_series:
+      - series: up{job="host-node",instance="ksera-T100"}
+        values: 1+0x30
+      - series: node_filesystem_size_bytes{job="host-node",instance="ksera-T100",device="/dev/sda1",fstype="ext4",mountpoint="/mnt/k8s-storage"}
+        values: 4000000000000+0x30
+      - series: node_filesystem_avail_bytes{job="host-node",instance="ksera-T100",device="/dev/sda1",fstype="ext4",mountpoint="/mnt/k8s-storage"}
+        values: 3300000000000+0x30
+      - series: node_filesystem_readonly{job="host-node",instance="ksera-T100",device="/dev/sda1",fstype="ext4",mountpoint="/mnt/k8s-storage"}
+        values: 0+0x30
+      - series: node_filesystem_device_error{job="host-node",instance="ksera-T100",device="/dev/sda1",fstype="ext4",mountpoint="/mnt/k8s-storage"}
+        values: 0+0x30
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: HostStorageUnavailable
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: HostStorageReadOnly
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: HostStorageSpaceLow
+        exp_alerts: []
+  - name: HDD が外れてマウントがなくなる
+    interval: 1m
+    input_series:
+      - series: up{job="host-node",instance="ksera-T100"}
+        values: 1+0x30
+      # 10 分後に外れる。
+      - series: node_filesystem_size_bytes{job="host-node",instance="ksera-T100",device="/dev/sda1",fstype="ext4",mountpoint="/mnt/k8s-storage"}
+        values: 4000000000000+0x10 _x20
+    alert_rule_test:
+      - eval_time: 9m
+        alertname: HostStorageUnavailable
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: HostStorageUnavailable
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: host-node
+              instance: ksera-T100
+            exp_annotations:
+              summary: "ホストの HDD（/mnt/k8s-storage）がマウントされていません。NFS を使う Pod が止まります"
+  - name: node_exporter が止まっているときは HDD の通知を重ねない
+    interval: 1m
+    input_series:
+      - series: up{job="host-node",instance="ksera-T100"}
+        values: 0+0x30
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: HostStorageUnavailable
+        exp_alerts: []
+  - name: HDD が読み取り専用になる、空きが減る
+    interval: 1m
+    input_series:
+      - series: up{job="host-node",instance="ksera-T100"}
+        values: 1+0x30
+      - series: node_filesystem_size_bytes{job="host-node",instance="ksera-T100",device="/dev/sda1",fstype="ext4",mountpoint="/mnt/k8s-storage"}
+        values: 4000000000000+0x30
+      - series: node_filesystem_avail_bytes{job="host-node",instance="ksera-T100",device="/dev/sda1",fstype="ext4",mountpoint="/mnt/k8s-storage"}
+        values: 400000000000+0x30
+      - series: node_filesystem_readonly{job="host-node",instance="ksera-T100",device="/dev/sda1",fstype="ext4",mountpoint="/mnt/k8s-storage"}
+        values: 1+0x30
+      - series: node_filesystem_device_error{job="host-node",instance="ksera-T100",device="/dev/sda1",fstype="ext4",mountpoint="/mnt/k8s-storage"}
+        values: 0+0x30
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: HostStorageReadOnly
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: host-node
+              instance: ksera-T100
+              device: /dev/sda1
+              fstype: ext4
+              mountpoint: /mnt/k8s-storage
+            exp_annotations:
+              summary: "ホストの HDD（/mnt/k8s-storage）が読み取り専用か、読めない状態です。カーネルログで I/O エラーを確認してください"
+      - eval_time: 20m
+        alertname: HostStorageSpaceLow
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              job: host-node
+              instance: ksera-T100
+              device: /dev/sda1
+              fstype: ext4
+              mountpoint: /mnt/k8s-storage
+            exp_annotations:
+              summary: "ホストの HDD（/mnt/k8s-storage）の空きが 15% 未満です"
