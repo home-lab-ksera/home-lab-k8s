@@ -40,7 +40,11 @@ sudo apt install -y \
     virtinst \
     virt-manager \
     virt-viewer \
-    cpu-checker
+    cpu-checker \
+    genisoimage \
+    xsltproc
+# genisoimage: libvirt provider が cloud-init の ISO を作るのに mkisofs を使う
+# xsltproc: libvirt provider が domain の xml.xslt（libvirt-domain.xsl）を適用するのに使う
 
 # 3. Install development and automation tools
 log_status "Installing development and automation tools..."

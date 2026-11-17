@@ -98,3 +98,27 @@ ssh -L 127.0.0.1:8080:127.0.0.1:8080 ksera@192.168.10.11 \
 5. アプリの動作は [日常運用](operations.md#日々の確認) の項目で確認する。
 
 Harbor のデータを引き継がない場合、アプリは「CI の再実行 → Image Updater の書き戻し → 同期」で戻ります。
+
+## 再構築訓練
+
+[rebuild-drill.yml](../.github/workflows/rebuild-drill.yml) が毎週日曜 05:00 JST に、GitHub-hosted runner（ネスト KVM）の上で
+この手順を 0 から通しで実行します（[スクリプト](../automation/scripts/ci/rebuild-drill.sh)）。
+手動実行と、構築スクリプトを変える PR でも動きます。所要時間は 25 分ほどです（phase1 が 3 分、phase2 が 7 分、収束が 12 分）。
+
+| 段階 | 実行するもの |
+|---|---|
+| phase1 | `run.sh phase1`（本物の `setup-host.sh`） |
+| phase2 | `run.sh phase2`（本物の `clean-and-deploy.sh` と Terraform）。続けて 2 ノードの Ready と、VM から NFS をマウントできることを確かめる |
+| bootstrap | `run.sh bootstrap`（本物の `platform-deploy.sh`）。ArgoCD は `main` を同期する |
+| 収束 | リポジトリにある全 Application が作られ、Secret に依存しないものが Synced / Healthy になるまで最大 45 分待つ |
+
+本番との違い:
+
+- 本番の Secret は渡しません。ESO の token はダミーなので、ExternalSecret・Harbor・アプリ・Tailscale・証明書は収束しません。
+  DB の migration を PreSync に持つアプリ（api-hub、hitomi、hitomi-pdf）は `OutOfSync / Missing` のままになります。
+  そのため Tailscale、Cloudflare、Slack、Git への書き戻しには何も届きません。
+- VM のメモリを 4GiB + 7GiB に縮めます（runner が 16GiB のため）。台数・IP・vCPU は本番と同じです。
+- NFS の共有は runner に作ります。本番では `setup-storage.sh` で手作業で作るものです。
+
+失敗したら、job の summary と artifact `rebuild-drill-diagnostics`（Application・Pod・event の一覧）を見ます。
+鍵、token、Terraform の state は保存しません。リポジトリが public なため、ログと artifact は誰でも読めます。
