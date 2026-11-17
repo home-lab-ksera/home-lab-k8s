@@ -1,0 +1,95 @@
+# A1 の空き待ちを無期限に再試行し、全部そろったら Slack に通知して完了する。
+# 終了コード 78 は人の確認が要る安全停止で、Job を失敗にする（ArgoCD が Degraded になり通知される）。
+# それ以外の異常終了・退避は失敗回数に数えず、Pod を作り直して PVC の状態から続ける。
+# イメージは手元で build して push する（Image Updater の対象外）。変えると Job を作り直す。
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: oci-always-free
+  namespace: sandbox
+  labels:
+    app: oci-always-free
+  annotations:
+    argocd.argoproj.io/sync-options: Force=true,Replace=true
+spec:
+  completions: 1
+  parallelism: 1
+  backoffLimit: 6
+  podFailurePolicy:
+    rules:
+      - action: FailJob
+        onExitCodes:
+          containerName: retry
+          operator: In
+          values: [78]
+      - action: Ignore
+        onExitCodes:
+          containerName: retry
+          operator: NotIn
+          values: [0, 78]
+      - action: Ignore
+        onPodConditions:
+          - type: DisruptionTarget
+            status: "True"
+  template:
+    metadata:
+      labels:
+        app: oci-always-free
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 900
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        runAsNonRoot: true
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      imagePullSecrets:
+        - name: harbor-registry
+      containers:
+        - name: retry
+          image: harbor.internal.qroksera.com/sandbox/oci-always-free
+          args: ["--attempts", "0", "--interval", "120", "--initial-delay", "120", "--require-slack"]
+          env:
+            - name: SLACK_WEBHOOK_URL_FILE
+              value: /secrets/slack/webhook-url
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: "1"
+              memory: 256Mi
+          volumeMounts:
+            - name: state
+              mountPath: /data
+            - name: oci
+              mountPath: /secrets/oci
+              readOnly: true
+            - name: slack
+              mountPath: /secrets/slack
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: state
+          persistentVolumeClaim:
+            claimName: oci-always-free-state
+        - name: oci
+          secret:
+            secretName: oci-always-free-credentials
+            defaultMode: 0440
+        - name: slack
+          secret:
+            secretName: oci-always-free-slack
+            defaultMode: 0440
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi

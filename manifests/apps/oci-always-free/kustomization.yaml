@@ -2,3 +2,9 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - storage.yaml
+  - job.yaml
+images:
+  # 手元で build して push したもの（ksera524/oci-always-free の CONTAINERS.md）。
+  - name: harbor.internal.qroksera.com/sandbox/oci-always-free
+    newTag: 20261118-1
+    digest: sha256:fb775aa4b450e0523b376acebd59dced6f5f676045bc0195372cffa2e0537b3c
