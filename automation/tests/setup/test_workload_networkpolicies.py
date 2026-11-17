@@ -103,6 +103,12 @@ class NetworkPolicyTests(unittest.TestCase):
         for ip, port in [('192.168.122.10', 443), ('169.254.169.254', 80), ('1.1.1.1', 22)]:
             self.assertFalse(allowed('sandbox', {'app': 'api-hub'}, 'Egress', '', {}, ip, port))
 
+    def test_oci_always_free_reaches_public_https_only(self):
+        app = {'app': 'oci-always-free'}
+        self.assertTrue(allowed('sandbox', app, 'Egress', '', {}, '1.1.1.1', 443))
+        for ip, port in [('1.1.1.1', 80), ('192.168.122.10', 443), ('10.96.0.1', 443)]:
+            self.assertFalse(allowed('sandbox', app, 'Egress', '', {}, ip, port))
+
     def test_cache_requires_correct_client(self):
         for src, dstns, dst, port in [('rsshub', 'sandbox', 'rsshub-redis', 6379)]:
             self.assertTrue(allowed('sandbox', {'app': src}, 'Egress', dstns, {'app': dst}, '10.244.1.2', port))

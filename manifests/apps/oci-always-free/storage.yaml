@@ -1,0 +1,17 @@
+# 作成記録・ロック・DB パスワードを持つ状態。消えると OCI のリソースを二重に作るおそれがあるため、
+# 中身が入る前に Job を動かさない（docs/apps.md の oci-always-free）。
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: oci-always-free-state
+  namespace: sandbox
+  labels:
+    app: oci-always-free
+  annotations:
+    argocd.argoproj.io/sync-options: Prune=false,Delete=false
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: nfs-external
+  resources:
+    requests:
+      storage: 1Gi
