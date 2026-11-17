@@ -6,7 +6,7 @@
 |---|---|
 | 機種 | Intel N100（4 コア、SMT なし）、RAM 15GiB、swap 4GiB（ファイル） |
 | OS | Ubuntu 26.04 LTS |
-| ディスク | NVMe 476GB（OS と VM のイメージ）、HDD 3.6TB（ハードウェア RAID1、`/mnt/k8s-storage`） |
+| ディスク | NVMe 476GB（OS と VM のイメージ）、HDD 3.6TB（USB 接続の外付けケース Logitec LHR で RAID1、`/dev/sda1` → `/mnt/k8s-storage`） |
 | LAN | Wi-Fi のみ（`192.168.10.11`）。有線は使っていない |
 | 接続 | `ssh ksera@192.168.10.11`。`virsh` と `kubectl` をそのまま使える |
 
@@ -15,12 +15,23 @@
 - NFS: `/mnt/k8s-storage/nfs-share` を `192.168.122.0/24` にだけ export（`/etc/exports`）。
 - ufw: VM のネットワークから node_exporter（9100）への接続を許可。
 - `prometheus-node-exporter`: `192.168.122.1:9100`。textfile collector が apt の保留更新と再起動待ちを出力します。
+  Debian の既定では `/mnt` 以下を収集しないため、`/etc/default/prometheus-node-exporter` の `ARGS` で
+  `--collector.filesystem.mount-points-exclude` から `mnt` を外しています（HDD のアラートに必要）。
 - unattended-upgrades: セキュリティ更新を毎日適用。
 - Tailscale: ホスト自身も tailnet に参加。`--accept-routes=false` を維持します
   （クラスタの subnet router が広告する `192.168.122.0/24` は、ホスト自身の VM ネットワークのため）。
 
 ホストの SSH は Wi-Fi 経由です。`wpa_supplicant` と NetworkManager を止めると接続が切れます。
-HDD の RAID は、片側が故障しても検知する仕組みがありません。
+### HDD
+
+- RAID はケースの中で組まれていて、ホストからは 1 台のディスク（"H/W RAID1"）にしか見えません。
+  **中の 2 台のどちらかが壊れても、ホストからは分かりません。** 気づく手段はケース前面の LED とブザーだけです。
+- ホストから分かるのは「マウントが消えた」「読み取り専用になった」「空きが減った」で、
+  それぞれ `HostStorageUnavailable`、`HostStorageReadOnly`、`HostStorageSpaceLow` が通知します。
+- ケースは USB 3 のポートにつなぎます（5Gbps）。USB 2 のポートだと 480Mbps になり、NFS 上のすべてが遅くなります。
+  確かめるには、ホストで `cat /sys/bus/usb/devices/*/speed` を見て、ケース（`idVendor` が `0789`）が `5000` であることを確認します。
+- **VM が動いている間はケースを抜きません。** 抜くとファイルシステムが切り離され、NFS が止まります
+  （戻し方は [障害対応](troubleshooting.md#hdd-が外れた)）。抜くときは、先に VM を止め、`/mnt/k8s-storage` をアンマウントします。
 
 ## VM
 

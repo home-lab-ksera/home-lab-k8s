@@ -100,13 +100,14 @@ Alloy が 1 分ごとに、クラスタ内から次を確認します（[config.
 | 証明書 | `EndpointCertificateExpiring`（14 日未満）、`ControlPlaneCertificateExpiring`（45 日未満）、`KubeletServingCSRPending` | [対処](nodes.md#kubelet-の-serving-証明書) |
 | 外形 | `EndpointProbeFailed`、`EndpointProbeMissing` | 応答や名前解決の失敗が 5 分、結果の欠損が 15 分 |
 | ホスト | `HostMetricsUnavailable`、`HostMemoryLow`、`HostSwapThrashing`、`HostCPUPressure`、`HostDiskSpaceLow` | [容量の考え方](nodes.md#容量の考え方) |
+| | `HostStorageUnavailable`、`HostStorageReadOnly`（critical）、`HostStorageSpaceLow` | NFS の実体の HDD。[HDD](nodes.md#hdd)、[戻し方](troubleshooting.md#hdd-が外れた) |
 | | `HostRebootRequired`、`HostSecurityUpdatesPending` | 7 日続く |
 | データ | `PostgreSQLBackupStale` | dump が 26 時間成功していない |
 | | `RustFSScannerStalled`、`RustFSScannerMonitorMissing` | [scanner](storage.md#scanner) |
 | 監視自体 | `KubeStateMetricsUnavailable`、`KubeletVolumeScrapeUnavailable` | 収集の失敗 |
 | アプリ | `ApplicationQueue*`、`ApplicationUnreviewedFailure`、`Camera*` | 下記 |
 
-監視していないもの: HDD の RAID の状態、LAN / tailnet からの到達、HTTPRoute ごとの状態、バックアップが実際に復元できるか。
+監視していないもの: RAID の中の 2 台それぞれの状態、LAN / tailnet からの到達、HTTPRoute ごとの状態、バックアップが実際に復元できるか。
 
 ## 通知
 

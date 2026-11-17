@@ -108,6 +108,36 @@ groups:
           severity: warning
         annotations:
           summary: "ホストのルートディスク空きが 15% 未満です（VM ディスクを含む）"
+      # NFS の実体の HDD（USB 接続の RAID1 ケース、/mnt/k8s-storage）。ケース内の 2 台の状態はホストから見えないため、
+      # 両方を失ってファイルシステムが使えなくなった時点を確実に捉える。node_exporter の mount-points-exclude から
+      # /mnt を外す設定がホストに要る（docs/nodes.md）。
+      - alert: HostStorageUnavailable
+        expr: >-
+          up{job="host-node"} == 1
+          unless on(job, instance) node_filesystem_size_bytes{job="host-node",mountpoint="/mnt/k8s-storage"}
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ホストの HDD（/mnt/k8s-storage）がマウントされていません。NFS を使う Pod が止まります"
+      - alert: HostStorageReadOnly
+        expr: >-
+          node_filesystem_readonly{job="host-node",mountpoint="/mnt/k8s-storage"} == 1
+          or node_filesystem_device_error{job="host-node",mountpoint="/mnt/k8s-storage"} == 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ホストの HDD（/mnt/k8s-storage）が読み取り専用か、読めない状態です。カーネルログで I/O エラーを確認してください"
+      - alert: HostStorageSpaceLow
+        expr: >-
+          node_filesystem_avail_bytes{job="host-node",mountpoint="/mnt/k8s-storage"}
+          / node_filesystem_size_bytes{job="host-node",mountpoint="/mnt/k8s-storage"} < 0.15
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "ホストの HDD（/mnt/k8s-storage）の空きが 15% 未満です"
   - name: home-lab-endpoints
     interval: 1m
     rules:
