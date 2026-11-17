@@ -12,6 +12,7 @@
 | hitomi-upload-viewer | hitomi-pdf-batch | カタログの閲覧画面 | `hitomi-upload-viewer` |
 | home-camera | home-camera | カメラの録画と S3 への送信 | なし |
 | nature-remo | nature-remo | 家電リモコン（Nature Remo の Local API） | `nature-remo` |
+| oci-always-free | （Git 管理外） | OCI Always Free 枠の確保を再試行 | なし |
 | rsshub | RSSHub-private | RSS の生成 | `rsshub` |
 | blog | blog | 静的サイト | `blog` |
 | cooklog | cookLog | 静的サイトと、Slack 連携の worker | `cooklog` |
@@ -105,6 +106,17 @@ Nature のクラウドが使えないときでも家電を操作できるよう�
   PVC は ArgoCD が消さない設定（`Prune=false,Delete=false`）にしています。
 - 送信は自動で再送しません。失敗と表示されても家電が動いていることがあるため、実物を確認します。
 - エアコンなどの現在の状態は分かりません。登録した信号を送るだけです。
+
+## oci-always-free
+
+OCI の Always Free 枠を確保する再試行 Job です。ソースは `ksera524/oci-always-free`（Git 管理外。運用は同ディレクトリの CONTAINERS.md）。
+A1 以外のリソースは作成済みで、残りは A1 の VM 2 台の空き待ちです。
+
+- 状態（作成記録・ロック・DB パスワード）は NFS の PVC `oci-always-free-state` にあります。消えると OCI のリソースを二重に作るおそれがあるため、
+  PVC は ArgoCD が消さない設定（`Prune=false,Delete=false`）です。
+- Secret `oci-always-free-credentials`（OCI の署名鍵・config・SSH 公開鍵）と `oci-always-free-slack` は手で作ったもので、Git と ESC にはありません。
+  クラスタを作り直したら作り直しが必要です。
+- 通信は OCI の API と Slack への HTTPS だけです（`allow-oci-always-free-https`）。
 
 ## rsshub
 
