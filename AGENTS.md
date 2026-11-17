@@ -29,6 +29,7 @@
 - 初期設定: `cp automation/settings.toml.example automation/settings.toml`
 - 全体/個別: `make all`, `make phase1`, `make phase2`, `make bootstrap`, `make phase5`。
 - 保守: `make recover`, `make upgrade-safe`, `make containerd-safe`
+- Kubernetes の版は `kubernetes-version.txt` だけが正（Renovate が PR、マージ後にホストの `k8s-auto-upgrade.timer` が `upgrade-safe` を自動実行）。`settings.toml` の `[upgrade].target_version` は使わない。
 - `make add-runner REPO=<name>`（一括は `make add-runners-all`）は GitHub-hosted runner + Tailscale OIDC の workflow を生成する。GitHub API で公開範囲・既定ブランチを取得し、private repo は4つの repository Secrets を非表示入力または環境変数から登録する。生成されるのは共通 workflow `.github/workflows/publish-harbor.yml` を呼ぶ雛形で、各アプリリポジトリに commit する（このリポジトリでは追跡しない）。クラスタ内 runner（ARC）は撤去済みで、ScaleSet / runner group 設定は不要。
 - `make all` と `make phase1` は `sudo` 前提。`make all` は `phase1 -> phase2 -> bootstrap -> phase5` の順に実行する。実行ログは `automation/run.log`。
 

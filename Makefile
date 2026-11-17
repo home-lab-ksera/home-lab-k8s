@@ -4,6 +4,7 @@
 
 .PHONY: help all phase1 phase2 bootstrap phase5 vm k8s verify recover diagrams validate validate-local
 .PHONY: upgrade upgrade-safe upgrade-precheck upgrade-control-plane upgrade-workers upgrade-postcheck
+.PHONY: auto-upgrade-plan auto-upgrade-install
 .PHONY: containerd-precheck containerd-safe
 .PHONY: add-runner add-runners-all kubelet-certificates
 
@@ -59,6 +60,12 @@ diagrams:
 
 upgrade:
 	@./automation/scripts/run.sh upgrade
+
+auto-upgrade-plan:
+	@./automation/scripts/upgrade/auto-upgrade.sh --dry-run
+
+auto-upgrade-install:
+	@./automation/host-setup/install-auto-upgrade.sh
 
 upgrade-safe:
 	@./automation/scripts/run.sh upgrade-safe

@@ -21,18 +21,15 @@ if [ -f "$AUTOMATION_DIR/scripts/settings-loader.sh" ]; then
   source "$AUTOMATION_DIR/scripts/settings-loader.sh" load 2>/dev/null || true
 fi
 
-target_version="$(get_config upgrade target_version "")"
+# shellcheck source=automation/scripts/upgrade/kubernetes-version.sh
+source "$AUTOMATION_DIR/scripts/upgrade/kubernetes-version.sh"
+target_version="$(resolve_target_version)"
 apt_channel="$(get_config upgrade apt_channel "")"
 k8s_user="$(get_config kubernetes user "k8suser")"
 control_plane_ip="$(get_config network control_plane_ip "192.168.122.10")"
 ssh_key_path="$(get_config kubernetes ssh_key_path "")"
 
 worker_2_ip="$(get_config network worker_2_ip "")"
-
-if [[ -z "$target_version" ]]; then
-  log_error "upgrade.target_version が未設定です (例: v1.33.7)"
-  exit 1
-fi
 
 target_minor="${target_version#v}"
 target_minor="${target_minor%.*}"
@@ -72,16 +69,17 @@ for worker_ip in "${worker_ips[@]}"; do
   node_name="$("${worker_ssh[@]}" hostname)"
   log_status "ノードアップグレード開始: ${node_name} (${worker_ip})"
 
-  "${control_ssh[@]}" "sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl drain ${node_name} --ignore-daemonsets --delete-emptydir-data"
+  "${control_ssh[@]}" "sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl drain ${node_name} --ignore-daemonsets --delete-emptydir-data --timeout=10m"
 
   "${worker_ssh[@]}" "sudo bash -c 'set -euo pipefail; echo deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/${apt_channel}/deb/ / > /etc/apt/sources.list.d/kubernetes.list'"
   "${worker_ssh[@]}" "sudo apt-get update -y"
   "${worker_ssh[@]}" "sudo apt-mark unhold kubeadm kubelet kubectl"
-  "${worker_ssh[@]}" "sudo bash -c 'set -euo pipefail; target=\"${target_version#v}\"; pkg=\"\$(apt-cache madison kubeadm | awk -F\"|\" -v t=\"${target_version#v}\" '\''{gsub(/ /, \"\", \$2); if (index(\$2, t) == 1 && first == \"\") {first = \$2}} END {print first}'\'')\"; if [[ -z \"\$pkg\" ]]; then echo \"kubeadm \$target が見つかりません\" >&2; exit 1; fi; apt-get install -y kubeadm=\"\$pkg\"'"
+  "${worker_ssh[@]}" "sudo bash -c 'set -euo pipefail; target=\"${target_version#v}\"; pkg=\"\$(apt-cache madison kubeadm | awk -F\"|\" -v t=\"${target_version#v}\" '\''{gsub(/ /, \"\", \$2); if (index(\$2, t \"-\") == 1 && first == \"\") {first = \$2}} END {print first}'\'')\"; if [[ -z \"\$pkg\" ]]; then echo \"kubeadm \$target が見つかりません\" >&2; exit 1; fi; apt-get install -y kubeadm=\"\$pkg\"'"
 
   "${worker_ssh[@]}" "sudo kubeadm upgrade node"
 
-  "${worker_ssh[@]}" "sudo bash -c 'set -euo pipefail; target=\"${target_version#v}\"; pkg=\"\$(apt-cache madison kubelet | awk -F\"|\" -v t=\"${target_version#v}\" '\''{gsub(/ /, \"\", \$2); if (index(\$2, t) == 1 && first == \"\") {first = \$2}} END {print first}'\'')\"; if [[ -z \"\$pkg\" ]]; then echo \"kubelet \$target が見つかりません\" >&2; exit 1; fi; apt-get install -y kubelet=\"\$pkg\" kubectl=\"\$pkg\"; systemctl daemon-reload; systemctl restart kubelet'"
+  "${worker_ssh[@]}" "sudo bash -c 'set -euo pipefail; target=\"${target_version#v}\"; pkg=\"\$(apt-cache madison kubelet | awk -F\"|\" -v t=\"${target_version#v}\" '\''{gsub(/ /, \"\", \$2); if (index(\$2, t \"-\") == 1 && first == \"\") {first = \$2}} END {print first}'\'')\"; if [[ -z \"\$pkg\" ]]; then echo \"kubelet \$target が見つかりません\" >&2; exit 1; fi; apt-get install -y kubelet=\"\$pkg\" kubectl=\"\$pkg\"; systemctl daemon-reload; systemctl restart kubelet'"
+  "${worker_ssh[@]}" "sudo apt-mark hold kubeadm kubelet kubectl"
 
   "${control_ssh[@]}" "sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl uncordon ${node_name}"
 

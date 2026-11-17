@@ -1,0 +1,15 @@
+# install-auto-upgrade.sh が @USER@ / @REPO@ を置き換えて /etc/systemd/system に置く。
+[Unit]
+Description=Kubernetes を kubernetes-version.txt の版に揃える
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=@USER@
+WorkingDirectory=@REPO@
+# 自動更新専用の clone。毎回 main に合わせる（settings.toml などの ignore 済みファイルは残る）
+ExecStartPre=/usr/bin/git -C @REPO@ fetch --quiet origin main
+ExecStartPre=/usr/bin/git -C @REPO@ reset --quiet --hard origin/main
+ExecStart=@REPO@/automation/scripts/upgrade/auto-upgrade.sh
+TimeoutStartSec=2h

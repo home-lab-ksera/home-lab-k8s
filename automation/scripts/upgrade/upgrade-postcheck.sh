@@ -21,6 +21,10 @@ if [ -f "$AUTOMATION_DIR/scripts/settings-loader.sh" ]; then
   source "$AUTOMATION_DIR/scripts/settings-loader.sh" load 2>/dev/null || true
 fi
 
+# shellcheck source=automation/scripts/upgrade/kubernetes-version.sh
+source "$AUTOMATION_DIR/scripts/upgrade/kubernetes-version.sh"
+target_version="$(resolve_target_version)"
+
 k8s_user="$(get_config kubernetes user "k8suser")"
 control_plane_ip="$(get_config network control_plane_ip "192.168.122.10")"
 ssh_key_path="$(get_config kubernetes ssh_key_path "")"
@@ -47,5 +51,14 @@ log_status "Pod 状態確認中..."
 
 log_status "ArgoCD 同期状態確認中..."
 "${ssh_cmd[@]}" "sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get applications -n argocd"
+
+log_status "版の確認中（目標: ${target_version}）..."
+server_version="$("${ssh_cmd[@]}" "sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get --raw /version" | sed -n 's/.*"gitVersion": *"\([^"]*\)".*/\1/p')"
+mismatched_nodes="$("${ssh_cmd[@]}" "sudo KUBECONFIG=/etc/kubernetes/admin.conf kubectl get nodes -o jsonpath='{range .items[*]}{.metadata.name} {.status.nodeInfo.kubeletVersion}{\"\\n\"}{end}'" | awk -v t="$target_version" '$2 != t')"
+if [[ "$server_version" != "$target_version" || -n "$mismatched_nodes" ]]; then
+  log_error "目標の版に揃っていません: apiserver=${server_version:-不明}"
+  [[ -z "$mismatched_nodes" ]] || printf '%s\n' "$mismatched_nodes" >&2
+  exit 1
+fi
 
 log_status "Upgrade Postcheck 完了"

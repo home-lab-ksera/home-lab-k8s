@@ -20,8 +20,10 @@ terraform {
 }
 
 locals {
-  kubernetes_minor   = regex("^v[0-9]+\\.[0-9]+", var.kubernetes_version)
-  kubernetes_package = "${trimprefix(var.kubernetes_version, "v")}-1.1"
+  # 作り直したときも稼働中と同じ版で立ち上げる（Renovate と k8s-auto-upgrade が同じファイルを使う）
+  kubernetes_version = coalesce(var.kubernetes_version, trimspace(file("${path.module}/../../kubernetes-version.txt")))
+  kubernetes_minor   = regex("^v[0-9]+\\.[0-9]+", local.kubernetes_version)
+  kubernetes_package = "${trimprefix(local.kubernetes_version, "v")}-1.1"
   # cloud-init を生成するノード。key はホスト名。
   nodes = merge(
     { "k8s-control-plane" = var.control_plane_ip },
@@ -325,7 +327,7 @@ nodeRegistration:
 ---
 apiVersion: kubeadm.k8s.io/v1beta4
 kind: ClusterConfiguration
-kubernetesVersion: ${var.kubernetes_version}
+kubernetesVersion: ${local.kubernetes_version}
 controlPlaneEndpoint: "${var.control_plane_ip}:6443"
 networking:
   podSubnet: "${var.pod_network_cidr}"
