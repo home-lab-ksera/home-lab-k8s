@@ -117,6 +117,17 @@ A1 以外のリソースは作成済みで、残りは A1 の VM 2 台の空き�
 - Secret `oci-always-free-credentials`（OCI の署名鍵・config・SSH 公開鍵）と `oci-always-free-slack` は手で作ったもので、Git と ESC にはありません。
   クラスタを作り直したら作り直しが必要です。
 - 通信は OCI の API と Slack への HTTPS だけです（`allow-oci-always-free-https`）。
+- Job は 120 秒ごとに再試行し、A1 2 台を含む全リソースがそろったら Slack に通知して完了します。
+  Oracle が自動で止めた Autonomous DB（7 日間操作なし）は、Job が起動し直します。
+- 終了コード 78 は人の確認が要る安全停止で、Job が失敗になります（Application が Degraded になり通知が出ます）。
+  原因はログの `Safety stop:` の行にあります。直したら ArgoCD で Job を作り直します（Replace で再作成されます）。
+- イメージは手元で build して Harbor に push し、[kustomization.yaml](../manifests/apps/oci-always-free/kustomization.yaml) の digest を書き換えます。
+  Image Updater の対象外です。
+
+```bash
+kubectl -n sandbox logs -f job/oci-always-free
+kubectl -n sandbox exec job/oci-always-free -- cat /data/all/retry-status.json
+```
 
 ## rsshub
 
