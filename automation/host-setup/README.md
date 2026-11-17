@@ -19,7 +19,7 @@ make phase1
 - `libvirtd` / `docker` サービスの有効化
 - 仮想化サポートの確認
 
-Terraform / Ansible / kubectl / Helm はホストへ直接導入します。検証用の mise toolchain は [検証手順](../../docs/reference.md) を参照してください。
+Terraform / Ansible / kubectl / Helm はホストへ直接導入します。検証用の mise toolchain は [検証手順](../../docs/validation.md) を参照してください。
 
 ## ストレージ補助スクリプト
 

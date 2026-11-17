@@ -62,7 +62,7 @@ resource "libvirt_volume" "worker_disk" {
   base_volume_id = libvirt_volume.ubuntu_base.id
   pool           = "default"
   # 動画spool（最大5GiB + 空き4GiB）とpublish runnerの一時領域を確保する。
-  size = 64424509440 # 60GiB。既存VMの拡張は docs/worker-disk.md を参照。
+  size = 64424509440 # 60GiB。既存VMの拡張は docs/nodes.md を参照。
 }
 
 # 簡素化されたcloud-init設定
@@ -427,7 +427,7 @@ resource "null_resource" "k8s_worker_setup" {
     ]
   }
 
-  # 古い image を早めに回収し、ルートディスクの逼迫を防ぐ（docs/worker-disk.md）。
+  # 古い image を早めに回収し、ルートディスクの逼迫を防ぐ（docs/nodes.md）。
   # join 前に置き、kubelet の初回起動から読み込ませる。
   provisioner "remote-exec" {
     inline = [

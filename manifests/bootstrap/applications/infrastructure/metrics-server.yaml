@@ -18,7 +18,7 @@ spec:
       values: |
         # kubectl top 用の Metrics API のみを提供する。HPA は未使用のため解像度は 60 秒とする。
         # kubelet の serving 証明書はクラスタ CA 署名・InternalIP SAN のため、
-        # --kubelet-insecure-tls は使わない（docs/kubelet-metrics.md）。
+        # --kubelet-insecure-tls は使わない（docs/nodes.md）。
         defaultArgs:
           - --cert-dir=/tmp
           - --kubelet-preferred-address-types=InternalIP

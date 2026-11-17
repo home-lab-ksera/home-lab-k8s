@@ -40,7 +40,7 @@ variable "network_gateway" {
 
 # VM仕様設定
 # ホスト（N100 4コア / 15GiB）に対し VM 合計が物理メモリを超えないようにする。
-# control-plane は workload も載せるため 5GiB。詳細は docs/host-capacity.md。
+# control-plane は workload も載せるため 5GiB。詳細は docs/nodes.md。
 variable "control_plane_memory" {
   description = "Control PlaneのメモリサイズMB"
   type        = number

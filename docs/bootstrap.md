@@ -1,108 +1,100 @@
-# 初期構築
+# 構築と再構築
 
-実行順序は [run.sh](../automation/scripts/run.sh)、各コマンドの入口は [Makefile](../Makefile) が正本です。
-**`make phase2` とそれを含む `make all` は既存環境を削除して構築し直します。通常の更新・再起動後の復旧には使いません。**
+入口は [Makefile](../Makefile)、実行順は [run.sh](../automation/scripts/run.sh) が正本です。
 
-## 実際のフェーズ
+> **`make phase2` と、それを含む `make all` は、既存の VM と Terraform の状態を削除して作り直します。**
+> 通常の更新や、再起動後の復旧には使いません（復旧は [日常運用](operations.md#ホストを再起動したあと)）。
 
-| コマンド | 実体 | 主な処理 |
+## フェーズ
+
+| コマンド | 実体 | 内容 |
 |---|---|---|
-| `make phase1` / `make vm` | [setup-host.sh](../automation/host-setup/setup-host.sh) | ホストの apt 更新、KVM/libvirt/Docker/CLI 導入、グループ・サービス設定 |
-| `make phase2` / `make k8s` | [clean-and-deploy.sh](../automation/infrastructure/clean-and-deploy.sh) | VM・Terraform 状態の削除、tfvars 生成、Terraform による VM / kubeadm / Flannel 構築 |
-| `make bootstrap` | [platform-deploy.sh](../automation/platform/platform-deploy.sh) | serving CSR の承認・全台TLS検証、ArgoCD 初期導入、ESC token、root Application |
-| `make phase5` / `make verify` | [verify.sh](../automation/scripts/verify.sh) | kubeconfig 取得とクラスタ状態確認 |
+| `make phase1` | [setup-host.sh](../automation/host-setup/setup-host.sh) | ホストに KVM / libvirt / Docker / Terraform / kubectl / Helm を入れ、グループとサービスを設定 |
+| `make phase2` | [clean-and-deploy.sh](../automation/infrastructure/clean-and-deploy.sh) | 名前に `k8s` を含む VM・イメージ・Terraform 状態を削除し、VM、kubeadm クラスタ、Flannel を構築 |
+| `make bootstrap` | [platform-deploy.sh](../automation/platform/platform-deploy.sh) | kubelet 証明書の承認、ArgoCD の初期導入、ESC の token、root Application の適用 |
+| `make phase5` | [verify.sh](../automation/scripts/verify.sh) | kubeconfig を取得してクラスタの状態を確認 |
 
-`make all` はこの順序で実行し、途中の失敗で停止します。`phase1` の別名は `vm` ですが、この段階では VM は作成しません。
-`run.sh` 経由の出力は `automation/run.log` に追記します。
+`make all` は上から順に実行し、失敗したところで止まります。出力は `automation/run.log` に追記されます。
+`phase1` は sudo を使いますが、root では起動できません。一般ユーザーで実行します。
 
-## 事前準備
+## リポジトリの外で用意するもの
 
-1. Ubuntu 24.04 LTS、KVM、sudo を使える一般ユーザー、ネットワーク・ディスク容量を用意します。
-   `setup-host.sh` は root での起動を拒否するため、`sudo make all` ではなく一般ユーザーから実行します。
-2. ローカル設定を作成します。既存の設定を上書きしないでください。
+| 用意するもの | 使われ方 |
+|---|---|
+| Pulumi ESC の環境 `ksera/k8s/secret` と、その access token | すべての Secret の元。token は bootstrap が Secret にする（[Secret 管理](secrets.md)） |
+| Cloudflare の API token | wildcard 証明書の DNS-01 |
+| Tailscale の OAuth クライアント | Operator と subnet router。tailnet 側で Split DNS を `192.168.122.101` に向ける |
+| GitHub の OAuth App | ArgoCD のログイン。callback は `https://argocd.internal.qroksera.com/api/dex/callback` |
+| GitHub の Deploy Key（書き込み可） | Image Updater がこのリポジトリへ digest を書き戻す |
+| NFS の共有 | ホストの `/mnt/k8s-storage/nfs-share`。標準のフェーズは作らない（[setup-storage.sh](../automation/host-setup/setup-storage.sh) はディスクを操作するため、対象を確認して手で実行する） |
 
-   ```bash
-   cp automation/settings.toml.example automation/settings.toml
-   ```
+ESC に入れるキーは [Secret 管理](secrets.md#一覧) を参照してください。
 
-3. SSH ユーザー・鍵・IP、Pulumi token を設定します。`settings.toml` は Git 管理外です。
-   Secret の必要なキーと外部設定は [Secret 管理](secrets.md) と [アクセス経路](access.md) を確認します。
-4. NFS 共有を用意します。標準の phase1 は [setup-storage.sh](../automation/host-setup/setup-storage.sh) を実行しません。
-   この補助スクリプトはディスク操作を含むため、対象デバイスと既存データを確認して必要な場合だけ実行します。
+## 設定ファイル
 
-## 設定の適用範囲
+```bash
+cp automation/settings.toml.example automation/settings.toml
+```
 
-`settings.toml` は全構成を生成する設定ではありません。
-現在の `clean-and-deploy.sh` は `terraform.tfvars` を毎回生成し、ユーザー `k8suser`、IP `.10/.11/.12`、
-`~/.ssh/id_rsa.pub` を使用します。鍵がなければ `~/.ssh/id_rsa` を作成します。
-`settings.toml` の IP や鍵だけを変えても、このフェーズの値は変わりません。
+`settings.toml`（Git 管理外）が効くのは、SSH の接続先、Pulumi の token、upgrade の対象版などスクリプトの動作だけです。
+クラスタの構成はこのファイルからは生成されません。次の値はそれぞれのファイルに固定されています。
 
-初期 Kubernetes 版は [variables.tf](../automation/infrastructure/variables.tf) の `kubernetes_version`、
-既存ノードの更新先は `settings.toml` の `[upgrade].target_version` です。
-ArgoCD の Git URL、DNS、NFS、ESC environment も各マニフェストで固定されています。
-環境を変える場合は各マニフェストと Terraform 変数を同時に更新します。
+- VM の名前・IP・サイズ・Kubernetes の版: [variables.tf](../automation/infrastructure/variables.tf)。
+  `clean-and-deploy.sh` は `terraform.tfvars` を毎回作り直し、ユーザー `k8suser` と `~/.ssh/id_rsa.pub`（なければ生成）を使います。
+- Git の URL、ドメイン、NFS の場所、ESC の環境名: 各マニフェスト。
 
-## 構築手順
+`variables.tf` の `kubernetes_version` は稼働中の版より古いままです。作り直すときは、先に稼働中の版に合わせます。
 
-初回は段階実行すると、phase1 によるグループ変更後に再ログインできます。
+## 手順
 
 ```bash
 make phase1
-# 再ログイン後、libvirt / docker へのアクセスと NFS を確認
-sudo -v
+# いったんログアウトして入り直す（libvirt / docker グループを反映）
 make phase2
 make bootstrap
 make phase5
 ```
 
-`phase2` は名前に `k8s` を含む VM、関連イメージ、Terraform 状態などを削除します。
-PostgreSQL の DB は worker2 の VM ディスク（local-path）にあり、VM と一緒に消えます。
-既存クラスタを再構築する場合は、先に PostgreSQL の手動バックアップの成功を確認し、PV/PVC の対応、オブジェクトのバックアップ、外部認証情報を保全し、
-[PostgreSQL の復旧](shared-postgresql.md#再起動と再構築) を確認してください。
-NFS にファイルが残ることと、新クラスタが正しいデータを再利用できることは別です。
+### bootstrap がすること
 
-Terraform / Ansible / kubectl / Helm は phase1 の通常インストール経路で導入します。
-検証用 CLI は [mise toolchain のセットアップ](reference.md#ローカルtoolchainのセットアップ)で追加できます。
+1. control-plane に SSH して `kubectl get nodes` を確認する。
+2. [kubelet の serving 証明書](nodes.md#kubelet-の-serving-証明書) の CSR を承認し、全ノードの TLS を検証する。失敗したらここで止まる。
+3. [upstream の定義](../manifests/platform/argocd-config/upstream/kustomization.yaml) と同じ版の ArgoCD を入れ、server の起動を待つ。
+4. `external-secrets-system/pulumi-esc-token`（キー `accessToken`）を作る。token は環境変数 `PULUMI_ACCESS_TOKEN` か `settings.toml` から読む。
+5. [bootstrap-root](../manifests/bootstrap/app-of-apps.yaml) を適用する。
 
-## Bootstrap が行うこと
-
-1. control-plane に SSH 接続し `kubectl get nodes` を確認。
-2. [kubelet serving 証明書](kubelet-metrics.md)の未承認 CSR を承認し、全ノードのTLS検証を待つ。
-   失敗時は以降の初期導入を停止する。更新時（約1年ごと）は管理者が手動で承認する。
-3. [ArgoCD upstream](../manifests/platform/argocd-config/upstream/kustomization.yaml) から固定 tag を読み、
-   本体と ApplicationSet CRD を初期適用。server の起動を待ち、insecure 設定と bootstrap 用 Ingress を適用。
-4. `external-secrets-system/pulumi-esc-token`（キー `accessToken`）と provider 用 RBAC を作成。
-5. [bootstrap-root](../manifests/bootstrap/app-of-apps.yaml) を適用。
-
-トークンは `PULUMI_ACCESS_TOKEN` または設定ローダーから取得します。
-bootstrap の SSH/SCP は既定の SSH 設定を使い、verify と異なり `K8S_SSH_KEY` を `-i` に渡しません。
-必要なら SSH config / agent を用意します。
-
-証明書準備にはローカルの SSH/SCP、control-plane の Python 3 / kubectl（内蔵Kustomize）が必要。
-phase1 のホスト準備と標準Ubuntuノードで揃う。ノード台帳は [kubelet-serving-nodes.json](../automation/scripts/kubelet-serving-nodes.json) を参照。
-
-bootstrap 終了は全 child Application の収束完了ではありません。
-CRD、ESO、証明書、DB の復元、アプリ起動を別途確認します。
-特に Harbor は復元済みマーカーを要求するため、空の DB を作成しただけでは起動しません。
-初回の空環境でも現在のデータ初期化・復元方針を決める必要があります。
-初回以降の ArgoCD 更新は `argocd-core` が管理します。
-
-## 検証時の副作用と限界
-
-`make phase5` は既定で `k8suser@192.168.122.10` から `/etc/kubernetes/admin.conf` を取得し、
-既存 kubeconfig をバックアップして書き換えます。`KUBECONFIG` 指定時は最初のパス、未指定時は `~/.kube/config` が対象です。
-また root / platform Application の hard refresh を試みます。
+ここから先は ArgoCD が [sync wave の順](gitops.md#application-一覧) に全 Application を入れます。
+bootstrap の終了は、全体の収束を意味しません。Gateway の準備ができるまで ArgoCD の画面を見るには port-forward を使います。
 
 ```bash
-# kubeconfig の保存先を明示する例
-KUBECONFIG="$HOME/.kube/k8s-myhome" make phase5
+ssh -L 127.0.0.1:8080:127.0.0.1:8080 ksera@192.168.10.11 \
+  'kubectl -n argocd port-forward --address=127.0.0.1 svc/argocd-server 8080:80'
 ```
 
-Node / Pod / Application / ESO の状態を確認しますが、Namespace や Gateway / LoadBalancer の一部欠落は警告のみです。
-`CI=true`、`CI=1`、`VERIFY_SKIP_SSH=true` では SSH と kubeconfig 更新を含むライブ検証全体をスキップし、成功終了します。
-静的検証と使い捨て VM の実構築テストは [検証・参照](reference.md) にまとめています。
+### phase5 の副作用
 
-## API Server のセキュリティ設定
+`make phase5` は control-plane の `/etc/kubernetes/admin.conf` を取得し、手元の kubeconfig をバックアップしてから上書きします
+（`KUBECONFIG` を指定していればその最初のパス、なければ `~/.kube/config`）。
+`CI=true` または `VERIFY_SKIP_SSH=true` では何もせず成功で終わります。
 
-新規構築では Secret 保存時暗号化と Metadata 監査を有効にします。既存クラスタの移行、鍵の保管、検証は
-[API Server セキュリティ](apiserver-security.md) を参照してください。
+## 作り直すときの順序
+
+作り直すと、VM のディスクにあるもの（PostgreSQL、Loki、Grafana、Alloy のデータ）は消えます。NFS 上のデータは残ります。
+
+**作り直す前に**
+
+1. PostgreSQL の手動バックアップを実行し、成功を確認する（[バックアップ](postgresql.md#バックアップ)）。dump は NFS に残ります。
+2. API サーバーの暗号化鍵は作り直されるため、古い etcd snapshot を使う予定があるなら鍵を退避する（[暗号化](nodes.md#secret-の暗号化と監査ログ)）。
+
+**作り直したあと**
+
+1. ESO が Ready になり、ExternalSecret が Secret を作るのを待つ。
+2. 空の PostgreSQL が起動したら、dump を復元する（[復元](postgresql.md#復元)）。
+   Harbor は DB に復元済みの印があるまで起動しません。印は dump に含まれています。
+3. NFS の PV は新しい名前で作られます。Harbor のイメージ、RustFS のオブジェクト、録画の spool は、
+   古いディレクトリ（`<namespace>-<pvc>-pvc-<uid>`）から新しいディレクトリへ移します（[ストレージ](storage.md#nfs-のディレクトリ)）。
+4. Harbor を作り直した場合は、project `sandbox`、Robot Account、保持ルールを設定し直す（[Harbor](storage.md#harbor)）。
+   Harbor が空の間はアプリのイメージを pull できないため、各アプリの CI を再実行してイメージを公開します。
+5. アプリの動作は [日常運用](operations.md#日々の確認) の項目で確認する。
+
+Harbor のデータを引き継がない場合、アプリは「CI の再実行 → Image Updater の書き戻し → 同期」で戻ります。

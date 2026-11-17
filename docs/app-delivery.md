@@ -1,29 +1,21 @@
-# アプリの追加と配布
+# アプリ配布
 
-アプリ実体と公開経路（HTTPRoute）は [apps/](../manifests/apps/) に置きます。Gateway・DNS・基盤の経路は [access/](../manifests/access/) です。
-Application の namespace と source は [一覧](diagrams/app-of-apps-sync-wave.md) が参照先です。
-現在のユーザーアプリは api-hub、blog、cooklog、hitomi、hitomi-pdf、hitomi-upload-viewer、home-camera、rsshub、nature-remo。
-すべて `sandbox` に配置します。Selenium は独立アプリではなく、hitomi の収集 Job 内でのみ起動します。
-起動待ち・終了・切替手順は [Selenium の非常駐化](hitomi-selenium-sidecar.md) を参照してください。
-Nature Remo の初回配布と手動ビルドは [ローカル操作アプリの手順](nature-remo.md) を参照してください。
+アプリのリポジトリに push してから、クラスタの Pod が入れ替わるまでの流れです。
 
-## 新規追加
+```mermaid
+flowchart LR
+  Push[アプリの既定ブランチへ push] --> CI[GitHub Actions: build / smoke / scan]
+  CI -->|Tailscale| Harbor[Harbor: sandbox/<image>:latest]
+  Harbor --> IU[Image Updater: digest を検知]
+  IU -->|commit| Git[このリポジトリの kustomization.yaml]
+  Git --> Argo[ArgoCD が同期] --> Pod[Pod の入れ替え]
+```
 
-1. `manifests/apps/<app>/` に workload / Service と `kustomization.yaml` を作成します。
-2. `bootstrap/applications/user-apps/<app>-app.yaml` を作成し、同ディレクトリの Kustomization に登録します。
-   既存例の Project `apps`、Git revision `HEAD`、wave 12 を基準にします。
-3. 必要な Namespace / AppProject destination、共有設定、ExternalSecret、PVC を用意します。
-4. hostname を公開する場合は [access 手順](access.md#新しく到達可能な-api-を追加する手順) に沿って
-   Route / DNS を追加します。
-5. [静的検証](reference.md) を実行し、Git 反映後に Application と実際のサービス操作を確認します。
+push からの所要時間は、CI の時間に加えて、Image Updater の確認間隔（2 分）と ArgoCD の確認間隔（5 分）の分だけかかります。
 
-イメージはベース YAML だけでなく、Kustomize の `images` で上書きされる場合があります。
-更新対象は `kustomize build manifests/apps/<app>` の最終出力で確認します。
+## CI: build と公開
 
-## sandbox 配布
-
-build と公開は共通 workflow [publish-harbor.yml](../.github/workflows/publish-harbor.yml) が行い、
-各アプリリポジトリは自前のテスト job と、その呼び出しだけを持ちます。
+各アプリのリポジトリは、自分のテストの job と、共通 workflow の呼び出しだけを持ちます。
 
 ```yaml
   publish:
@@ -39,118 +31,104 @@ build と公開は共通 workflow [publish-harbor.yml](../.github/workflows/publ
       # smoke_command: bash scripts/smoke.sh my-app:ci
 ```
 
-同じ GitHub-hosted runner で buildx による build（GitHub Actions cache、scope は `image_name`）→ smoke → Trivy（報告のみ）→
-Tailscale OIDC 接続 → Harbor へ push を行います。Docker イメージの artifact 転送、クラスタ内 runner、Kubernetes Secret のマウントは不要です。
-`build-<run-id>-<attempt>-<commit-sha>` タグを公開し、default branch HEAD と一致する版だけ `latest` へ昇格します。
-両タグの image config digest がローカルのビルド結果と一致することも検証します。公開処理は repo / ref / image 単位で直列化します。
-PR・手動実行は build と scan までで、公開は既定ブランチ（`github.event.repository.default_branch`）への push に限定します。
-OIDC token の `sub` は呼び出し側の repo / ref になるため、Tailscale の trust credential は従来の条件のままで使えます。
-共通 workflow は `@main` で参照するため、変更は全アプリの次回 publish に効きます。変更時は1リポジトリで公開を確認してから広げます。
+[publish-harbor.yml](../.github/workflows/publish-harbor.yml) がすること:
 
-Rust のリポジトリは [rust-verify.yml](../.github/workflows/rust-verify.yml) も呼びます。
-リポジトリの `rust-toolchain.toml` の版で fmt・clippy・cargo-audit を実行し、1つでも指摘があれば失敗します。
-各リポジトリの publish は `verify` の成功を待つため、指摘がある間は公開されません。
-ビルドに含まれない crate の指摘（sqlx の未使用 backend など）は、理由を添えて各リポジトリの `.cargo/audit.toml` で無視します。
-静的リンクの Rust バイナリは Trivy が依存関係を読めないため、依存の脆弱性は cargo-audit で確認します。
-[workflow 生成スクリプト](../automation/scripts/github-actions/add-runner.sh) はこの呼び出し側の雛形を生成します（`STRATEGY=latest` のみ）。
+1. buildx で build する（GitHub Actions のキャッシュを使用）。
+2. smoke テストと Trivy のスキャンを実行する（Trivy は報告だけで、失敗にはしません）。
+3. 既定ブランチへの push のときだけ、Tailscale に OIDC で接続して Harbor に push する。PR と手動実行は 2 まで。
+4. `build-<run-id>-<attempt>-<sha>` タグで push し、その commit が既定ブランチの先頭と一致するときだけ `latest` を付け替える。
+5. push したイメージの digest が、build したものと一致することを確かめる。
 
-[Image Updater](../manifests/platform/ci-cd/image-updater/sandbox-images.yaml) が約2分間隔で
-許可した9アプリの `latest` の digest を検知し、このリポジトリの `main` にある各
-`manifests/apps/<app>/kustomization.yaml` に書き戻します。ArgoCD Application の revision は `HEAD` のままです。
-書き戻しの commit message には `[skip ci]` を付け、digest だけの変更で検証 workflow を起動しません。
-Harbor への接続もマニフェスト内のイメージ名も `harbor.internal.qroksera.com/sandbox/...` を使います。
-更新方式は公式の [Git write-back](https://argocd-image-updater.readthedocs.io/en/stable/basics/update-methods/) と
-[digest strategy](https://argocd-image-updater.readthedocs.io/en/stable/basics/update-strategies/#digest---update-to-the-most-recent-pushed-version-of-a-tag) を利用します。
+Rust のリポジトリは [rust-verify.yml](../.github/workflows/rust-verify.yml) も呼びます。fmt、clippy、cargo-audit のどれかに指摘があると失敗し、
+publish はその成功を待ちます。ビルドに含まれない crate への指摘は、理由を添えて各リポジトリの `.cargo/audit.toml` で除外します。
 
-- Deployment: Podテンプレートのdigestを更新します。api-hubはAPI/配送の1 replica/Recreateで短い受付停止があり、他のworkloadは各更新方式に従います。
-- StatefulSet: cameraのrecorder/uploaderを同じdigestで更新し、旧Pod終了後に交代します。PVC・manifest・固定object keyは維持します。
-- CronJob: Job テンプレートを更新し、次回作成の Job から新イメージになります。実行中の Job は継続します。
-  実行中 Pod がない場合も検知できるよう `forceUpdate: true` を指定しています。
-- 同じ Application 内の同じイメージを使う Deployment / CronJob は Kustomize の `images` で一緒に更新されます。
-  別 Application 間の更新・同期は独立しており、同時切替は保証しません。
+共通 workflow は `@main` で参照されるため、変更は全アプリの次の publish に効きます。変えたら、まず 1 つのリポジトリで公開まで確認します。
 
-Git に digest が残るため、履歴から配布イメージを特定できます。
-ロールバックはアプリ側の revert と再公開、または Harbor で `latest` タグを正常版へ付け替えて行います。
-保持ルールと手順は [Harbor の保持と GC](harbor-retention.md) を参照してください。
+### CI の認証情報
 
-## 既存 CI からの移行
-
-生成した workflow を各アプリリポジトリへ commit します。独自のテストは呼び出し側の job として残し、
-複数イメージは `publish` job を image ごとに並べるか matrix で呼びます。
-既存 workflow と重複して同じイメージを公開しないように統合します。
-
-CI には Harbor の `sandbox` project の pull / push 専用 Robot Account を使います。
-Image Updater の pull-only Robot Account と、このリポジトリへの書き込み用 Deploy Key は従来どおり別管理です。
-`harbor.image_updater_username` / `harbor.image_updater_password` /
-`image_updater.git_ssh_private_key` は Pulumi ESC → ExternalSecret 経由で同期します。
-CI の資格情報は GitHub Secrets に登録します。値を Git に保存しません。
-
-反映後は CI の push・digest 検証・latest 更新、
-Image Updater の Git 書き戻し、ArgoCD 同期、実際の imageID を確認します。
-CronJob は次回 Job の image / imageID を確認します。
-
-## 新規 repo の workflow と Secrets を準備する
-
-作成済みの GitHub repo が対象です。必要なツールは Bash、Python 3、認証済みの GitHub CLI (`gh auth login`) です。
-スクリプトが GitHub API から public / private と既定ブランチを取得します。main / master を推測しません。
-API の読み取りと、private repo では Actions Secrets の書き込み権限が必要です。
-
-```bash
-make add-runner REPO=my-app
-# 別の所有者を指定する場合
-make add-runner REPO=owner/my-app
-# settings.toml の arc_repositories から一括生成する場合
-make add-runners-all
-```
-
-個別生成の既定所有者は `home-lab-ksera` です。`GITHUB_USERNAME` 環境変数で変更できます。
-Make 経由の一括生成は `settings.toml` の `github.username` を読み込みます。
-旧 min/max 引数と `arc_repositories` の min/max は互換用に受け付けますが使用しません。
-
-- public: 既存の Organization Secrets を利用します。対象 repo が Secrets の公開範囲に含まれることを確認してください。
-- private: 以下の4項目を環境変数から受け取り、未指定の項目は端末で非表示入力します。
-  4項目が揃ってから `gh secret set` の標準入力で登録します。同名の repository Secrets は更新されます。
-
-| Secret | 値 |
+| Secret | 内容 |
 |---|---|
-| `TS_OAUTH_CLIENT_ID` | Tailscale trust credential の Client ID |
-| `TS_AUDIENCE` | 同 credential の Audience |
-| `HARBOR_USERNAME` | Harbor Robot Account のユーザー名 |
-| `HARBOR_PASSWORD` | Harbor Robot Account のパスワード |
+| `TS_OAUTH_CLIENT_ID`、`TS_AUDIENCE` | Tailscale の trust credential（GitHub の OIDC を信頼し、`tag:ci-harbor` の一時端末を作る） |
+| `HARBOR_USERNAME`、`HARBOR_PASSWORD` | Harbor の Robot Account（`sandbox` の push / pull） |
 
-端末以外から実行する場合は、4項目を環境変数で注入してください。
-秘密値をコマンド引数や Make 変数に直接書かず、Secret Manager や非表示入力から export します。
-一括生成も同じ環境変数を各 private repo に使用できます。
-repo ごとに資格情報を分ける場合は個別に実行してください。
+public のリポジトリは Organization の Secret を使います。private のリポジトリには同じ 4 つを repository の Secret として登録します。
+
+Tailscale の trust credential は、対象の Organization とリポジトリ、`push` イベント、ブランチ（`refs/heads/ma*`）を条件にしています。
+このパターンは `main` と `master` のほか、`ma` で始まる他のブランチにも一致します。
+CI の一時端末が届くのは Harbor（共有 Gateway の 443）だけです（[Tailnet](access.md#tailnet)）。
+
+## Image Updater: digest の書き戻し
+
+[sandbox-images.yaml](../manifests/platform/ci-cd/image-updater/sandbox-images.yaml) に登録した 9 つのイメージについて、
+`latest` の digest が変わると、このリポジトリの `manifests/apps/<app>/kustomization.yaml` の `images` を書き換えて `main` に commit します。
+
+- commit は Deploy Key で直接 push され、`[skip ci]` が付きます。
+- マニフェストのイメージ名は `harbor.internal.qroksera.com/sandbox/<image>:latest` のままで、Kustomize が digest を付けます。
+  実際に動くイメージは `kustomize build manifests/apps/<app>` の出力で確認します。
+- digest が Git に残るため、いつ何を配ったかは履歴で分かります。
+
+入れ替わり方は workload の種類で違います。
+
+| 種類 | 入れ替わり |
+|---|---|
+| Deployment | すぐ。Recreate のもの（api-hub、media-worker、hitomi-outbox など）は短く止まる |
+| StatefulSet（home-camera） | 古い Pod が止まってから新しい Pod。録画中なら書きかけのファイルが残ることがある |
+| CronJob | 次に作られる Job から。実行中の Job は古いイメージのまま |
+
+同じ Application の中の workload は一緒に更新されます。別の Application との同時切り替えは保証されません。
+API を変えるときは、古い呼び出し側でも動く形で先に配ります。
+
+## イメージを戻す
+
+`kustomization.yaml` の digest を revert しても、Image Updater が `latest` の digest に書き戻します。戻すには `latest` 自体を変えます。
+
+1. **通常**: アプリのリポジトリで原因の commit を revert して push する。CI が新しい `latest` を公開します。
+2. **急ぐとき**: Harbor の UI で、`latest` タグを今の artifact から外し、戻したい artifact に付ける。
+   戻せるのは Harbor に残っている直近 5 件までです（[Harbor](storage.md#harbor)）。
+
+## アプリを追加する
+
+1. **マニフェスト**: `manifests/apps/<app>/` に `manifest.yaml`、`kustomization.yaml`（`images` に `newTag: latest` のエントリ）、
+   URL が要るなら `access.yaml` を作る。既存のアプリを写すのが早いです。
+   - イメージは digest 固定になるので、`imagePullPolicy: IfNotPresent` を明示します（`:latest` は既定が Always のため）。
+   - `resources` の requests と memory の limit を書きます。
+2. **Application**: `manifests/bootstrap/applications/user-apps/<app>-app.yaml` を作り（Project `apps`、wave 12、`targetRevision: HEAD`）、
+   同じディレクトリの `kustomization.yaml` に足す。
+3. **通信**: `sandbox` は default-deny です。必要な [NetworkPolicy](network-policy.md#許可を足す) を足す。
+4. **Secret / DB**: 必要なら [ExternalSecret](secrets.md)、[DB](postgresql.md#アプリから使う) を用意する。
+5. **URL**: [URL を足す](access.md#url-を足す) の手順で Route と DNS を足す。
+6. **自動更新**: `sandbox-images.yaml` に Application 名とイメージを登録する。登録しないと digest は更新されません。
+7. **CI**: アプリのリポジトリに呼び出し側の workflow を置く（下記）。
+8. [GitOps の一覧](gitops.md#application-一覧) と [アプリ一覧](apps.md) を直す。
+
+最初のイメージが Harbor にない状態で 1〜2 をマージすると、Pod は ImagePullBackOff になります。先に CI でイメージを公開しておきます。
+
+### 呼び出し側の workflow を作る
 
 ```bash
-# 4項目が環境変数に設定済みの場合
-make add-runner REPO=my-private-app RUNNER_ARGS=--non-interactive
-# 既存の生成ファイルを意図して上書きする場合
-make add-runner REPO=my-app RUNNER_ARGS=--force
+make add-runner REPO=my-app            # 所有者は既定で home-lab-ksera
+make add-runner REPO=owner/my-app
 ```
 
-非対話実行で必要な値が不足していれば、Secrets を書き込む前に失敗します。
-途中の登録で API エラーになった場合は生成ファイルを更新せずに終了しますが、先に登録済みの Secrets は残ります。
-原因を修正して同じ値で再実行してください。
+`gh` で認証済みである必要があります。スクリプトは GitHub の API でリポジトリの公開範囲と既定ブランチを調べ、次を行います。
 
-**Make 経由の出力先は `automation/scripts/github-actions/.github/workflows/build-and-push-<repo>.yml`** です。
-生成物は Git 非追跡です。内容を確認してアプリリポジトリの `.github/workflows/` に配置し、commit / push してください。
-`WORKFLOW_DIR` 環境変数で出力ディレクトリを変更できます。既存ファイルは `--force` 指定時のみ上書きします。
-イメージ名はリポジトリ名を小文字化し、ルートの Dockerfile からビルドします。
+- `automation/scripts/github-actions/.github/workflows/build-and-push-<repo>.yml` に workflow を生成する（Git 管理外）。
+  中身を確認し、テストの job を足して、アプリのリポジトリの `.github/workflows/` に commit します。
+- private のリポジトリなら、上の 4 つの Secret を登録する。値は環境変数から読み、なければ端末で非表示入力します。
+  値をコマンドの引数に書きません。
 
-Tailscale 側では次の前提が必要です。
+```bash
+make add-runner REPO=my-app RUNNER_ARGS=--force             # 生成済みのファイルを上書き
+make add-runner REPO=my-app RUNNER_ARGS=--non-interactive   # 4 つの値が環境変数にあるとき
+```
 
-- GitHub issuer の trust credential が対象 Organization / repo と `push`、対象の既定ブランチを許可していること。
-  現在の共有 credential は `ref: refs/heads/ma*` で main / master を許可しています。
-  このパターンは maintenance など他の ma 始まりのブランチも許可します。
-- credential に auth key 作成スコープと `tag:ci-harbor` が設定されていること。
-- subnet route `192.168.122.0/24` が承認済みで、
-  `tag:ci-harbor` → `192.168.122.100:443` が許可されていること。
+イメージ名はリポジトリ名を小文字にしたもので、ルートの Dockerfile を build する前提です。違う場合は生成後に `with:` を直します。
+`make add-runners-all` は `settings.toml` の `arc_repositories` にあるリポジトリをまとめて処理します。
 
-生成 workflow は `harbor.internal.qroksera.com` を上記 IP に解決し、TLS 証明書を検証して接続します。
-Tailscale Action は SHA を固定し、終了時に一時端末をログアウトします。Docker 認証ファイルも終了時に削除します。
+## 確認
 
-新規アプリを自動更新するには [sandbox-images.yaml](../manifests/platform/ci-cd/image-updater/sandbox-images.yaml) に
-Application 名とイメージを登録し、対象 Kustomization に `images` エントリを追加します。
-workflow 生成だけでは自動配布対象にしません。
+```bash
+kubectl -n argocd logs deployment/argocd-image-updater-controller --tail=50
+kubectl -n sandbox get pods -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.containerStatuses[*].imageID}{"\n"}{end}'
+git log --oneline --grep='automatic update' | head
+```

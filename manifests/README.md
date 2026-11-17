@@ -1,19 +1,15 @@
 # Kubernetes マニフェスト
 
-配置と所有の正本は [配置規約](../docs/manifests.md)、Application ごとの source は
-[App-of-Apps 一覧](../docs/diagrams/app-of-apps-sync-wave.md) を参照してください。
-
-初回は [bootstrap](../docs/bootstrap.md) で ArgoCD と root Application を導入します。
-通常の変更は Git に反映し、各 child Application が同期します。
-ディレクトリの存在だけで管理対象を判断せず、Application の source と Kustomization の登録を確認します。
+配置の規約と Application の一覧は [GitOps](../docs/gitops.md) を参照してください。
+管理対象かどうかは、ディレクトリの有無ではなく Application の source から判断します。
 
 ```bash
-# リポジトリのルートで、適用せず描画を確認
+# リポジトリのルートで、適用せずに描画を確認
 kustomize build manifests/core
 kustomize build --enable-helm manifests/platform/harbor
 ```
 
-- [アプリ追加](../docs/app-delivery.md)
-- [公開経路](../docs/access.md)
+- [アプリの追加と配布](../docs/app-delivery.md)
+- [アクセス経路](../docs/access.md)
 - [Secret 管理](../docs/secrets.md)
-- [検証](../docs/reference.md)
+- [検証と CI](../docs/validation.md)

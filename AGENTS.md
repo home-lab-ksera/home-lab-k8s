@@ -8,10 +8,9 @@
 
 ## 重要パス
 - 現行 bootstrap 入口: `make bootstrap`（実体: `automation/scripts/run.sh bootstrap` -> `automation/platform/platform-deploy.sh`）。root `Application` は `manifests/bootstrap/app-of-apps.yaml`。
-- 配置規約: `docs/manifests.md`
-- App-of-Apps / Sync Wave 図: `docs/diagrams/app-of-apps-sync-wave.md`
-- GitOps 運用: `docs/gitops.md`
-- bootstrap / 検証: `docs/bootstrap.md`
+- ドキュメント入口: `docs/README.md`（現在の構成と手順だけを書く。経緯は書かない）
+- 配置規約・Application 一覧・Sync Wave: `docs/gitops.md`
+- bootstrap: `docs/bootstrap.md`、検証: `docs/validation.md`
 - ArgoCD 設定: `manifests/platform/argocd-config/`
 - 現行ユーザーアプリ定義: `manifests/bootstrap/applications/user-apps/*.yaml`
 - 現行実アプリ: `manifests/apps/<app>/`
@@ -24,7 +23,7 @@
 - cert-manager 系リソースは `manifests/infrastructure/security/cert-manager/` に集約し、Gateway 配下は Gateway/HTTPRoute/TLSPolicy などルーティング系のみ置く。
 - ExternalSecret 定義は `manifests/platform/secrets/external-secrets/` に集約する。
 - `.sh` からの `kubectl apply` はブートストラップ最小限のみ。最終状態は ArgoCD 管理に戻す。
-- `app-of-apps.yaml` や sync wave を変えたら `docs/diagrams/app-of-apps-sync-wave.md` も更新する。
+- `app-of-apps.yaml` や sync wave を変えたら `docs/gitops.md` の Application 一覧も更新する。
 
 ## 実行コマンド
 - 初期設定: `cp automation/settings.toml.example automation/settings.toml`

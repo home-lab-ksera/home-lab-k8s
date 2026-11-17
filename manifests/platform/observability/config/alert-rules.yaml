@@ -52,7 +52,7 @@ groups:
     interval: 1m
     rules:
       # ホストは VM 2台の合計 13GiB を 15GiB の実メモリで支える。余裕がなくなると qemu が swap へ出て
-      # control-plane の応答が遅れる（docs/host-capacity.md）。
+      # control-plane の応答が遅れる（docs/nodes.md）。
       - alert: HostMetricsUnavailable
         expr: up{job="host-node"} == 0 or absent(up{job="host-node"})
         for: 10m
@@ -262,7 +262,7 @@ groups:
         annotations:
           summary: "NetworkPolicy controller の metrics を収集できません"
       # serving CSR は自動承認しない。更新時期（有効期間1年の残り約2〜3割）になると kubelet が CSR を出し続けるため、
-      # 未承認が残っていたら手動で承認する（docs/kubelet-metrics.md）。期限切れ後は kubelet の scrape 失敗で検知する。
+      # 未承認が残っていたら手動で承認する（docs/nodes.md）。期限切れ後は kubelet の scrape 失敗で検知する。
       - alert: KubeletServingCSRPending
         expr: >-
           max by (signer_name) (kube_certificatesigningrequest_condition{signer_name="kubernetes.io/kubelet-serving",condition="pending"}) > 0
