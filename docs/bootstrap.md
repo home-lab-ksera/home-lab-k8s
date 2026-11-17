@@ -43,7 +43,7 @@ cp automation/settings.toml.example automation/settings.toml
   `clean-and-deploy.sh` は `terraform.tfvars` を毎回作り直し、ユーザー `k8suser` と `~/.ssh/id_rsa.pub`（なければ生成）を使います。
 - Git の URL、ドメイン、NFS の場所、ESC の環境名: 各マニフェスト。
 
-`variables.tf` の `kubernetes_version` は稼働中の版より古いままです。作り直すときは、先に稼働中の版に合わせます。
+`variables.tf` の `kubernetes_version` は稼働中の版に合わせてあります。upgrade したら、ここも同じ版に直します（[更新](updates.md#kubernetes)）。
 
 ## 手順
 

@@ -10,10 +10,10 @@ ssh_key_path = "/home/k8suser/.ssh/id_ed25519"
 
 [upgrade]
 # Kubernetes upgrade 設定
-# 例: "v1.33.7"
+# 例: "v1.36.1"
 target_version = ""
 # 未指定時は target_version から minor channel を自動推定します。
-# 例: "v1.33"
+# 例: "v1.36"
 apt_channel = ""
 gate_retries = 3
 gate_retry_wait_seconds = 30

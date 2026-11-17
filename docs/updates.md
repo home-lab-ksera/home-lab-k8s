@@ -122,7 +122,8 @@ make upgrade-postcheck
 - 更新中、API サーバーは短く止まります。worker の更新中は、そのノードの Pod が止まります。
 - kubeadm の upgrade は control-plane の証明書も更新します。
 - 終わったら [日々の確認](operations.md#日々の確認) に加えて、URL、Harbor の pull、DB を使うアプリを確かめます。
-- [variables.tf](../automation/infrastructure/variables.tf) の `kubernetes_version` は自動では変わりません。作り直しに備えるなら合わせておきます。
+- 終わったら、[variables.tf](../automation/infrastructure/variables.tf) の `kubernetes_version` を新しい版に直して PR にします。
+  ここが古いままだと、作り直したときに古い版でクラスタが立ち上がります。
 
 ## containerd
 
