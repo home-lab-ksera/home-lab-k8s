@@ -40,7 +40,8 @@ sudo apt install -y \
     virtinst \
     virt-manager \
     virt-viewer \
-    cpu-checker
+    cpu-checker \
+    genisoimage  # Terraform の libvirt provider が cloud-init の ISO を作るのに mkisofs を使う
 
 # 3. Install development and automation tools
 log_status "Installing development and automation tools..."
