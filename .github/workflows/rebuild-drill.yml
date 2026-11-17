@@ -1,0 +1,66 @@
+name: Rebuild Drill (from zero)
+
+# 使い捨て runner で phase1 → phase2 → bootstrap を通しで実行し、GitOps が収束するかを確かめる。
+# 本番の Secret は渡さない（docs/bootstrap.md の「再構築訓練」）。
+on:
+  schedule:
+    # 日曜 05:00 JST
+    - cron: "0 20 * * 6"
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - .github/workflows/rebuild-drill.yml
+      - automation/scripts/ci/rebuild-drill.sh
+      - automation/scripts/run.sh
+      - automation/host-setup/setup-host.sh
+      - automation/infrastructure/**
+      - automation/platform/**
+      - automation/scripts/kubelet-serving-certificates.sh
+      - kubernetes-version.txt
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rebuild-drill-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      # runner（16GiB）に収まるよう VM のメモリだけを小さくする。台数・IP・vCPU は本番と同じ。
+      TF_VAR_control_plane_memory: "4096"
+      TF_VAR_workers: '{"k8s-worker2":{"ip":"192.168.122.12","memory":7168,"vcpu":4}}'
+    steps:
+      - uses: actions/checkout@v6
+      - name: Check runner capacity
+        run: bash automation/scripts/ci/rebuild-drill.sh preflight
+      - name: Prepare what the real host has outside the phases (NFS)
+        run: bash automation/scripts/ci/rebuild-drill.sh runner-prep
+      - name: "Phase 1: host setup"
+        timeout-minutes: 30
+        run: bash automation/scripts/ci/rebuild-drill.sh phase1
+      - name: "Phase 2: VMs and kubeadm"
+        timeout-minutes: 40
+        run: bash automation/scripts/ci/rebuild-drill.sh phase2
+      - name: "Bootstrap: ArgoCD and root Application"
+        timeout-minutes: 15
+        run: bash automation/scripts/ci/rebuild-drill.sh bootstrap
+      - name: Wait for GitOps to converge
+        timeout-minutes: 50
+        run: bash automation/scripts/ci/rebuild-drill.sh converge
+      - name: Collect diagnostics (no keys, tokens or Terraform state)
+        if: always()
+        timeout-minutes: 5
+        run: bash automation/scripts/ci/rebuild-drill.sh collect
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: rebuild-drill-diagnostics
+          path: ${{ runner.temp }}/rebuild-drill/
+          retention-days: 14
+          if-no-files-found: warn
