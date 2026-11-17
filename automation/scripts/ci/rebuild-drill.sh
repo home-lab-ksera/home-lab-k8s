@@ -74,6 +74,7 @@ case "${1:-}" in
     echo '/mnt/k8s-storage/nfs-share 192.168.122.0/24(rw,sync,no_subtree_check,no_root_squash)' | sudo tee /etc/exports
     sudo systemctl restart nfs-kernel-server
     sudo exportfs -v
+    sudo ss -ltn | grep -q ':2049 ' || { echo '::error::NFS サーバーが 2049 番で待ち受けていません' >&2; sudo systemctl status nfs-server --no-pager || true; exit 1; }
     # 2. Ubuntu 24.04 runner の virt-aa-helper は backing image の許可を作らないことがある。
     #    AppArmor は有効のまま、訓練の VM イメージだけを許可する。
     sudo mkdir -p /etc/apparmor.d/abstractions/libvirt-qemu.d

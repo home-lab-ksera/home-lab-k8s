@@ -39,11 +39,12 @@ jobs:
       - uses: actions/checkout@v6
       - name: Check runner capacity
         run: bash automation/scripts/ci/rebuild-drill.sh preflight
-      - name: Prepare what the real host has outside the phases (NFS)
-        run: bash automation/scripts/ci/rebuild-drill.sh runner-prep
       - name: "Phase 1: host setup"
         timeout-minutes: 30
         run: bash automation/scripts/ci/rebuild-drill.sh phase1
+      # phase1 の apt upgrade がサービスを再起動するため、その後に用意する。
+      - name: Prepare what the real host has outside the phases (NFS)
+        run: bash automation/scripts/ci/rebuild-drill.sh runner-prep
       - name: "Phase 2: VMs and kubeadm"
         timeout-minutes: 40
         run: bash automation/scripts/ci/rebuild-drill.sh phase2
