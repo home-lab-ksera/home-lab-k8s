@@ -93,6 +93,15 @@ APPARMOR
     sg libvirt -c "\"$ROOT_DIR/automation/scripts/run.sh\" phase2"
     ssh_cp 'kubectl wait --for=condition=Ready nodes --all --timeout=300s && kubectl get nodes -o wide'
     test "$(ssh_cp 'kubectl get nodes --no-headers | wc -l')" -eq 2
+    # NFS に届かないと PVC が全部 Pending になり、原因が分かりにくい。ここで先に確かめる。
+    if ! ssh_cp 'sudo mkdir -p /mnt/nfs-check && sudo mount -v -t nfs 192.168.122.1:/mnt/k8s-storage/nfs-share /mnt/nfs-check && sudo umount /mnt/nfs-check'; then
+      echo '::error::VM から runner の NFS をマウントできません'
+      sudo exportfs -v || true
+      sudo ss -ltnp | grep -E ':(111|2049)\b' || true
+      sudo iptables -S INPUT || true
+      sudo nft list ruleset 2>/dev/null | grep -n -i -E 'chain|drop|reject|virbr' | head -80 || true
+      exit 1
+    fi
     ;;
 
   bootstrap)
