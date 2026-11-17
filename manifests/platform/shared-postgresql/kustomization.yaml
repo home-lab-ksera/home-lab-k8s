@@ -4,6 +4,7 @@ resources:
   - application-config.yaml
   - postgresql.yaml
   - backup.yaml
+  - restore-drill.yaml
   - application-networkpolicy.yaml
 configMapGenerator:
   - name: postgresql-init
@@ -11,3 +12,7 @@ configMapGenerator:
     files:
       - 10-roles.sh=scripts/init-roles.sh
       - 20-bootstrap.sql=scripts/bootstrap.sql
+  - name: postgresql-restore-drill
+    namespace: database
+    files:
+      - restore-drill.sh=scripts/restore-drill.sh

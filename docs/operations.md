@@ -30,6 +30,7 @@ kubectl get events -A --sort-by='.lastTimestamp' | tail -20
 | CronJob | 時刻（JST） | 内容 |
 |---|---|---|
 | database / `postgresql-backup` | 毎日 03:00 | DB の dump |
+| database / `postgresql-restore-drill` | 日曜 04:30 | 最新の dump の復元訓練 |
 | observability / `weekly-observability-report` | 月曜 09:00 | 週次レポートを Slack へ |
 | rustfs / `rustfs-scanner-monitor` | 15 分ごと | scanner の状態を metrics に |
 | sandbox / `hitomi-monitor` | 02:55 から 4 時間ごと | 収集 |

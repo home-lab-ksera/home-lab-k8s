@@ -115,6 +115,27 @@ kubectl -n database get jobs
 
 dump のファイルは、ホストの `/mnt/k8s-storage/nfs-share/database-postgresql-backup-pvc-<uid>/` にあります。
 
+## 復元訓練
+
+CronJob [postgresql-restore-drill](../manifests/platform/shared-postgresql/restore-drill.yaml) が毎週日曜 04:30 JST に、
+最新の dump を Pod 内の使い捨て PostgreSQL に戻して確かめます（[スクリプト](../manifests/platform/shared-postgresql/scripts/restore-drill.sh)）。
+本番の DB には接続せず、dump は読み取り専用で使います。
+
+- 失敗とする条件: dump が無い、48 時間より古い、gzip が壊れている、復元で想定外の `ERROR` が出た、
+  dump の `COPY` の行数と復元後の `count(*)` が 1 表でも違う、dump にあるデータベースが無い。
+- 想定内の `ERROR` は、接続中の `postgres` ロールを消せない・作り直せないという 2 つだけです。
+- 失敗は `KubernetesCronJobFailed`、8 日間成功していなければ `PostgreSQLRestoreDrillStale` が通知します。
+- Job のログに、データベースごとの表と行数、復元にかかった秒数が出ます。
+
+手動で実行する:
+
+```bash
+kubectl -n database create job "postgresql-restore-drill-manual-$(date -u +%Y%m%d%H%M%S)" --from=cronjob/postgresql-restore-drill
+kubectl -n database logs -f job/<作った Job の名前>
+```
+
+訓練が確かめるのは「dump を空の PostgreSQL に戻せること」までです。下の手順で使うアプリ側の確認は含みません。
+
 ## 復元
 
 1. DB に書き込むものを止める（api-hub、hitomi-outbox、media-api、media-worker、Harbor。CronJob は suspend）。

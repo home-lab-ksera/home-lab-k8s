@@ -437,6 +437,18 @@ groups:
           namespace: database
         annotations:
           summary: "共通PostgreSQLの日次バックアップが26時間以上成功していません。kubectl -n database get jobs とJobのログを確認してください"
+      # 週次の復元訓練（土曜 19:30 UTC）。失敗そのものは KubernetesCronJobFailed が通知する。
+      # ここでは「訓練が動いていない」状態（成功が8日ない、CronJob が無い）を拾う。
+      - alert: PostgreSQLRestoreDrillStale
+        expr: >-
+          time() - kube_cronjob_status_last_successful_time{namespace="database",cronjob="postgresql-restore-drill"} > 8 * 86400
+          or absent(kube_cronjob_status_last_successful_time{namespace="database",cronjob="postgresql-restore-drill"})
+        for: 30m
+        labels:
+          severity: warning
+          namespace: database
+        annotations:
+          summary: "共通PostgreSQLの復元訓練が8日以上成功していません。kubectl -n database get jobs と postgresql-restore-drill の Job ログを確認してください"
       # RustFS scanner は lifecycle（30日保持）も実行する。停止すると期限切れ削除が止まり容量が増え続ける。
       # 通常は約10分ごとに1周を完了する（2026-11-10 実測）。
       - alert: RustFSScannerStalled

@@ -1,0 +1,72 @@
+# 週次の復元訓練。最新の dump を Pod 内の使い捨て PostgreSQL に戻し、全表の行数が dump と一致するか確かめる。
+# 本番の DB には接続しない（ネットワークも使わない）。dump は読み取り専用で mount する。
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: postgresql-restore-drill
+  namespace: database
+spec:
+  # 日曜 04:30 JST。03:00 の日次バックアップの後に動く。
+  schedule: "30 19 * * 6"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 1800
+      ttlSecondsAfterFinished: 604800
+      template:
+        metadata:
+          labels:
+            app.kubernetes.io/name: postgresql-restore-drill
+        spec:
+          restartPolicy: Never
+          automountServiceAccountToken: false
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 999
+            runAsGroup: 999
+            fsGroup: 999
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+            - name: drill
+              image: postgres:18.6
+              command: [/bin/sh, /scripts/restore-drill.sh]
+              env:
+                - name: BACKUP_DIR
+                  value: /backup
+                - name: WORK_DIR
+                  value: /work
+              resources:
+                requests:
+                  cpu: 50m
+                  memory: 128Mi
+                limits:
+                  cpu: "1"
+                  memory: 512Mi
+              securityContext:
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop: [ALL]
+              volumeMounts:
+                - name: backup
+                  mountPath: /backup
+                  readOnly: true
+                - name: work
+                  mountPath: /work
+                - name: scripts
+                  mountPath: /scripts
+                  readOnly: true
+          volumes:
+            - name: backup
+              persistentVolumeClaim:
+                claimName: postgresql-backup
+                readOnly: true
+            - name: work
+              emptyDir:
+                sizeLimit: 2Gi
+            - name: scripts
+              configMap:
+                name: postgresql-restore-drill
