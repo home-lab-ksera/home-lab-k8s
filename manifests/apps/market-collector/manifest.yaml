@@ -1,0 +1,156 @@
+# 指数の構成銘柄を取り直して DB market の index_memberships と突き合わせ（組み入れ・除外を記録）、
+# 有効な全銘柄の日足（終値・出来高）を Yahoo Finance から取って daily_prices に upsert する。
+# 構成銘柄: S&P500 は英語版 Wikipedia の一覧、日経225 は日経の公開 CSV。
+# 直近 1 か月を毎回取り直すため、失敗した回の分は次の回で埋まる。
+# 構成銘柄が取れない、または 1 銘柄でも価格が取れないと Job が失敗し、KubernetesCronJobFailed が通知する。
+# S&P500 は米国の引け後（JST 07:30、火〜土）。
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: market-collector-sp500
+  namespace: sandbox
+spec:
+  schedule: 30 7 * * 2-6
+  timeZone: Asia/Tokyo
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # 失敗した Job が古い image digest を持ったまま残ると、Image Updater が更新を繰り返し試みる。
+      # 1日で消す（ログは Loki に残る）。
+      ttlSecondsAfterFinished: 86400
+      # 通常は 15分ほど。初回と組み入れ直後は過去 10 年分を取るため長くなる。
+      activeDeadlineSeconds: 3600
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            app: market-collector
+            database.k8s-myhome.local/shared-postgresql: 'true'
+        spec:
+          automountServiceAccountToken: false
+          imagePullSecrets:
+          - name: harbor-registry
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+          - name: collect
+            image: harbor.internal.qroksera.com/sandbox/market-collector:latest
+            imagePullPolicy: IfNotPresent
+            env:
+            - name: MARKET
+              value: sp500
+            - name: PGDATABASE
+              value: market
+            envFrom:
+            - configMapRef:
+                name: application-postgresql
+            - secretRef:
+                name: application-postgresql
+            # DB への接続は 1 本だけ使う。
+            resources:
+              requests:
+                cpu: 10m
+                memory: 32Mi
+              limits:
+                cpu: 300m
+                memory: 256Mi
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            volumeMounts:
+            - name: database-ca
+              mountPath: /etc/postgresql
+              readOnly: true
+          volumes:
+          - name: database-ca
+            secret:
+              secretName: postgresql-ca
+              items:
+              - key: ca.crt
+                path: ca.crt
+          restartPolicy: Never
+---
+# 日経225 は東証の引け後（JST 17:30、月〜金）。
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: market-collector-nikkei225
+  namespace: sandbox
+spec:
+  schedule: 30 17 * * 1-5
+  timeZone: Asia/Tokyo
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # 失敗した Job が古い image digest を持ったまま残ると、Image Updater が更新を繰り返し試みる。
+      # 1日で消す（ログは Loki に残る）。
+      ttlSecondsAfterFinished: 86400
+      # 通常は 7分ほど。初回と組み入れ直後は過去 10 年分を取るため長くなる。
+      activeDeadlineSeconds: 3600
+      backoffLimit: 0
+      template:
+        metadata:
+          labels:
+            app: market-collector
+            database.k8s-myhome.local/shared-postgresql: 'true'
+        spec:
+          automountServiceAccountToken: false
+          imagePullSecrets:
+          - name: harbor-registry
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 65532
+            runAsGroup: 65532
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+          - name: collect
+            image: harbor.internal.qroksera.com/sandbox/market-collector:latest
+            imagePullPolicy: IfNotPresent
+            env:
+            - name: MARKET
+              value: nikkei225
+            - name: PGDATABASE
+              value: market
+            envFrom:
+            - configMapRef:
+                name: application-postgresql
+            - secretRef:
+                name: application-postgresql
+            # DB への接続は 1 本だけ使う。
+            resources:
+              requests:
+                cpu: 10m
+                memory: 32Mi
+              limits:
+                cpu: 300m
+                memory: 256Mi
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
+            volumeMounts:
+            - name: database-ca
+              mountPath: /etc/postgresql
+              readOnly: true
+          volumes:
+          - name: database-ca
+            secret:
+              secretName: postgresql-ca
+              items:
+              - key: ca.crt
+                path: ca.crt
+          restartPolicy: Never

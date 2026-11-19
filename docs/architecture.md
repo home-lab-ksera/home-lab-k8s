@@ -53,7 +53,7 @@ Internet に公開している経路はありません。利用者は LAN また
 | 監視 | VictoriaMetrics、vmalert、Alertmanager、kube-state-metrics、metrics-server、Grafana、Loki、Alloy |
 | 補助 | Reloader（Secret / ConfigMap の変更で Pod を再起動） |
 
-アプリは api-hub、blog、cooklog、hitomi、hitomi-pdf、hitomi-upload-viewer、home-camera、nature-remo、rsshub の 9 つで、
+アプリは api-hub、blog、cooklog、hitomi、hitomi-pdf、hitomi-upload-viewer、home-camera、market-collector、nature-remo、rsshub の 10 個で、
 すべて `sandbox` namespace に置きます。役割は [アプリ一覧](apps.md) を参照してください。
 
 ## Namespace

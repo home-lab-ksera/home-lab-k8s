@@ -67,6 +67,13 @@ spec:
           manifestTargets:
             kustomize:
               name: harbor.internal.qroksera.com/sandbox/home-camera
+    - namePattern: market-collector
+      images:
+        - alias: app
+          imageName: harbor.internal.qroksera.com/sandbox/market-collector:latest
+          manifestTargets:
+            kustomize:
+              name: harbor.internal.qroksera.com/sandbox/market-collector
     - namePattern: nature-remo
       images:
         - alias: app

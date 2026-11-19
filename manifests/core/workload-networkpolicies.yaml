@@ -588,6 +588,33 @@ spec:
     - protocol: TCP
       port: 443
 ---
+# market-collector は構成銘柄の一覧（Wikipedia・日経）と Yahoo Finance の chart API を HTTPS で呼ぶ。
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-market-collector-https
+  namespace: sandbox
+spec:
+  podSelector:
+    matchLabels:
+      app: market-collector
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - ipBlock:
+        cidr: 0.0.0.0/0
+        except:
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+        - 127.0.0.0/8
+        - 169.254.0.0/16
+        - 100.64.0.0/10
+    ports:
+    - protocol: TCP
+      port: 443
+---
 # oci-always-free は OCI の API と Slack の Webhook だけを HTTPS で呼ぶ。
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
