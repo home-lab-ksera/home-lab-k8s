@@ -252,6 +252,8 @@ resource "null_resource" "k8s_control_plane_setup" {
       "sudo modprobe overlay",
       "echo 'br_netfilter' | sudo tee /etc/modules-load.d/k8s.conf",
       "echo 'overlay' | sudo tee -a /etc/modules-load.d/k8s.conf",
+      # SCTP は使わない。コンテナから SCTP 経由でホストの root を取る LPE（nginx2root）への対策。
+      "echo 'install sctp /bin/false' | sudo tee /etc/modprobe.d/disable-sctp.conf",
       "echo 'net.bridge.bridge-nf-call-iptables = 1' | sudo tee /etc/sysctl.d/k8s.conf",
       "echo 'net.bridge.bridge-nf-call-ip6tables = 1' | sudo tee -a /etc/sysctl.d/k8s.conf",
       "echo 'net.ipv4.ip_forward = 1' | sudo tee -a /etc/sysctl.d/k8s.conf",
@@ -410,6 +412,8 @@ resource "null_resource" "k8s_worker_setup" {
       "sudo modprobe overlay",
       "echo 'br_netfilter' | sudo tee /etc/modules-load.d/k8s.conf",
       "echo 'overlay' | sudo tee -a /etc/modules-load.d/k8s.conf",
+      # SCTP は使わない。コンテナから SCTP 経由でホストの root を取る LPE（nginx2root）への対策。
+      "echo 'install sctp /bin/false' | sudo tee /etc/modprobe.d/disable-sctp.conf",
       "echo 'net.bridge.bridge-nf-call-iptables = 1' | sudo tee /etc/sysctl.d/k8s.conf",
       "echo 'net.bridge.bridge-nf-call-ip6tables = 1' | sudo tee -a /etc/sysctl.d/k8s.conf",
       "echo 'net.ipv4.ip_forward = 1' | sudo tee -a /etc/sysctl.d/k8s.conf",

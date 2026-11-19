@@ -75,6 +75,7 @@ VM を縮めるときは、先に全ノードの memory requests の合計が縮
 | worker の kubelet | `/etc/kubernetes/kubelet.conf.d/60-image-gc.conf` | image GC を 70% で開始、60% まで削除 |
 | 全 VM の journald | `/etc/systemd/journald.conf.d/50-size.conf` | 500MB まで |
 | control-plane の API サーバー | `/etc/kubernetes/security/` | Secret の暗号化鍵と監査ポリシー |
+| 全 VM のカーネルモジュール | `/etc/modprobe.d/disable-sctp.conf` | `install sctp /bin/false`。SCTP を使わないため読み込ませない（自動ロードも止まる） |
 
 kubelet の drop-in は `/etc/default/kubelet` の `--config-dir` で読み込みます。
 `/var/lib/kubelet/config.yaml` は kubeadm upgrade で作り直されるため、設定はここに書きません。
