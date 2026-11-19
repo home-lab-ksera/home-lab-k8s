@@ -52,12 +52,14 @@ fi
 log_section "Yamllint"
 require_command yamllint
 
+# 同梱した chart と Gateway API の公式配布 CRD は upstream のまま置くため対象外にする。
 mapfile -t yaml_files < <(
   find \
     "$ROOT_DIR/manifests" \
     "$ROOT_DIR/automation/templates" \
     "$ROOT_DIR/automation/infrastructure" \
     -path '*/charts/*' -prune -o \
+    -path '*/gateway-api/standard-install-*.yaml' -prune -o \
     \( -name '*.yaml' -o -name '*.yml' \) -print
 )
 if ((${#yaml_files[@]})); then
