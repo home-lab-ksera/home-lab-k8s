@@ -11,8 +11,8 @@ spec:
   project: infrastructure
   source:
     repoURL: oci://ghcr.io/nginx/charts/nginx-gateway-fabric
-    # 無関係な Route のパス重複で Policy が拒否される不具合（NGF #4890）の修正版。
-    targetRevision: 2.8.0
+    # nginx 1.31.9 を同梱（nginx2root: CVE-2026-123007 ほかの修正）。Gateway API v1.7.0 が前提。
+    targetRevision: 2.9.0
     chart: nginx-gateway-fabric
     helm:
       values: |
