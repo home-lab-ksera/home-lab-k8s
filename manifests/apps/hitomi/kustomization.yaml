@@ -7,4 +7,4 @@ images:
   - name: harbor.internal.qroksera.com/sandbox/hitomi
     newTag: latest
     newName: harbor.internal.qroksera.com/sandbox/hitomi
-    digest: sha256:ba41779831715115c736f0b460fe5896ca44ba06bd41f86b25a8080fc3715f1a
+    digest: sha256:2f6e89876eb630c329155832123fad17be5f50fe77369fb45b4ad77f63eda1a4
