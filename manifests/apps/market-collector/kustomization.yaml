@@ -7,3 +7,4 @@ images:
   - name: harbor.internal.qroksera.com/sandbox/market-collector
     newTag: latest
     newName: harbor.internal.qroksera.com/sandbox/market-collector
+    digest: sha256:d20ec1a783c0565a12ebadbd10c4dbfd988bd7cc20769b1de7b11c503212642e
