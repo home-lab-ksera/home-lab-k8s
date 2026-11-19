@@ -39,7 +39,7 @@ Flannel は NetworkPolicy を実行しないため、[kube-network-policies](../
 | rsshub | rsshub-redis:6379 |
 | hitomi-monitor、hitomi-pdf-monitor | 共有 Gateway:443（内部の RSSHub URL を使うため） |
 | api-hub、hitomi-monitor、hitomi-pdf-monitor、rsshub | 外部の 80 / 443 |
-| cooklog-slack | 外部の 443 |
+| cooklog-slack、market-collector | 外部の 443 |
 | home-camera-recorder | カメラ `192.168.10.4` の RTSP（TCP 554、UDP 1024-65535。UDP は受信も許可） |
 | nature-remo | Remo 本体 `192.168.10.2:80` |
 | VictoriaMetrics | api-hub:3000、media-api:3000、hitomi-outbox:9090、home-camera-recorder:9090（metrics） |

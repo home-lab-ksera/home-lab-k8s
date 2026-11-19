@@ -11,6 +11,7 @@
 | hitomi-pdf | hitomi-pdf-batch | メディア（PDF・動画）の取得とカタログ | `hitomi-upload-viewer` の `/media/` |
 | hitomi-upload-viewer | hitomi-pdf-batch | カタログの閲覧画面 | `hitomi-upload-viewer` |
 | home-camera | home-camera | カメラの録画と S3 への送信 | なし |
+| market-collector | market-collector | S&P500・日経225 の全構成銘柄の終値と出来高、組み入れ・除外を DB に保存 | なし |
 | nature-remo | nature-remo | 家電リモコン（Nature Remo の Local API） | `nature-remo` |
 | oci-always-free | （Git 管理外） | OCI Always Free 枠の確保を再試行 | なし |
 | rsshub | RSSHub-private | RSS の生成 | `rsshub` |
@@ -91,6 +92,29 @@ StatefulSet 1 つに、recorder（`--record`）と uploader（`--upload`）の 2
 - spool の上限は 80GiB です。空きが足りなくなると、未送信のファイルは消さずに録画を止めます。
 - 録画中に Pod やホストが止まると、書きかけのファイル（moov atom なし）が残り、`CameraPartialSegment` が出ます。
   対処は上の docs/state.md の隔離手順に従います。壊れたファイルや manifest を推測で作り直しません。
+
+## market-collector
+
+取得の規則と表の定義は [market-collector の README](https://github.com/home-lab-ksera/market-collector#readme) にあります。
+
+| リソース | 内容 |
+|---|---|
+| CronJob `market-collector-sp500` | JST 07:30、火〜土（米国の引け後） |
+| CronJob `market-collector-nikkei225` | JST 17:30、月〜金（東証の引け後） |
+
+どちらも、構成銘柄の一覧を取り直して DB `market` の `index_memberships` と突き合わせ、有効な全銘柄の日足を `daily_prices` に upsert します。
+
+- 構成銘柄は S&P500 が英語版 Wikipedia の一覧、日経225 が日経の公開 CSV（月末時点のウエート一覧）です。日経の CSV は更新が月 1 回のことがあり、入れ替えの反映が遅れることがあります。
+- 組み入れ・除外は、一覧に現れた日・消えた日（JST）を `added_on` / `removed_on` に記録します。正式な実施日ではありません。除外した銘柄の日足は消しません。
+- 一覧の件数が想定（S&P500 は 490〜520、日経225 は 220〜230）を外れたら、取得元の形が変わったとみなし、同期も価格の取得もせずに失敗します。
+- 日足の無い銘柄（初回と組み入れ直後）は過去 10 年分を取ります。それ以外は毎回直近 1 か月を取り直すため、失敗した回の分は次の回で埋まります。
+- 価格は Yahoo Finance の非公式 API です。1 銘柄でも取れないと Job が失敗し、`KubernetesCronJobFailed` が通知します。ログの `failed:` の行に銘柄が出ます。
+- 通信は外部への HTTPS だけです（`allow-market-collector-https`）。
+
+```bash
+kubectl -n sandbox create job "market-collector-manual-$(date +%Y%m%d%H%M%S)" --from=cronjob/market-collector-sp500
+kubectl -n sandbox logs -f job/<作った Job の名前>
+```
 
 ## nature-remo
 

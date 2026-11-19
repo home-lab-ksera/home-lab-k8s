@@ -8,7 +8,7 @@ operator は使っていません。`k8s-worker2` に固定され、データは
 | 項目 | 値 |
 |---|---|
 | 接続先 | `postgresql.database.svc:5432` |
-| DB | `registry`（Harbor）、`api_hub`、`hitomi`、`media`。`camera` は使っていない古い DB |
+| DB | `registry`（Harbor）、`api_hub`、`hitomi`、`media`、`market`。`camera` は使っていない古い DB |
 | role | アプリ共用の `app`（接続上限 80）、管理用の `postgres` |
 | TLS | 必須。クライアントは `verify-full` で接続する |
 | 接続できる Pod | database 内、Harbor、Grafana、sandbox でラベル `database.k8s-myhome.local/shared-postgresql: "true"` を持つ Pod |
@@ -33,6 +33,7 @@ sandbox のアプリは次を使います（既存のアプリのマニフェス
 | api-hub | 3 |
 | media API / worker / 定期 Job | 3 / 2 / 各 2 |
 | hitomi 収集 / outbox | 2 / 2 |
+| market-collector（sp500 / nikkei225） | 各 1 |
 | migration Job | 各 1 |
 | Harbor | Pod ごとに 10 |
 | Grafana | 5 |
@@ -76,7 +77,7 @@ Reloader が止まっていて再起動されなかった場合は、30 日以�
 
 ## 初期化
 
-データディレクトリが空のときだけ、[init-roles.sh](../manifests/platform/shared-postgresql/scripts/init-roles.sh) が `app` と 4 つの DB を作り、
+データディレクトリが空のときだけ、[init-roles.sh](../manifests/platform/shared-postgresql/scripts/init-roles.sh) が `app` と 5 つの DB を作り、
 [bootstrap.sql](../manifests/platform/shared-postgresql/scripts/bootstrap.sql) が所有権と接続権限を設定します。
 パスワードは Secret `postgresql-input`（ESC の `postgresql.admin_password` / `postgresql.password`）です。
 
