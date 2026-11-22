@@ -11,7 +11,7 @@
 | hitomi-pdf | hitomi-pdf-batch | メディア（PDF・動画）の取得とカタログ | `hitomi-upload-viewer` の `/media/` |
 | hitomi-upload-viewer | hitomi-pdf-batch | カタログの閲覧画面 | `hitomi-upload-viewer` |
 | home-camera | home-camera | カメラの録画と S3 への送信 | なし |
-| market-collector | market-collector | S&P500・日経225 の全構成銘柄の終値と出来高、組み入れ・除外を DB に保存 | なし |
+| market-collector | market-collector | S&P500・日経225 の全構成銘柄の終値と出来高、組み入れ・除外を DB に保存し、MVP 該当銘柄を通知 | なし |
 | nature-remo | nature-remo | 家電リモコン（Nature Remo の Local API） | `nature-remo` |
 | oci-always-free | （Git 管理外） | OCI Always Free 枠の確保を再試行 | なし |
 | rsshub | RSSHub-private | RSS の生成 | `rsshub` |
@@ -109,10 +109,16 @@ StatefulSet 1 つに、recorder（`--record`）と uploader（`--upload`）の 2
 - 一覧の件数が想定（S&P500 は 490〜520、日経225 は 220〜230）を外れたら、取得元の形が変わったとみなし、同期も価格の取得もせずに失敗します。
 - 日足の無い銘柄（初回と組み入れ直後）は過去 10 年分を取ります。それ以外は毎回直近 1 か月を取り直すため、失敗した回の分は次の回で埋まります。
 - 価格は Yahoo Finance の非公式 API です。1 銘柄でも取れないと Job が失敗し、`KubernetesCronJobFailed` が通知します。ログの `failed:` の行に銘柄が出ます。
-- 通信は外部への HTTPS だけです（`allow-market-collector-https`）。
+- 最後に直近 15 営業日の MVP 条件で銘柄を選び、該当があれば api-hub 経由で Slack（`C09DNN3S76D`）に通知します。
+  条件は 15 日のうち 12 日以上上昇・15 日目の出来高が 1 日目の 1.25 倍以上・株価が 16 営業日前の終値から +20% 以上の 3 つすべてです。
+  指数と取引日ごとに 1 通で、条件を満たしている間は毎日送ります。該当が無い日は送りません。
+- 通信は外部への HTTPS と api-hub:3000 だけです（`allow-market-collector-https`、`allow-api-hub-clients-egress`）。
 
 ```bash
 kubectl -n sandbox create job "market-collector-manual-$(date +%Y%m%d%H%M%S)" --from=cronjob/market-collector-sp500
+# 通知の経路（api-hub → Slack）だけを確かめる。テストの 1 通を送って終わる
+kubectl -n sandbox create job "market-collector-notify-test-$(date +%Y%m%d%H%M%S)" --from=cronjob/market-collector-sp500 --dry-run=client -o json \
+  | jq '.spec.template.spec.containers[0].env += [{"name": "NOTIFY_TEST", "value": "1"}]' | kubectl create -f -
 kubectl -n sandbox logs -f job/<作った Job の名前>
 ```
 
