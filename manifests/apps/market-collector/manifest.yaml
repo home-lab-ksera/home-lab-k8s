@@ -2,7 +2,9 @@
 # 有効な全銘柄の日足（終値・出来高）を Yahoo Finance から取って daily_prices に upsert する。
 # 構成銘柄: S&P500 は英語版 Wikipedia の一覧、日経225 は日経の公開 CSV。
 # 直近 1 か月を毎回取り直すため、失敗した回の分は次の回で埋まる。
-# 構成銘柄が取れない、または 1 銘柄でも価格が取れないと Job が失敗し、KubernetesCronJobFailed が通知する。
+# 最後に直近 15 営業日の MVP 条件（12 日以上上昇・出来高 1.25 倍以上・株価 +20% 以上）で銘柄を選び、
+# 該当があれば api-hub 経由で Slack に通知する（指数と取引日ごとに 1 通）。
+# 構成銘柄が取れない、1 銘柄でも価格が取れない、または通知に失敗すると Job が失敗し、KubernetesCronJobFailed が通知する。
 # S&P500 は米国の引け後（JST 07:30、火〜土）。
 apiVersion: batch/v1
 kind: CronJob
@@ -47,6 +49,11 @@ spec:
               value: sp500
             - name: PGDATABASE
               value: market
+            # MVP 条件を満たす銘柄の通知先。
+            - name: API_HUB_URL
+              value: http://api-hub.sandbox.svc:3000
+            - name: SLACK_CHANNEL
+              value: C09DNN3S76D
             envFrom:
             - configMapRef:
                 name: application-postgresql
@@ -123,6 +130,11 @@ spec:
               value: nikkei225
             - name: PGDATABASE
               value: market
+            # MVP 条件を満たす銘柄の通知先。
+            - name: API_HUB_URL
+              value: http://api-hub.sandbox.svc:3000
+            - name: SLACK_CHANNEL
+              value: C09DNN3S76D
             envFrom:
             - configMapRef:
                 name: application-postgresql

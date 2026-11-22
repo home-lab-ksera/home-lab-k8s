@@ -317,6 +317,7 @@ spec:
       - hitomi-pdf-monitor
       - hitomi-monitor
       - hitomi-outbox
+      - market-collector
       - media-api
   policyTypes:
   - Egress
@@ -357,6 +358,7 @@ spec:
           - hitomi-pdf-monitor
           - hitomi-monitor
           - hitomi-outbox
+          - market-collector
           - media-api
     ports:
     - protocol: TCP
