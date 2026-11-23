@@ -153,7 +153,7 @@ sum by (queue, state) (max by (queue, state) (application_queue_jobs{namespace="
 | アラート | 条件 | 最初に見るところ |
 |---|---|---|
 | `ApplicationQueueFailed` | 通知に failed / uncertain がある | Slack に届いているか確認してから手で再試行する。一括で再送しない |
-| `ApplicationUnreviewedFailure` | 取得や収集に、未確認の失敗がある | hitomi の管理 CLI、または viewer の「失敗の管理」で原因を見て、確認済みにするか対象外にする |
+| `ApplicationUnreviewedFailure` | 取得や収集に、未確認の失敗がある。`hitomi_sources` は次の収集でも失敗して 4 時間30分続いたときだけ | hitomi の管理 CLI、または viewer の「失敗の管理」で原因を見て、確認済みにするか対象外にする |
 | `ApplicationQueueBacklog` | 通知と outbox は 15 分、media と収集は 2 時間たっても未完了 | worker のログ、DB、S3、取得元。減っているのか止まっているのかを見る |
 | `ApplicationQueueMetricsUnavailable` | metrics を取れない | Pod、NetworkPolicy、DB 接続。DB 障害のときに worker を再起動し続けない |
 | `CameraRecordingStalled`、`CameraNotRecording` | 録画する時間帯なのにファイルが確定しない | recorder のログ、カメラへの接続 |
