@@ -112,6 +112,7 @@ StatefulSet 1 つに、recorder（`--record`）と uploader（`--upload`）の 2
 - 最後に直近 15 営業日の MVP 条件で銘柄を選び、該当があれば api-hub 経由で Slack（`C09DNN3S76D`）に通知します。
   条件は 15 日のうち 12 日以上上昇・15 日目の出来高が 1 日目の 1.25 倍以上・株価が 16 営業日前の終値から +20% 以上の 3 つすべてです。
   指数と取引日ごとに 1 通で、条件を満たしている間は毎日送ります。該当が無い日は送りません。
+- Grafana のダッシュボード「05 株価 / 銘柄」で、銘柄ごとの終値・出来高・MVP 指標を見られます。
 - 通信は外部への HTTPS と api-hub:3000 だけです（`allow-market-collector-https`、`allow-api-hub-clients-egress`）。
 
 ```bash

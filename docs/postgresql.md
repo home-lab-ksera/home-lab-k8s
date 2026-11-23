@@ -36,7 +36,7 @@ sandbox のアプリは次を使います（既存のアプリのマニフェス
 | market-collector（sp500 / nikkei225） | 各 1 |
 | migration Job | 各 1 |
 | Harbor | Pod ごとに 10 |
-| Grafana | 5 |
+| Grafana（registry / market） | 5 / 2 |
 
 Harbor の rollout 中は新旧の Pod が同時に接続します。replica や Job を足すときは、合計が 80 に収まるか確認します。
 

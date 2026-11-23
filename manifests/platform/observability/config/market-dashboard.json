@@ -1,0 +1,918 @@
+{
+  "uid": "home-lab-market",
+  "title": "05 株価 / 銘柄",
+  "description": "market-collector が集めた S&P500・日経225 の構成銘柄の終値・出来高と MVP 指標。DB market に共用ユーザー app で接続。",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "",
+  "editable": false,
+  "timezone": "utc",
+  "time": {
+    "from": "now-1y",
+    "to": "now"
+  },
+  "tags": [
+    "home-lab",
+    "market"
+  ],
+  "links": [
+    {
+      "title": "01 全体概要",
+      "type": "link",
+      "url": "/d/home-lab-overview"
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "market",
+        "label": "指数",
+        "type": "custom",
+        "query": "S&P500 : sp500, 日経225 : nikkei225",
+        "current": {
+          "text": "S&P500",
+          "value": "sp500"
+        },
+        "options": [],
+        "multi": false,
+        "includeAll": false
+      },
+      {
+        "name": "market_label",
+        "type": "query",
+        "hide": 2,
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "postgresql-market"
+        },
+        "refresh": 1,
+        "query": "SELECT CASE '$market' WHEN 'sp500' THEN 'S&P500' ELSE '日経225' END",
+        "definition": ""
+      },
+      {
+        "name": "symbol",
+        "label": "銘柄",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "postgresql-market"
+        },
+        "refresh": 1,
+        "sort": 0,
+        "definition": "構成銘柄（除外済みを含む）",
+        "query": "SELECT symbol AS __value, symbol || '  ' || name || CASE WHEN removed_on IS NULL THEN '' ELSE '（除外済み）' END AS __text FROM (SELECT DISTINCT ON (symbol) symbol, name, removed_on FROM index_memberships WHERE market = '$market' ORDER BY symbol, added_on DESC) t ORDER BY removed_on IS NOT NULL, symbol",
+        "multi": false,
+        "includeAll": false
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "最新",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 5
+      },
+      "description": "最新の取引日の終値・前日比・出来高。取引日は取引所の現地日付。",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgresql-market"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT close::float8 AS \"終値\",\n       close::float8 / nullif(lag(close::float8) OVER (ORDER BY trade_date), 0) - 1 AS \"前日比\",\n       volume AS \"出来高\", trade_date::text AS \"取引日\", currency AS \"通貨\"\nFROM daily_prices WHERE symbol = '$symbol' AND trade_date > CURRENT_DATE - 30\nORDER BY trade_date DESC LIMIT 1"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/.*/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "前日比"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "text",
+                      "value": 0
+                    },
+                    {
+                      "color": "green",
+                      "value": 1e-06
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "出来高"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "short"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      },
+      "id": 1,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgresql-market"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "MVP（直近 15 営業日）",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 5
+      },
+      "description": "M: 15 日のうち 12 日以上上昇 / V: 15 日目の出来高が 1 日目の 1.25 倍以上 / P: 16 営業日前の終値から +20% 以上。3 つすべてで「該当」。",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgresql-market"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH r AS (\n  SELECT trade_date, close::float8 AS c, volume::float8 AS v,\n         lag(close::float8) OVER (ORDER BY trade_date) AS prev,\n         row_number() OVER (ORDER BY trade_date DESC) AS rn\n  FROM daily_prices WHERE symbol = '$symbol' AND trade_date > CURRENT_DATE - 90),\nw AS (\n  SELECT count(*) FILTER (WHERE rn <= 15 AND c > prev) AS up,\n         max(v) FILTER (WHERE rn = 1) / nullif(max(v) FILTER (WHERE rn = 15), 0) AS vr,\n         max(c) FILTER (WHERE rn = 1) / nullif(max(c) FILTER (WHERE rn = 16), 0) - 1 AS pr,\n         count(*) AS n\n  FROM r WHERE rn <= 16)\nSELECT up AS \"上昇日数（15 日中）\", vr AS \"出来高倍率（15 日目 / 1 日目）\", pr AS \"株価変化率（16 営業日前比）\",\n       CASE WHEN n < 16 THEN '日足不足' WHEN up >= 12 AND vr >= 1.25 AND pr >= 0.2 THEN '該当' ELSE '非該当' END AS \"MVP\"\nFROM w"
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/.*/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value_and_name",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "上昇日数（15 日中）"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "text",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 12
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "出来高倍率（15 日目 / 1 日目）"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "unit",
+                "value": "x"
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "text",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 1.25
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "株価変化率（16 営業日前比）"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "text",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 0.2
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "MVP"
+            },
+            "properties": [
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "該当": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "非該当": {
+                        "color": "text",
+                        "index": 1
+                      },
+                      "日足不足": {
+                        "color": "orange",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "id": 2,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgresql-market"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "終値",
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 10
+      },
+      "description": "移動平均は表示期間より前の日足も使って計算する。",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgresql-market"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "WITH p AS (\n  SELECT trade_date, close::float8 AS c,\n         avg(close::float8) OVER (ORDER BY trade_date ROWS 49 PRECEDING) AS ma50,\n         avg(close::float8) OVER (ORDER BY trade_date ROWS 199 PRECEDING) AS ma200\n  FROM daily_prices\n  WHERE symbol = '$symbol' AND trade_date >= $__timeFrom()::date - 400 AND trade_date <= $__timeTo()::date)\nSELECT trade_date::timestamp AS time, c AS \"終値\", ma50 AS \"50 日平均\", ma200 AS \"200 日平均\"\nFROM p WHERE $__timeFilter(trade_date) ORDER BY 1"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "custom": {
+            "lineWidth": 1,
+            "fillOpacity": 0,
+            "spanNulls": true,
+            "showPoints": "never"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "終値"
+            },
+            "properties": [
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "50 日平均"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "200 日平均"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "id": 3,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgresql-market"
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "出来高",
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgresql-market"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT trade_date::timestamp AS time, volume AS \"出来高\"\nFROM daily_prices WHERE symbol = '$symbol' AND $__timeFilter(trade_date) ORDER BY 1"
+        }
+      ],
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": false
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "lineWidth": 1,
+            "barAlignment": 0,
+            "showPoints": "never"
+          }
+        },
+        "overrides": []
+      },
+      "id": 4,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgresql-market"
+      }
+    },
+    {
+      "type": "table",
+      "title": "直近 15 営業日",
+      "gridPos": {
+        "x": 0,
+        "y": 21,
+        "w": 14,
+        "h": 12
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgresql-market"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT trade_date::text AS \"取引日\", close::float8 AS \"終値\", chg AS \"前日比\", volume AS \"出来高\",\n       CASE WHEN chg > 0 THEN '上昇' WHEN chg < 0 THEN '下落' ELSE '—' END AS \"方向\"\nFROM (\n  SELECT trade_date, close, volume,\n         close::float8 / nullif(lag(close::float8) OVER (ORDER BY trade_date), 0) - 1 AS chg\n  FROM daily_prices WHERE symbol = '$symbol' AND trade_date > CURRENT_DATE - 90) t\nORDER BY trade_date DESC LIMIT 15"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "decimals": 2,
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "前日比"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "text",
+                      "value": 0
+                    },
+                    {
+                      "color": "green",
+                      "value": 1e-06
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "出来高"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "locale"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "方向"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "上昇": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "下落": {
+                        "color": "red",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "id": 5,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgresql-market"
+      }
+    },
+    {
+      "type": "table",
+      "title": "指数への組み入れ・除外",
+      "gridPos": {
+        "x": 14,
+        "y": 21,
+        "w": 10,
+        "h": 12
+      },
+      "description": "日付は market-collector が一覧の変化を検知した日（JST）。正式な実施日ではない。",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgresql-market"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT market AS \"指数\", name AS \"社名\", added_on::text AS \"組み入れ（検知日）\",\n       coalesce(removed_on::text, '—') AS \"除外（検知日）\"\nFROM index_memberships WHERE symbol = '$symbol' ORDER BY added_on DESC"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "id": 6,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgresql-market"
+      }
+    },
+    {
+      "type": "table",
+      "title": "${market_label} の MVP 指標（全構成銘柄）",
+      "gridPos": {
+        "x": 0,
+        "y": 33,
+        "w": 24,
+        "h": 14
+      },
+      "description": "満たした条件の数が多い順、同じなら株価変化率の高い順。銘柄をクリックすると、その銘柄を表示する。",
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgresql-market"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH m AS (SELECT symbol, name FROM index_memberships WHERE market = '$market' AND removed_on IS NULL),\nr AS (\n  SELECT p.symbol, p.trade_date, p.close::float8 AS c, p.volume::float8 AS v,\n         lag(p.close::float8) OVER (PARTITION BY p.symbol ORDER BY p.trade_date) AS prev,\n         row_number() OVER (PARTITION BY p.symbol ORDER BY p.trade_date DESC) AS rn\n  FROM daily_prices p JOIN m USING (symbol) WHERE p.trade_date > CURRENT_DATE - 90),\nw AS (\n  SELECT symbol,\n         max(trade_date) FILTER (WHERE rn = 1) AS d,\n         max(c) FILTER (WHERE rn = 1) AS close,\n         count(*) FILTER (WHERE rn <= 15 AND c > prev) AS up,\n         max(v) FILTER (WHERE rn = 1) / nullif(max(v) FILTER (WHERE rn = 15), 0) AS vr,\n         max(c) FILTER (WHERE rn = 1) / nullif(max(c) FILTER (WHERE rn = 16), 0) - 1 AS pr,\n         count(*) AS n\n  FROM r WHERE rn <= 16 GROUP BY symbol)\nSELECT w.symbol AS \"銘柄\", m.name AS \"社名\", w.d::text AS \"取引日\", w.close AS \"終値\",\n       w.up AS \"上昇日数\", w.vr AS \"出来高倍率\", w.pr AS \"株価変化率\",\n       CASE WHEN w.n < 16 THEN '日足不足' WHEN w.up >= 12 AND w.vr >= 1.25 AND w.pr >= 0.2 THEN '該当' ELSE '' END AS \"MVP\"\nFROM w JOIN m USING (symbol)\nORDER BY (w.up >= 12)::int + (w.vr >= 1.25)::int + (w.pr >= 0.2)::int DESC, w.pr DESC NULLS LAST"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "銘柄"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "title": "この銘柄を表示",
+                    "url": "/d/home-lab-market?var-market=${market}&var-symbol=${__value.raw}&${__url_time_range}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "終値"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 2
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "上昇日数"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "text",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 12
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "出来高倍率"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "unit",
+                "value": "x"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "text",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 1.25
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "株価変化率"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "percentunit"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "text",
+                      "value": null
+                    },
+                    {
+                      "color": "green",
+                      "value": 0.2
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "MVP"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "該当": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "非該当": {
+                        "color": "text",
+                        "index": 1
+                      },
+                      "日足不足": {
+                        "color": "orange",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "id": 7,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgresql-market"
+      }
+    }
+  ]
+}
