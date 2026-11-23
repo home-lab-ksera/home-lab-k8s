@@ -26,6 +26,7 @@
 | 02 アプリ・ログ | アプリや CronJob を選ぶと、配下の全 Pod のログと CPU・メモリを表示 |
 | 03 ストレージ | PVC の容量、ノードのディスク |
 | 04 PostgreSQL / SQL | registry DB の統計と SQL の実行 |
+| 05 株価 / 銘柄 | market DB。指数と銘柄を選び、終値（移動平均）・出来高・直近 15 営業日・MVP 指標・組み入れ履歴を表示。下の表で指数全体の MVP 指標を一覧 |
 
 ダッシュボードとデータソースは [config/](../manifests/platform/observability/config/) の JSON / YAML が正本です。UI で変えても、Pod の再作成で Git の内容に戻ります。
 

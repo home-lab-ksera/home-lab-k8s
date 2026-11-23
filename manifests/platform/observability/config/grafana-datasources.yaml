@@ -39,3 +39,24 @@ datasources:
       connMaxLifetime: 300
     secureJsonData:
       password: $POSTGRESQL_PASSWORD
+  # market-collector の株価（05 株価 / 銘柄）。
+  - name: PostgreSQL / market
+    uid: postgresql-market
+    type: grafana-postgresql-datasource
+    access: proxy
+    url: postgresql.database.svc:5432
+    user: app
+    editable: false
+    jsonData:
+      database: market
+      sslmode: verify-full
+      tlsConfigurationMethod: file-path
+      sslRootCertFile: /etc/postgresql-ca/ca.crt
+      postgresVersion: 1800
+      timescaledb: false
+      maxOpenConns: 2
+      maxIdleConns: 1
+      maxIdleConnsAuto: false
+      connMaxLifetime: 300
+    secureJsonData:
+      password: $POSTGRESQL_PASSWORD
