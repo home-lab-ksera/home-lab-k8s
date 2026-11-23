@@ -266,15 +266,33 @@ tests:
         severity: warning
       exp_annotations:
         summary: hitomi_items に未確認の取得失敗があります（新規または再発）
-- name: 取得元の失敗と未確認の滞留を検知する
-  interval: 1m
+- name: 取得元の一時的な失敗は次の収集で回復すれば通知しない
+  interval: 5m
   input_series:
   - series: application_failure_records{namespace="sandbox",queue="hitomi_sources",disposition="unreviewed"}
-    values: 1+0x20
-  - series: application_queue_oldest_unreviewed_pending_age_seconds{namespace="sandbox",queue="hitomi_items"}
-    values: 7201+0x20
+    values: 0+0x2 1+0x48 0+0x20
   alert_rule_test:
-  - eval_time: 5m
+  - eval_time: 10m
+    alertname: ApplicationUnreviewedFailure
+    exp_alerts: []
+  - eval_time: 4h5m
+    alertname: ApplicationUnreviewedFailure
+    exp_alerts: []
+  - eval_time: 5h
+    alertname: ApplicationUnreviewedFailure
+    exp_alerts: []
+- name: 取得元の失敗が次の収集でも続けば通知する
+  interval: 5m
+  input_series:
+  - series: application_failure_records{namespace="sandbox",queue="hitomi_sources",disposition="unreviewed",pod="old"}
+    values: 0+0x2 1+0x30
+  - series: application_failure_records{namespace="sandbox",queue="hitomi_sources",disposition="unreviewed",pod="new"}
+    values: _x32 1+0x40
+  alert_rule_test:
+  - eval_time: 4h35m
+    alertname: ApplicationUnreviewedFailure
+    exp_alerts: []
+  - eval_time: 4h55m
     alertname: ApplicationUnreviewedFailure
     exp_alerts:
     - exp_labels:
@@ -282,6 +300,12 @@ tests:
         severity: warning
       exp_annotations:
         summary: hitomi_sources に未確認の取得失敗があります（新規または再発）
+- name: 未確認の滞留を検知する
+  interval: 1m
+  input_series:
+  - series: application_queue_oldest_unreviewed_pending_age_seconds{namespace="sandbox",queue="hitomi_items"}
+    values: 7201+0x20
+  alert_rule_test:
   - eval_time: 10m
     alertname: ApplicationQueueBacklog
     exp_alerts:

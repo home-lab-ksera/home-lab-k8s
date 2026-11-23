@@ -189,9 +189,12 @@ groups:
           severity: warning
         annotations:
           summary: "{{ $labels.queue }} に失敗または配送結果不明の処理があります"
+      # hitomi_sources（RSS の取得と漫画の確認）は 4 時間ごとの収集で再確認され、成功すると記録が閉じる。
+      # 1 回だけの一時的な失敗では通知せず、次の収集でも失敗して 4 時間30分続いたときに通知する。
       - alert: ApplicationUnreviewedFailure
         expr: >-
-          max by(queue) (application_failure_records{namespace="sandbox",disposition="unreviewed"}) > 0
+          (max by(queue) (application_failure_records{namespace="sandbox",disposition="unreviewed",queue!="hitomi_sources"}) > 0)
+          or (min_over_time((max by(queue) (application_failure_records{namespace="sandbox",disposition="unreviewed",queue="hitomi_sources"}))[4h30m:1m]) > 0)
         for: 5m
         labels:
           severity: warning
