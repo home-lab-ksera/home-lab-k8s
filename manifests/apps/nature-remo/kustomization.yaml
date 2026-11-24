@@ -13,5 +13,5 @@ configMapGenerator:
 images:
   - name: harbor.internal.qroksera.com/sandbox/nature-remo
     newTag: latest
-    digest: sha256:5b8fa6eac9e919c4d50593b49a70eaa451d3b1b4fa8e8d8c734ae9cf7a376923
+    digest: sha256:ba2b5d6780ed191d8421c14657a0f53d4561e960eb0a4a725b12feb73b1712d4
     newName: harbor.internal.qroksera.com/sandbox/nature-remo
