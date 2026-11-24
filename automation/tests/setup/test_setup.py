@@ -28,6 +28,7 @@ class SetupTests(unittest.TestCase):
         }
         for path in ('automation/scripts/run.sh',
                      'automation/scripts/common-logging.sh',
+                     'automation/scripts/common-ssh.sh',
                      'automation/scripts/verify.sh',
                      'automation/platform/platform-deploy.sh',
                      'manifests/bootstrap/app-of-apps.yaml',
