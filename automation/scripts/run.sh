@@ -7,14 +7,8 @@ AUTOMATION_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 LOG_FILE="$AUTOMATION_DIR/run.log"
 
 # 共通ログ出力
-if [ -f "$SCRIPT_DIR/common-logging.sh" ]; then
-  # shellcheck source=/dev/null
-  source "$SCRIPT_DIR/common-logging.sh"
-else
-  log_status() { echo "$@"; }
-  log_error() { echo "$@"; }
-  log_warning() { echo "$@"; }
-fi
+# shellcheck source=automation/scripts/common-logging.sh
+source "$SCRIPT_DIR/common-logging.sh"
 
 run_step() {
   local name="$1"

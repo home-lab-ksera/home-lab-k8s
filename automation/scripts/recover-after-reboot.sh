@@ -4,15 +4,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-if [[ -f "${SCRIPT_DIR}/common-logging.sh" ]]; then
-  # shellcheck source=/dev/null
-  source "${SCRIPT_DIR}/common-logging.sh"
-else
-  log_status() { echo "$@"; }
-  log_success() { echo "$@"; }
-  log_warning() { echo "$@"; }
-  log_error() { echo "$@"; }
-fi
+# shellcheck source=automation/scripts/common-logging.sh
+source "${SCRIPT_DIR}/common-logging.sh"
 
 if [[ -f "${SCRIPT_DIR}/settings-loader.sh" ]]; then
   # shellcheck source=/dev/null

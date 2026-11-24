@@ -6,13 +6,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 AUTOMATION_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # 共通ログ出力
-if [ -f "$AUTOMATION_DIR/scripts/common-logging.sh" ]; then
-  # shellcheck source=/dev/null
-  source "$AUTOMATION_DIR/scripts/common-logging.sh"
-else
-  log_status() { echo "$@"; }
-  log_error() { echo "$@" >&2; }
-fi
+# shellcheck source=automation/scripts/common-logging.sh
+source "$AUTOMATION_DIR/scripts/common-logging.sh"
 
 usage() {
   cat <<'USAGE'
@@ -65,15 +60,10 @@ k8s_user="$(get_config kubernetes user "k8suser")"
 control_plane_ip="$(get_config network control_plane_ip "192.168.122.10")"
 ssh_key_path="$(get_config kubernetes ssh_key_path "")"
 
-ssh_opts=(
-  -o StrictHostKeyChecking=no
-  -o BatchMode=yes
-  -o LogLevel=ERROR
-)
-
-if [[ -n "$ssh_key_path" ]]; then
-  ssh_opts+=("-i" "$ssh_key_path")
-fi
+# shellcheck source=automation/scripts/common-ssh.sh
+source "$AUTOMATION_DIR/scripts/common-ssh.sh"
+ssh_opts=()
+k8s_ssh_opts ssh_opts "$ssh_key_path"
 
 ssh_cmd=(ssh "${ssh_opts[@]}" "${k8s_user}@${control_plane_ip}")
 

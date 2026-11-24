@@ -4,14 +4,8 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-if [ -f "$SCRIPT_DIR/common-logging.sh" ]; then
-  # shellcheck source=/dev/null
-  source "$SCRIPT_DIR/common-logging.sh"
-else
-  log_status() { echo "$@"; }
-  log_warning() { echo "$@"; }
-  log_error() { echo "$@"; }
-fi
+# shellcheck source=automation/scripts/common-logging.sh
+source "$SCRIPT_DIR/common-logging.sh"
 
 if [ -f "$SCRIPT_DIR/settings-loader.sh" ]; then
   # shellcheck source=/dev/null
@@ -25,17 +19,10 @@ REMOTE_KUBECONFIG="/etc/kubernetes/admin.conf"
 KUBECONFIG_TARGET="${KUBECONFIG:-$HOME/.kube/config}"
 KUBECONFIG_TARGET="${KUBECONFIG_TARGET%%:*}"
 
-ssh_opts=(
-  -T
-  -o StrictHostKeyChecking=no
-  -o BatchMode=yes
-  -o LogLevel=ERROR
-  -o ConnectTimeout=10
-)
-
-if [[ -n "$K8S_SSH_KEY" ]]; then
-  ssh_opts+=(-i "$K8S_SSH_KEY")
-fi
+# shellcheck source=automation/scripts/common-ssh.sh
+source "$SCRIPT_DIR/common-ssh.sh"
+ssh_opts=()
+k8s_ssh_opts ssh_opts "$K8S_SSH_KEY" -T -o ConnectTimeout=10
 
 ssh_cmd=(ssh "${ssh_opts[@]}" "${K8S_USER}@${CONTROL_PLANE_IP}")
 
