@@ -2,15 +2,26 @@
 # SSH接続用共通関数
 # 重複するSSH接続パターンを統一
 
-# settings.toml から設定読み込み
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -f "$SCRIPT_DIR/settings-loader.sh" ]]; then
-    source "$SCRIPT_DIR/settings-loader.sh" load 2>/dev/null || true
+# settings.toml から設定読み込み（呼び出し側の SCRIPT_DIR は上書きしない）
+_COMMON_SSH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if ! declare -F get_config >/dev/null && [[ -f "$_COMMON_SSH_DIR/settings-loader.sh" ]]; then
+    source "$_COMMON_SSH_DIR/settings-loader.sh" load 2>/dev/null || true
 fi
 
 # デフォルト設定
 DEFAULT_SSH_USER="${K8S_USER:-k8suser}"
 DEFAULT_SSH_OPTS="-o StrictHostKeyChecking=no -o BatchMode=yes -o LogLevel=ERROR -o ConnectTimeout=10"
+
+# 標準の SSH オプションを配列変数に設定する。
+# 使い方: k8s_ssh_opts <配列変数名> <鍵ファイル(空なら指定しない)> [追加オプション...]
+k8s_ssh_opts() {
+    local -n _k8s_ssh_opts_out="$1"
+    local key="${2:-}"
+    _k8s_ssh_opts_out=(-o StrictHostKeyChecking=no -o BatchMode=yes -o LogLevel=ERROR "${@:3}")
+    if [[ -n "$key" ]]; then
+        _k8s_ssh_opts_out+=(-i "$key")
+    fi
+}
 
 # コントロールプレーンへのSSH
 k8s_ssh_control() {
