@@ -7,4 +7,4 @@ images:
   - name: harbor.internal.qroksera.com/sandbox/api-hub
     newTag: latest
     newName: harbor.internal.qroksera.com/sandbox/api-hub
-    digest: sha256:f5a283f3a3b75af037780b736fa6992b5bcdd007505e0cfd48b1d666a532e547
+    digest: sha256:fb239070013bc89bb6aead36bbd62a8773ee341754f8ec31f9c6755ccc70f520
