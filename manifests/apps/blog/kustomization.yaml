@@ -9,4 +9,4 @@ images:
   - name: harbor.internal.qroksera.com/sandbox/blog
     newTag: latest
     newName: harbor.internal.qroksera.com/sandbox/blog
-    digest: sha256:72ae17d1c595b36ba5f2aa0dc014e5e4fd9bd1303c3685ca57101f62a35eeebf
+    digest: sha256:c9c7b26d721bff278438adc83052d06a1bcf00bbda93ad7af0f7339eace52335
