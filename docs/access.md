@@ -36,7 +36,7 @@ flowchart LR
   更新・削除・Slack・通知の API は、クラスタ内の `api-hub.sandbox.svc:3000` からしか呼べません。
 - **s3**: 上の表のパスの読み取りだけを通します。書き込みと bucket の一覧は通しません。
   ブラウザーは api-hub が発行した署名付き URL で PDF や動画を直接取得します。
-- **nature-remo**: NGINX Gateway Fabric の AccessPolicy で、LAN（`192.168.10.0/24`）、ノード（`192.168.122.0/24`）、
+- **nature-remo**: `nature-remo` のホスト名と、dashboard の `/remo/api/`（nature-remo の `/api/` に書き換え）の両方に、NGINX Gateway Fabric の AccessPolicy で、LAN（`192.168.10.0/24`）、ノード（`192.168.122.0/24`）、
   Pod と subnet router（`10.244.0.0/16`）、tailnet（`100.64.0.0/10`）以外を 403 にします。
   Gateway の `externalTrafficPolicy: Local` で送信元 IP が保たれることが前提です。前段にプロキシや SNAT を足すときは見直します。
 
