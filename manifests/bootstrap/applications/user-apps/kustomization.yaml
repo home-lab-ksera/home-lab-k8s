@@ -8,7 +8,6 @@ resources:
   - dashboard-app.yaml
   - hitomi-app.yaml
   - hitomi-pdf-app.yaml
-  - hitomi-upload-viewer-app.yaml
   - home-camera-app.yaml
   - market-collector-app.yaml
   - nature-remo-app.yaml

@@ -7,10 +7,9 @@
 | Application | リポジトリ | 役割 | URL |
 |---|---|---|---|
 | api-hub | api-hub | S3 と Slack への窓口。通知キューを持つ | `api-hub`（読み取りのみ） |
-| dashboard | dashboard | 個人用の Web UI。hitomi-upload-viewer の後継で、移行中は両方が動く | `dashboard`（`/media/` は media-api） |
+| dashboard | dashboard | 個人用の Web UI（メディア・カメラ録画・失敗管理） | `dashboard`（`/media/` は media-api） |
 | hitomi | hitomi | 定期的に収集し、新着を通知に回す | なし |
-| hitomi-pdf | hitomi-pdf-batch | メディア（PDF・動画）の取得とカタログ | `hitomi-upload-viewer` の `/media/` |
-| hitomi-upload-viewer | hitomi-pdf-batch | カタログの閲覧画面 | `hitomi-upload-viewer` |
+| hitomi-pdf | hitomi-pdf-batch | メディア（PDF・動画）の取得とカタログ | `dashboard` の `/media/` |
 | home-camera | home-camera | カメラの録画と S3 への送信、動きの解析と朝の通知 | なし |
 | market-collector | market-collector | S&P500・日経225 の全構成銘柄の終値と出来高、組み入れ・除外を DB に保存し、MVP 該当銘柄を通知 | なし |
 | nature-remo | nature-remo | 家電リモコン（Nature Remo の Local API） | `nature-remo` |
@@ -29,7 +28,7 @@ flowchart LR
   PLAN --> MDB[(media DB)] --> MW[media-worker] --> API
   API --> S3[(RustFS)]
   API --> SLACK[Slack]
-  VIEW[viewer] --> MAPI[media-api] --> MDB
+  VIEW[dashboard] --> MAPI[media-api] --> MDB
   VIEW -->|署名付き URL| S3
 ```
 
@@ -61,7 +60,7 @@ API と設定は [api-hub の README](https://github.com/home-lab-ksera/api-hub#
 - 新着の判定は DB の履歴で行います。RSS の取得に失敗しても、すでに記録済みの未処理分は処理します。
 - outbox の役目は api-hub が受け付けるまでです。Slack に届いたかは api-hub 側で見ます。
 
-## hitomi-pdf（media）と viewer
+## hitomi-pdf（media）
 
 実行モード、エラーごとの再試行、失敗の管理は [hitomi-pdf-batch の docs/stateful-media.md](https://github.com/home-lab-ksera/hitomi-pdf-batch/blob/main/docs/stateful-media.md) にあります。
 
@@ -69,10 +68,9 @@ API と設定は [api-hub の README](https://github.com/home-lab-ksera/api-hub#
 |---|---|
 | CronJob `hitomi-pdf-monitor` | JST 00:50 と 07:50。`--plan` で取得する項目を DB に登録 |
 | Deployment `media-worker` | `--worker`。登録された項目を取得し、api-hub 経由で S3 に置く |
-| Deployment `media-api` | `--serve`。カタログの API。viewer が使う |
+| Deployment `media-api` | `--serve`。カタログの API。dashboard が使う |
 | CronJob `media-reconcile` | 毎時 20 分。期限切れや古い未完了の整理（S3 には接続しない） |
 | CronJob `media-verify-objects` | 毎日 04:40 JST。カタログにあるオブジェクトが S3 に実在するか確認 |
-| Deployment `hitomi-upload-viewer` | 閲覧画面（静的ファイル） |
 
 - 取得は 1 項目ずつ、lease と再試行（最大 8 回）で管理します。失敗を一括で取り直すことはしません。
 - worker の一時領域はノードのディスク上の emptyDir（6GiB）です。1 ファイルの上限は 5GiB で、ノードの空きを 4GiB 残せないときは中断して再試行に回します。
@@ -81,6 +79,15 @@ API と設定は [api-hub の README](https://github.com/home-lab-ksera/api-hub#
 - S3 のオブジェクトは 30 日で消えます（[RustFS](storage.md#30-日で消す)）。カタログ側の期限整理は `media-reconcile` が行います。
 - 既存の S3 オブジェクトをカタログに登録し直す `--import` は、通常の同期では実行しません。
   必要なときだけ [明示的な Job](../automation/examples/media-import/README.md) で実行します。
+
+## dashboard
+
+画面の構成と開発の手順は [dashboard の README](https://github.com/home-lab-ksera/dashboard#readme) にあります。
+
+- Deployment 1 つ（busybox httpd）で静的ファイルを配るだけです。API は持ちません。
+- `https://dashboard.internal.qroksera.com` の `/media/` は media-api へ、それ以外は dashboard へ振り分けます（[access.yaml](../manifests/apps/dashboard/access.yaml)）。
+- api-hub（署名付き URL の発行と S3 の一覧）は別の Origin で呼びます。api-hub と RustFS の CORS は dashboard の Origin だけを許可します。
+- 外部の CDN に依存しません。アセットはすべてイメージに含めます。
 
 ## home-camera
 

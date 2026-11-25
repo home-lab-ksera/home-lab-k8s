@@ -26,7 +26,7 @@ spec:
 
 ---
 # api-hub内部公開用HTTPRoute（HTTPS）
-# api-hub に利用者認証はない。Gateway には viewer（ブラウザー）が使う読み取り経路だけを通し、
+# api-hub に利用者認証はない。Gateway には dashboard（ブラウザー）が使う読み取り経路だけを通し、
 # 更新・削除・Slack・通知の API はクラスタ内の Service (api-hub.sandbox.svc:3000) 専用にする。
 # 経路を追加するときは api-hub の is_browser_path と合わせて確認する。
 apiVersion: gateway.networking.k8s.io/v1

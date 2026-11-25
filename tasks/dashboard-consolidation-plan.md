@@ -12,8 +12,10 @@
 | 1-1 | 完了（2026-11-25） | 履歴 55 コミットを抜き出し、`c2182cb` で単一パッケージ化。lockfile の解決済みの版は元と同一 |
 | 0-2 | 完了（2026-11-25） | repository Secret 4 つを登録、Tailscale の trust credential の対象を確認（管理者） |
 | 1-2 | 完了（2026-11-25） | CI の test（typecheck・単体テスト・Playwright 3 本）と Harbor への publish が合格。`sandbox/dashboard@sha256:dcd4cae4…` |
-| 1-3 | 確認待ち | api-hub#38（許可 Origin をリスト化）。RustFS の `cors.json` は 1-4 の PR に含む |
-| 1-4 | 確認待ち | `manifests/apps/dashboard/`、Application、NetworkPolicy、Split DNS、外形監視、Image Updater、docs |
+| 1-3 | 完了（2026-11-25） | api-hub#38。反映後、dashboard の Origin で `POST /s3/list_objects_v2` が 200、CORS ヘッダーも dashboard を返す |
+| 1-4 | 完了（2026-11-25） | #223。Synced / Healthy。初回は `core` の NetworkPolicy の同期待ちで約 1 分 504 |
+| 1-5 | 確認待ち | サーバー側は確認済み（4 画面と `config.js` が 200、`/media/` が media-api に届く、署名付き URL の取得が 206 で CORS に dashboard）。ブラウザーでの目視確認は管理者 |
+| 1-6 | 確認待ち | 旧 viewer の Application・経路・DNS・NetworkPolicy・CORS・監視・Image Updater を削除する PR。api-hub の旧 Origin は別 PR |
 | 0-3 | 確認待ち | Harbor の保持ルールが `sandbox/dashboard` にもかかるかを Harbor の画面で確認する |
 
 ## 1. 目的

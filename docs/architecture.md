@@ -11,7 +11,7 @@ flowchart TD
   Argo --> Infra[infrastructure: ストレージ / MetalLB / Gateway / cert-manager / Tailscale]
   Argo --> Platform[platform: ESO / Harbor / RustFS / PostgreSQL / 監視]
   Argo --> Access[access: Gateway / DNS / 基盤の経路]
-  Argo --> Apps[apps: 11 アプリ]
+  Argo --> Apps[apps: 10 アプリ]
 ```
 
 ## ノードとネットワーク
@@ -53,7 +53,7 @@ Internet に公開している経路はありません。利用者は LAN また
 | 監視 | VictoriaMetrics、vmalert、Alertmanager、kube-state-metrics、metrics-server、Grafana、Loki、Alloy |
 | 補助 | Reloader（Secret / ConfigMap の変更で Pod を再起動） |
 
-アプリは api-hub、blog、cooklog、dashboard、hitomi、hitomi-pdf、hitomi-upload-viewer、home-camera、market-collector、nature-remo、rsshub の 11 個で、
+アプリは api-hub、blog、cooklog、dashboard、hitomi、hitomi-pdf、home-camera、market-collector、nature-remo、rsshub の 10 個で、
 すべて `sandbox` namespace に置きます。役割は [アプリ一覧](apps.md) を参照してください。
 
 ## Namespace

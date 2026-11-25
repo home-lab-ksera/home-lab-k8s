@@ -158,30 +158,6 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-gateway-hitomi-upload-viewer
-  namespace: sandbox
-spec:
-  podSelector:
-    matchLabels:
-      app: hitomi-upload-viewer
-  policyTypes:
-  - Ingress
-  ingress:
-  - from:
-    - namespaceSelector:
-        matchLabels:
-          kubernetes.io/metadata.name: nginx-gateway
-      podSelector:
-        matchLabels:
-          app.kubernetes.io/name: nginx-gateway-nginx
-          gateway.networking.k8s.io/gateway-name: nginx-gateway
-    ports:
-    - protocol: TCP
-      port: 80
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
   name: allow-gateway-dashboard
   namespace: sandbox
 spec:
