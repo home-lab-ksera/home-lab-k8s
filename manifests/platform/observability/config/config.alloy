@@ -106,11 +106,6 @@ prometheus.exporter.blackbox "endpoints" {
     address = "https://dashboard.internal.qroksera.com/health"
     module  = "http_2xx"
   }
-  target {
-    name    = "hitomi-upload-viewer"
-    address = "https://hitomi-upload-viewer.internal.qroksera.com/health"
-    module  = "http_2xx"
-  }
   // kubeadm が発行する control-plane 証明書の期限を見る。/livez は匿名で取得できる。
   target {
     name    = "kube-apiserver"

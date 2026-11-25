@@ -20,7 +20,6 @@ data:
             192.168.122.100 argocd.internal.qroksera.com
             192.168.122.100 cooklog.internal.qroksera.com
             192.168.122.100 nature-remo.internal.qroksera.com
-            192.168.122.100 hitomi-upload-viewer.internal.qroksera.com
             192.168.122.100 dashboard.internal.qroksera.com
             192.168.122.100 api-hub.internal.qroksera.com
             192.168.122.100 rsshub.internal.qroksera.com

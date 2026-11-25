@@ -24,8 +24,8 @@ flowchart LR
 | `observability` | VictoriaMetrics | VMUI は `/vmui/` |
 | `rustfs` | RustFS のコンソール（9001） | |
 | `s3` | RustFS の S3（9000） | `pdfs/hitomi/`、`pdfs/videos/`、`home-camera-recordings/` の GET / HEAD / OPTIONS だけ |
-| `api-hub` | api-hub | viewer が使う読み取りの経路だけ（下記） |
-| `hitomi-upload-viewer` | viewer と media API | |
+| `api-hub` | api-hub | dashboard が使う読み取りの経路だけ（下記） |
+| `dashboard` | dashboard と media API（`/media/`） | |
 | `blog` / `cooklog` / `rsshub` | 各アプリ | |
 | `nature-remo` | nature-remo | 送信元を制限（下記） |
 

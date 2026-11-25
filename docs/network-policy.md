@@ -32,7 +32,7 @@ Flannel は NetworkPolicy を実行しないため、[kube-network-policies](../
 | 送信元 | 宛先 |
 |---|---|
 | すべての Pod | CoreDNS（53） |
-| 共有 Gateway | blog:80、cooklog:80、hitomi-upload-viewer:80、media-api:3000、api-hub:3000、rsshub:1200、nature-remo:8080 |
+| 共有 Gateway | blog:80、cooklog:80、dashboard:80、media-api:3000、api-hub:3000、rsshub:1200、nature-remo:8080 |
 | home-camera-recorder、hitomi-monitor、hitomi-outbox、hitomi-pdf-monitor、market-collector、media-api | api-hub:3000 |
 | api-hub | RustFS:9000 |
 | `database.k8s-myhome.local/shared-postgresql: "true"` のラベルを持つ Pod | PostgreSQL:5432 |

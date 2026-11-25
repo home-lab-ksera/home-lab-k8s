@@ -60,13 +60,6 @@ spec:
           manifestTargets:
             kustomize:
               name: harbor.internal.qroksera.com/sandbox/hitomi-pdf-batch
-    - namePattern: hitomi-upload-viewer
-      images:
-        - alias: app
-          imageName: harbor.internal.qroksera.com/sandbox/hitomi-upload-viewer:latest
-          manifestTargets:
-            kustomize:
-              name: harbor.internal.qroksera.com/sandbox/hitomi-upload-viewer
     - namePattern: home-camera
       images:
         - alias: app
