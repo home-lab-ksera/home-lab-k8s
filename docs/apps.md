@@ -7,7 +7,7 @@
 | Application | リポジトリ | 役割 | URL |
 |---|---|---|---|
 | api-hub | api-hub | S3 と Slack への窓口。通知キューを持つ | `api-hub`（読み取りのみ） |
-| dashboard | dashboard | 個人用の Web UI（メディア・カメラ録画・失敗管理・リモコン） | `dashboard`（`/media/` は media-api） |
+| dashboard | dashboard | 個人用の Web UI（メディア・カメラ録画・失敗管理・リモコン・レシピ） | `dashboard`（`/media/` は media-api） |
 | hitomi | hitomi | 定期的に収集し、新着を通知に回す | なし |
 | hitomi-pdf | hitomi-pdf-batch | メディア（PDF・動画）の取得とカタログ | `dashboard` の `/media/` |
 | home-camera | home-camera | カメラの録画と S3 への送信、動きの解析と朝の通知 | なし |
@@ -16,7 +16,7 @@
 | oci-always-free | （Git 管理外） | OCI Always Free 枠の確保を再試行 | なし |
 | rsshub | RSSHub-private | RSS の生成 | `rsshub` |
 | blog | blog | 静的サイト | `blog` |
-| cooklog | cookLog | 静的サイトと、Slack 連携の worker | `cooklog` |
+| cooklog | cookLog | レシピの取り込み（Slack・dashboard）と検索の API。画面は dashboard の「レシピ」 | `dashboard` の `/cook/api/` |
 
 ```mermaid
 flowchart LR
@@ -181,13 +181,20 @@ kubectl -n sandbox exec job/oci-always-free -- cat /data/all/retry-status.json
 - Chromium を使う route のために、256Mi の `/dev/shm` を割り当てています。
 - hitomi と hitomi-pdf は、内部 URL（`https://rsshub.internal.qroksera.com`）でフィードを取得します。
 
-## blog / cooklog
+## blog
 
-Slack からのレシピ取り込みは [cookLog の docs/slack-import.md](https://github.com/home-lab-ksera/cookLog/blob/main/docs/slack-import.md) にあります。
+Eleventy で作った静的サイトを配信する Deployment です。
 
-- どちらも Eleventy で作った静的サイトを配信する Deployment です。
-- `cooklog-slack` は Slack と連携する worker で、キューを NFS の PVC に持ちます。
-  イメージは `latest` ではなく特定の `build-*` タグを指しており、Image Updater の対象外です。更新するときはマニフェストのタグを手で書き換えます。
+## cooklog
+
+API・取り込みの規則・Slack の設定は [cookLog の README](https://github.com/home-lab-ksera/cookLog#readme) と [docs/slack-import.md](https://github.com/home-lab-ksera/cookLog/blob/main/docs/slack-import.md) にあります。
+
+- Deployment 1 つ（`--serve`）で、HTTP API、取り込みの worker、Slack（Socket Mode）の受信を動かします。replica 1 / Recreate です。
+- レシピと取り込みの依頼は DB `cooklog` にあります。migration は PreSync の Job（`--migrate`）です。
+- 画面は dashboard の「レシピ」で、Gateway が `dashboard.internal.qroksera.com/cook/api/` を cooklog の `/api/` に書き換えて転送します（HTTPRoute `cooklog-dashboard`）。
+- Slack のチャンネル `C0CDULTS7FX` に投稿された URL を取り込み、結果を api-hub 経由でスレッドに返します。受信の App-Level Token は Secret `cooklog-slack` です。
+- 手で取り込むときは `kubectl -n sandbox exec deploy/cooklog -- /cooklog --import <url>` も使えます。
+- 外への通信は、Slack とレシピサイトへの 443、api-hub:3000、PostgreSQL だけです。
 
 ## DB を復元したあと
 

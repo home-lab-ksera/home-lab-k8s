@@ -26,7 +26,7 @@ flowchart LR
 | | `harbor-registry`（sandbox、argocd、default） | `harbor.admin_password`（イメージの pull 用） |
 | `networking/` | `cloudflare-api-token`（cert-manager） | `dns-01` |
 | | `operator-oauth`（tailscale） | `tailscale.client_id` / `client_secret` |
-| `app-runtime/` | `slack`、`cooklog-slack`（sandbox） | `slack`、`cooklog-slack-app-token`、`github` |
+| `app-runtime/` | `slack`、`cooklog-slack`（sandbox） | `slack`、`cooklog-slack-app-token` |
 | | `rustfs-auth`（rustfs、sandbox） | `rustfs.access_key` / `secret_key` |
 | `observability/` | `alertmanager-slack`、`alertmanager-heartbeat`（observability） | `alertmanager-slack-webhook-url`、`alertmanager-heartbeat-url` |
 | | `grafana-postgresql`（observability） | `postgresql.password` |

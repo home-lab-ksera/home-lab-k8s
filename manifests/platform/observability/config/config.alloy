@@ -87,11 +87,6 @@ prometheus.exporter.blackbox "endpoints" {
     module  = "http_2xx"
   }
   target {
-    name    = "cooklog"
-    address = "https://cooklog.internal.qroksera.com/"
-    module  = "http_2xx"
-  }
-  target {
     name    = "api-hub"
     address = "https://api-hub.internal.qroksera.com/health"
     module  = "http_2xx"

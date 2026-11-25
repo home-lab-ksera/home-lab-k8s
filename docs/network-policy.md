@@ -32,14 +32,14 @@ Flannel は NetworkPolicy を実行しないため、[kube-network-policies](../
 | 送信元 | 宛先 |
 |---|---|
 | すべての Pod | CoreDNS（53） |
-| 共有 Gateway | blog:80、cooklog:80、dashboard:80、media-api:3000、api-hub:3000、rsshub:1200、nature-remo:8080 |
-| home-camera-recorder、hitomi-monitor、hitomi-outbox、hitomi-pdf-monitor、market-collector、media-api | api-hub:3000 |
+| 共有 Gateway | blog:80、cooklog:3000、dashboard:80、media-api:3000、api-hub:3000、rsshub:1200、nature-remo:8080 |
+| home-camera-recorder、hitomi-monitor、hitomi-outbox、hitomi-pdf-monitor、market-collector、media-api、cooklog | api-hub:3000 |
 | api-hub | RustFS:9000 |
 | `database.k8s-myhome.local/shared-postgresql: "true"` のラベルを持つ Pod | PostgreSQL:5432 |
 | rsshub | rsshub-redis:6379 |
 | hitomi-monitor、hitomi-pdf-monitor | 共有 Gateway:443（内部の RSSHub URL を使うため） |
 | api-hub、hitomi-monitor、hitomi-pdf-monitor、rsshub | 外部の 80 / 443 |
-| cooklog-slack、market-collector | 外部の 443 |
+| cooklog、market-collector | 外部の 443 |
 | home-camera-recorder | カメラ `192.168.10.4` の RTSP（TCP 554、UDP 1024-65535。UDP は受信も許可） |
 | nature-remo | Remo 本体 `192.168.10.2:80` |
 | VictoriaMetrics | api-hub:3000、media-api:3000、hitomi-outbox:9090、home-camera-recorder:9090（metrics） |

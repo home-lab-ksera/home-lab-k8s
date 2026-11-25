@@ -59,7 +59,7 @@ CI の一時端末が届くのは Harbor（共有 Gateway の 443）だけです
 
 ## Image Updater: digest の書き戻し
 
-[sandbox-images.yaml](../manifests/platform/ci-cd/image-updater/sandbox-images.yaml) に登録した 9 のイメージ（cooklog は作り直しのあいだ外している）について、
+[sandbox-images.yaml](../manifests/platform/ci-cd/image-updater/sandbox-images.yaml) に登録した 10 のイメージについて、
 `latest` の digest が変わると、このリポジトリの `manifests/apps/<app>/kustomization.yaml` の `images` を書き換えて `main` に commit します。
 
 - commit は Deploy Key で直接 push され、`[skip ci]` が付きます。

@@ -78,7 +78,7 @@ Alloy が Kubernetes の API 経由で **`sandbox` の Pod のログだけ** を
 
 Alloy が 1 分ごとに、クラスタ内から次を確認します（[config.alloy](../manifests/platform/observability/config/config.alloy) の `target`）。
 
-- ArgoCD、Harbor、Grafana、blog、cooklog、api-hub、rsshub、dashboard の HTTPS 応答（CoreDNS → Gateway → TLS → アプリ）
+- ArgoCD、Harbor、Grafana、blog、api-hub、rsshub、dashboard の HTTPS 応答（CoreDNS → Gateway → TLS → アプリ）
 - Split DNS（`192.168.122.101`）の名前解決
 - API サーバーの `/livez`（証明書の期限の取得を兼ねる）
 

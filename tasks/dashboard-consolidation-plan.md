@@ -22,8 +22,11 @@
 | 3-2 | 完了（2026-11-25） | dashboard#2。本番の `/remo` をブラウザーで表示確認（読み込みのみ）。保存済みのボタンは 0 件 |
 | 3-3 | 完了（2026-11-25） | #227。旧ホスト名の HTTPRoute と Split DNS を削除、AccessPolicy の対象は `nature-remo-dashboard` だけ |
 | 3-4 | 完了（2026-11-25） | nature-remo#8。`/` は 404、`/api/state` は dashboard 経由で 200 |
-| 4-1 | 確認待ち | DB `cooklog` を稼働中の DB に作成済み（所有者 app、PUBLIC の接続を剥奪）。init-roles.sh / bootstrap.sql に追記する PR。`pg_trgm` は trusted のため app が migration で作れる |
-| 0-3 | 確認待ち | Harbor の保持ルールが `sandbox/dashboard` にもかかるかを Harbor の画面で確認する |
+| 4-1 | 完了（2026-11-25） | #228。DB `cooklog`（所有者 app）。`pg_trgm` は trusted |
+| 4-2 | 完了（2026-11-25） | cookLog#10。3 サイトとも実際のページから取り込めることをローカルの DB で確認。白ごはん.com は末尾の `/` がないと検索ページを返す（元の Node 版の不具合）ため、末尾の `/` を付けた URL にした。Markdown からの取り込みは作らず、既存の 1 件は元の URL から取り込み直す |
+| 4-4 | 完了（2026-11-25） | dashboard#3。レシピのセクション（一覧・検索・詳細・取り込み・手入力・編集・削除） |
+| 4-5〜4-7 | 進行中 | apps/cooklog を新しいサービスに切り替え、旧サイト・Node の worker・PVC・旧ホスト名・GitHub のトークンを削除。#229 で止めた自動更新を戻す。api-hub の Bot はチャンネルに招待済み（管理者）。2026-11-25 夜の GitHub の障害（PR・Actions）で、イメージの公開待ち |
+| 0-3 | 完了（2026-11-25） | 保持ルールは全 repository が対象（docs/storage.md）。作業なし |
 
 ## 1. 目的
 
