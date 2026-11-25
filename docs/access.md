@@ -25,8 +25,8 @@ flowchart LR
 | `rustfs` | RustFS のコンソール（9001） | |
 | `s3` | RustFS の S3（9000） | `pdfs/hitomi/`、`pdfs/videos/`、`home-camera-recordings/` の GET / HEAD / OPTIONS だけ |
 | `api-hub` | api-hub | dashboard が使う読み取りの経路だけ（下記） |
-| `dashboard` | dashboard、media API（`/media/`）、nature-remo（`/remo/api/`） | `/remo/api/` は送信元を制限（下記） |
-| `blog` / `cooklog` / `rsshub` | 各アプリ | |
+| `dashboard` | dashboard、media API（`/media/`）、nature-remo（`/remo/api/`）、cooklog（`/cook/api/`） | `/remo/api/` は送信元を制限（下記） |
+| `blog` / `rsshub` | 各アプリ | |
 
 認証を持つのは ArgoCD、Harbor、Grafana、RustFS のコンソールだけです。ほかのアプリに利用者認証はなく、
 「LAN と tailnet にいる端末は信頼する」前提です。そのため、次の 3 つは経路側で絞っています。

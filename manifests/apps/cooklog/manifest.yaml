@@ -1,13 +1,85 @@
+# cooklog: レシピの取り込み（Slack・dashboard）と検索の API。画面は dashboard の「レシピ」。
+# migration は同期のたびに PreSync の Job で先に実行する。
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: cooklog-migration
+  namespace: sandbox
+  annotations:
+    argocd.argoproj.io/hook: PreSync
+    argocd.argoproj.io/hook-delete-policy: BeforeHookCreation,HookSucceeded
+spec:
+  backoffLimit: 6
+  activeDeadlineSeconds: 900
+  template:
+    metadata:
+      labels:
+        app: cooklog-migration
+        database.k8s-myhome.local/shared-postgresql: "true"
+    spec:
+      automountServiceAccountToken: false
+      restartPolicy: Never
+      imagePullSecrets:
+        - name: harbor-registry
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: migrate
+          image: harbor.internal.qroksera.com/sandbox/cooklog:latest
+          imagePullPolicy: IfNotPresent
+          args: ["--migrate"]
+          env:
+            - name: PGDATABASE
+              value: cooklog
+            - name: PGPOOL_MAX
+              value: "1"
+          envFrom:
+            - configMapRef:
+                name: application-postgresql
+            - secretRef:
+                name: application-postgresql
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              memory: 64Mi
+          volumeMounts:
+            - name: database-ca
+              mountPath: /etc/postgresql
+              readOnly: true
+      volumes:
+        - name: database-ca
+          secret:
+            secretName: postgresql-ca
+            items:
+              - key: ca.crt
+                path: ca.crt
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: cooklog
   namespace: sandbox
+  annotations:
+    reloader.stakater.com/auto: "true"
   labels:
     app: cooklog
 spec:
   revisionHistoryLimit: 3
   replicas: 1
+  # Slack の受信と取り込みの worker を 1 つに保つ。
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: cooklog
@@ -15,61 +87,79 @@ spec:
     metadata:
       labels:
         app: cooklog
+        database.k8s-myhome.local/shared-postgresql: "true"
     spec:
-      restartPolicy: Always
-      # 非 root のコンテナが 80 番で待ち受けられるようにする（safe sysctl）。
-      securityContext:
-        runAsNonRoot: true
-        runAsUser: 101
-        runAsGroup: 101
-        seccompProfile:
-          type: RuntimeDefault
-        sysctls:
-          - name: net.ipv4.ip_unprivileged_port_start
-            value: "0"
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 30
       imagePullSecrets:
         - name: harbor-registry
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+        runAsGroup: 65532
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: cooklog
-          image: harbor.internal.qroksera.com/sandbox/cooklog:0.0.1
+          image: harbor.internal.qroksera.com/sandbox/cooklog:latest
           imagePullPolicy: IfNotPresent
+          args: ["--serve"]
+          ports:
+            - containerPort: 3000
+          env:
+            - name: PGDATABASE
+              value: cooklog
+            - name: PGPOOL_MAX
+              value: "2"
+            - name: SLACK_CHANNEL_ID
+              value: "C0CDULTS7FX"
+            - name: SLACK_APP_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: cooklog-slack
+                  key: SLACK_APP_TOKEN
+            - name: API_HUB_URL
+              value: http://api-hub.sandbox.svc:3000
+            - name: DASHBOARD_URL
+              value: https://dashboard.internal.qroksera.com
+          envFrom:
+            - configMapRef:
+                name: application-postgresql
+            - secretRef:
+                name: application-postgresql
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
             capabilities:
               drop: [ALL]
-          # nginx の pid と一時ファイルの置き場。
-          volumeMounts:
-            - name: tmp
-              mountPath: /tmp
           resources:
             requests:
               cpu: 10m
               memory: 32Mi
-              ephemeral-storage: 128Mi
             limits:
               memory: 128Mi
-              ephemeral-storage: 512Mi
-          ports:
-            - containerPort: 80
           livenessProbe:
-            tcpSocket:
-              port: 80
-            initialDelaySeconds: 10
+            httpGet:
+              path: /health
+              port: 3000
             periodSeconds: 30
           readinessProbe:
-            tcpSocket:
-              port: 80
-            initialDelaySeconds: 15
+            httpGet:
+              path: /health
+              port: 3000
             periodSeconds: 10
-            timeoutSeconds: 5
-            failureThreshold: 3
+          volumeMounts:
+            - name: database-ca
+              mountPath: /etc/postgresql
+              readOnly: true
       volumes:
-        - name: tmp
-          emptyDir:
-            sizeLimit: 64Mi
+        - name: database-ca
+          secret:
+            secretName: postgresql-ca
+            items:
+              - key: ca.crt
+                path: ca.crt
 ---
-# cooklog用Service（内部公開のみ）
 apiVersion: v1
 kind: Service
 metadata:
@@ -82,6 +172,6 @@ spec:
     app: cooklog
   ports:
     - name: http
-      port: 80
-      targetPort: 80
+      port: 3000
+      targetPort: 3000
       protocol: TCP

@@ -153,7 +153,7 @@ spec:
           gateway.networking.k8s.io/gateway-name: nginx-gateway
     ports:
     - protocol: TCP
-      port: 80
+      port: 3000
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -320,6 +320,7 @@ spec:
       - hitomi-outbox
       - market-collector
       - media-api
+      - cooklog
   policyTypes:
   - Egress
   egress:
@@ -362,6 +363,7 @@ spec:
           - hitomi-outbox
           - market-collector
           - media-api
+          - cooklog
     ports:
     - protocol: TCP
       port: 3000
@@ -566,15 +568,16 @@ spec:
     - protocol: TCP
       port: 5432
 ---
+# cooklog は Slack の Socket Mode とレシピサイト（クラシル・DELISH KITCHEN・白ごはん.com）に HTTPS でつなぐ。
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
-  name: allow-cooklog-slack-https
+  name: allow-cooklog-https
   namespace: sandbox
 spec:
   podSelector:
     matchLabels:
-      app: cooklog-slack
+      app: cooklog
   policyTypes:
   - Egress
   egress:

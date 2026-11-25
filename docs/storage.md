@@ -26,7 +26,6 @@ PVC の要求サイズは上限ではありません。local-path も NFS も、
 | rustfs / `rustfs-data` | nfs-external | 3Ti | オブジェクト |
 | rustfs / `rustfs-logs` | nfs-external | 10Gi | RustFS のログ |
 | sandbox / `home-camera-spool` | nfs-external | 100Gi | 送信前の録画 |
-| sandbox / `cooklog-slack-queue` | nfs-external | 1Gi | cooklog-slack のキュー |
 | sandbox / `nature-remo-data` | nfs-external | 1Gi | 登録したリモコン信号 |
 
 ## データの保護
@@ -121,7 +120,6 @@ RustFS は更新時に必ず停止します（replica 1、`maxUnavailable: 1`）
 |---|---|
 | project | `sandbox`、quota 4GiB。超えると push が失敗する |
 | 保持ルール | 全 repository で「直近に push された 5 件を残す」。毎日 03:00 JST |
-| 保持の例外 | `cooklog-slack` は全件保持（マニフェストが特定の `build-*` タグを指しているため） |
 | GC | 毎日 03:30 JST。タグなしの artifact は消さない設定 |
 | Robot Account | CI 用（`sandbox` の push / pull）、Image Updater 用（pull のみ） |
 

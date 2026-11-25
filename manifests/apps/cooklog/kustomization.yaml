@@ -3,7 +3,6 @@ kind: Kustomization
 resources:
   - manifest.yaml
   - access.yaml
-  - slack-worker.yaml
 images:
   - name: harbor.internal.qroksera.com/sandbox/cooklog
     newTag: latest
