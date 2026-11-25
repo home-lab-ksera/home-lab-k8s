@@ -2,7 +2,7 @@
 
 作成日: 2026-11-25
 
-状態: 判断 1〜4 は決定済み。Phase 3 の仕上げ中（下の「進行状況」）
+状態: 判断 1〜4 は決定済み。Phase 3 まで完了、Phase 4 を実施中（下の「進行状況」）
 
 ## 進行状況
 
@@ -20,8 +20,9 @@
 | 2-1〜2-3 | 完了（2026-11-25） | dashboard#1。共通ヘッダーとセクション切り替え、`src/sections.ts` を正にして各パスの index.html を vite の plugin で作る、`sections/` と `shared/` に分割。本番で使っていなかった旧画面（`MEDIA_CATALOG=false`）と pdfjs-dist を削除し、`MEDIA_CATALOG`・`S3_PREFIX` をマニフェストから外した |
 | 3-1 | 完了（2026-11-25） | #226。`URLRewrite` は NGINX Gateway Fabric で期待どおり。`GET /remo/api/state` が 200、dashboard の Origin の POST は同一 Origin 検査を通り、別 Origin は 403。AccessPolicy も適用（`AccessPolicyAffected=True`） |
 | 3-2 | 完了（2026-11-25） | dashboard#2。本番の `/remo` をブラウザーで表示確認（読み込みのみ）。保存済みのボタンは 0 件 |
-| 3-3 | 確認待ち | 旧ホスト名 `nature-remo.internal` の HTTPRoute 2 本と Split DNS を削除する PR |
-| 3-4 | 確認待ち | nature-remo#8（`web/` と静的配信を削除し API だけにする） |
+| 3-3 | 完了（2026-11-25） | #227。旧ホスト名の HTTPRoute と Split DNS を削除、AccessPolicy の対象は `nature-remo-dashboard` だけ |
+| 3-4 | 完了（2026-11-25） | nature-remo#8。`/` は 404、`/api/state` は dashboard 経由で 200 |
+| 4-1 | 確認待ち | DB `cooklog` を稼働中の DB に作成済み（所有者 app、PUBLIC の接続を剥奪）。init-roles.sh / bootstrap.sql に追記する PR。`pg_trgm` は trusted のため app が migration で作れる |
 | 0-3 | 確認待ち | Harbor の保持ルールが `sandbox/dashboard` にもかかるかを Harbor の画面で確認する |
 
 ## 1. 目的
