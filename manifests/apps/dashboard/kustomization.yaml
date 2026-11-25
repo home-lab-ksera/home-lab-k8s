@@ -7,4 +7,4 @@ images:
   - name: harbor.internal.qroksera.com/sandbox/dashboard
     newTag: latest
     newName: harbor.internal.qroksera.com/sandbox/dashboard
-    digest: sha256:ca0feed04f18953fdcef049605aff7b442356a1450548f2e94b42464e29d0653
+    digest: sha256:b53a3c17780facff56e3b7879c7ea90d0a7f144db0fada933c5e27070960c53d
