@@ -93,7 +93,7 @@ wave は root が Application を作る順番です。別の Application の中�
 | 11 | observability | platform | `platform/observability` | observability |
 | 11 | sandbox-config | platform | `platform/shared-config/sandbox` | sandbox |
 | 11 | tailscale-connector | infrastructure | `infrastructure/networking/tailscale-operator` | tailscale |
-| 12 | api-hub、blog、cooklog、hitomi、hitomi-pdf、hitomi-upload-viewer、home-camera、market-collector、nature-remo、oci-always-free、rsshub | apps | `apps/<app>` | sandbox |
+| 12 | api-hub、blog、cooklog、dashboard、hitomi、hitomi-pdf、hitomi-upload-viewer、home-camera、market-collector、nature-remo、oci-always-free、rsshub | apps | `apps/<app>` | sandbox |
 | 13 | platform-access | access | `access/platform`（argocd / harbor / observability / rustfs の経路） | nginx-gateway |
 | 14 | dns-core | access | `access/dns/core` | kube-system |
 | 14 | dns-tailscale | access | `access/dns/tailscale` | tailscale |

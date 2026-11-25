@@ -7,6 +7,7 @@
 | Application | リポジトリ | 役割 | URL |
 |---|---|---|---|
 | api-hub | api-hub | S3 と Slack への窓口。通知キューを持つ | `api-hub`（読み取りのみ） |
+| dashboard | dashboard | 個人用の Web UI。hitomi-upload-viewer の後継で、移行中は両方が動く | `dashboard`（`/media/` は media-api） |
 | hitomi | hitomi | 定期的に収集し、新着を通知に回す | なし |
 | hitomi-pdf | hitomi-pdf-batch | メディア（PDF・動画）の取得とカタログ | `hitomi-upload-viewer` の `/media/` |
 | hitomi-upload-viewer | hitomi-pdf-batch | カタログの閲覧画面 | `hitomi-upload-viewer` |

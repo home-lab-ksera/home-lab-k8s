@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - manifest.yaml
+  - access.yaml
+images:
+  - name: harbor.internal.qroksera.com/sandbox/dashboard
+    newTag: latest
+    newName: harbor.internal.qroksera.com/sandbox/dashboard
+    digest: sha256:dcd4cae4aa36adcf72be446e5a566ad09c985c1cd2519c9815484bbf516ca58a
