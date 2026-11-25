@@ -53,10 +53,6 @@ spec:
               value: "https://api-hub.internal.qroksera.com"
             - name: S3_BUCKET
               value: "pdfs"
-            - name: S3_PREFIX
-              value: "hitomi"
-            - name: MEDIA_CATALOG
-              value: "true"
             - name: DIRECT_MEDIA_DELIVERY
               value: "true"
 

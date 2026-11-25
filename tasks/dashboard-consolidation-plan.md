@@ -2,7 +2,7 @@
 
 作成日: 2026-11-25
 
-状態: 判断 1〜4 は決定済み。Phase 1 を実施中（下の「進行状況」）
+状態: 判断 1〜4 は決定済み。Phase 2 まで完了、次は Phase 3（下の「進行状況」）
 
 ## 進行状況
 
@@ -14,8 +14,10 @@
 | 1-2 | 完了（2026-11-25） | CI の test（typecheck・単体テスト・Playwright 3 本）と Harbor への publish が合格。`sandbox/dashboard@sha256:dcd4cae4…` |
 | 1-3 | 完了（2026-11-25） | api-hub#38。反映後、dashboard の Origin で `POST /s3/list_objects_v2` が 200、CORS ヘッダーも dashboard を返す |
 | 1-4 | 完了（2026-11-25） | #223。Synced / Healthy。初回は `core` の NetworkPolicy の同期待ちで約 1 分 504 |
-| 1-5 | 確認待ち | サーバー側は確認済み（4 画面と `config.js` が 200、`/media/` が media-api に届く、署名付き URL の取得が 206 で CORS に dashboard）。ブラウザーでの目視確認は管理者 |
-| 1-6 | 確認待ち | 旧 viewer の Application・経路・DNS・NetworkPolicy・CORS・監視・Image Updater を削除する PR。api-hub の旧 Origin は別 PR |
+| 1-5 | 完了（2026-11-25） | 4 画面と `config.js` が 200、`/media/` が media-api に届く、署名付き URL の取得が 206 で CORS に dashboard |
+| 1-6 | 完了（2026-11-25） | #224、api-hub#39。旧 Application・NetworkPolicy・DNS が消え、RustFS と api-hub は旧 Origin を拒否（api-hub は 403） |
+| 1-7 | 完了（2026-11-25） | hitomi-pdf-batch#24。Rust だけのリポジトリになった |
+| 2-1〜2-3 | 完了（2026-11-25） | dashboard#1。共通ヘッダーとセクション切り替え、`src/sections.ts` を正にして各パスの index.html を vite の plugin で作る、`sections/` と `shared/` に分割。本番で使っていなかった旧画面（`MEDIA_CATALOG=false`）と pdfjs-dist を削除し、`MEDIA_CATALOG`・`S3_PREFIX` をマニフェストから外した |
 | 0-3 | 確認待ち | Harbor の保持ルールが `sandbox/dashboard` にもかかるかを Harbor の画面で確認する |
 
 ## 1. 目的
