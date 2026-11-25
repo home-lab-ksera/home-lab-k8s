@@ -102,7 +102,7 @@ kubectl -n tailscale get pods
 
 - tailnet からだけ届かないなら、subnet router の Pod、経路の承認、端末側で経路を受け入れているかを見ます。
 - 証明書の問題は `curl -v` で確かめます。`curl -k` で通っても、TLS が正しいことにはなりません。
-- 403 は nature-remo の送信元制限、404 は Route のパス制限（api-hub、s3）の可能性があります（[アクセス経路](access.md#url)）。
+- 403 は nature-remo（dashboard の `/remo/api/`）の送信元制限、404 は Route のパス制限（api-hub、s3）の可能性があります（[アクセス経路](access.md#url)）。
 - Harbor への push で 413 が出るなら、ClientSettingsPolicy が Accepted かを見ます（`kubectl -n harbor get clientsettingspolicies`）。
 
 ## Harbor

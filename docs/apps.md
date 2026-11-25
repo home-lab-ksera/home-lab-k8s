@@ -7,12 +7,12 @@
 | Application | リポジトリ | 役割 | URL |
 |---|---|---|---|
 | api-hub | api-hub | S3 と Slack への窓口。通知キューを持つ | `api-hub`（読み取りのみ） |
-| dashboard | dashboard | 個人用の Web UI（メディア・カメラ録画・失敗管理） | `dashboard`（`/media/` は media-api） |
+| dashboard | dashboard | 個人用の Web UI（メディア・カメラ録画・失敗管理・リモコン） | `dashboard`（`/media/` は media-api） |
 | hitomi | hitomi | 定期的に収集し、新着を通知に回す | なし |
 | hitomi-pdf | hitomi-pdf-batch | メディア（PDF・動画）の取得とカタログ | `dashboard` の `/media/` |
 | home-camera | home-camera | カメラの録画と S3 への送信、動きの解析と朝の通知 | なし |
 | market-collector | market-collector | S&P500・日経225 の全構成銘柄の終値と出来高、組み入れ・除外を DB に保存し、MVP 該当銘柄を通知 | なし |
-| nature-remo | nature-remo | 家電リモコン（Nature Remo の Local API） | `nature-remo` |
+| nature-remo | nature-remo | 家電リモコンの API（Nature Remo の Local API）。画面は dashboard の「リモコン」 | `dashboard` の `/remo/api/` |
 | oci-always-free | （Git 管理外） | OCI Always Free 枠の確保を再試行 | なし |
 | rsshub | RSSHub-private | RSS の生成 | `rsshub` |
 | blog | blog | 静的サイト | `blog` |
@@ -137,7 +137,9 @@ kubectl -n sandbox logs -f job/<作った Job の名前>
 
 アプリの使い方とバックアップは [nature-remo の README](https://github.com/home-lab-ksera/nature-remo#readme) にあります。
 
-Nature のクラウドが使えないときでも家電を操作できるようにする Web アプリです。保存した赤外線信号を、LAN 内の Remo 本体に Local API で送ります。
+Nature のクラウドが使えないときでも家電を操作できるようにする API サーバーです。保存した赤外線信号を、LAN 内の Remo 本体に Local API で送ります。
+画面は dashboard の「リモコン」（`/remo`）で、Gateway が `dashboard.internal.qroksera.com/remo/api/` を nature-remo の `/api/` に書き換えて転送します（HTTPRoute `nature-remo-dashboard`）。
+クラウドの障害時に使うため、dashboard と nature-remo のどちらが止まってもリモコンは使えません。
 
 - 対象の Remo は [kustomization.yaml](../manifests/apps/nature-remo/kustomization.yaml) の `REMO_DEVICES` と、
   [access.yaml](../manifests/apps/nature-remo/access.yaml) の NetworkPolicy（`192.168.10.2:80`）の 2 か所に書きます。
