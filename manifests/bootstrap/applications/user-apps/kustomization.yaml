@@ -5,6 +5,7 @@ resources:
   - api-hub-app.yaml
   - blog-app.yaml
   - cooklog-app.yaml
+  - dashboard-app.yaml
   - hitomi-app.yaml
   - hitomi-pdf-app.yaml
   - hitomi-upload-viewer-app.yaml

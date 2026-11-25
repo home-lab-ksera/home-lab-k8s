@@ -102,6 +102,11 @@ prometheus.exporter.blackbox "endpoints" {
     module  = "http_2xx"
   }
   target {
+    name    = "dashboard"
+    address = "https://dashboard.internal.qroksera.com/health"
+    module  = "http_2xx"
+  }
+  target {
     name    = "hitomi-upload-viewer"
     address = "https://hitomi-upload-viewer.internal.qroksera.com/health"
     module  = "http_2xx"

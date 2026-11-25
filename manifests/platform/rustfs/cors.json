@@ -1,7 +1,7 @@
 {
   "CORSRules": [{
     "ID": "media-viewer",
-    "AllowedOrigins": ["https://hitomi-upload-viewer.internal.qroksera.com"],
+    "AllowedOrigins": ["https://hitomi-upload-viewer.internal.qroksera.com", "https://dashboard.internal.qroksera.com"],
     "AllowedMethods": ["GET", "HEAD"],
     "AllowedHeaders": ["Range", "If-Range", "If-Match", "If-None-Match"],
     "ExposeHeaders": ["Content-Length", "Content-Range", "Accept-Ranges", "ETag", "Last-Modified"],
