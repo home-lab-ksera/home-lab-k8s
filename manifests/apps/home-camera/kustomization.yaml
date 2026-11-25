@@ -7,4 +7,4 @@ images:
   - name: harbor.internal.qroksera.com/sandbox/home-camera
     newTag: latest
     newName: harbor.internal.qroksera.com/sandbox/home-camera
-    digest: sha256:87d46c806c8fbc305cf9a536be5cbcd4908fd409060d8f2dc884ca15adcb4a36
+    digest: sha256:c93f19fe36afc825df8738be2d888a5702d784d7d6d74362e2e2a041cfdf068b
