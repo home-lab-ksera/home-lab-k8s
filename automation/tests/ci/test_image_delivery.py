@@ -56,6 +56,9 @@ class ImageDeliveryTests(unittest.TestCase):
         self.assertEqual(kinds, {'Deployment', 'StatefulSet', 'CronJob'})
         expected = {p.parent.name for p in (ROOT / 'manifests/apps').glob('*/manifest.yaml')
                     if 'harbor.internal.qroksera.com/sandbox/' in p.read_text()}
+        # cooklog は Rust のサービスに作り直すあいだ、自動更新を止めている。
+        # 新しいマニフェストに切り替える PR でこの例外を消す（tasks/dashboard-consolidation-plan.md）。
+        expected -= {'cooklog'}
         self.assertEqual(covered, expected)
 
 

@@ -32,13 +32,6 @@ spec:
           manifestTargets:
             kustomize:
               name: harbor.internal.qroksera.com/sandbox/blog
-    - namePattern: cooklog
-      images:
-        - alias: app
-          imageName: harbor.internal.qroksera.com/sandbox/cooklog:latest
-          manifestTargets:
-            kustomize:
-              name: harbor.internal.qroksera.com/sandbox/cooklog
     - namePattern: dashboard
       images:
         - alias: app
