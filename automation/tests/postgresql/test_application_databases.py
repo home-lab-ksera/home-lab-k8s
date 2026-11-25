@@ -13,7 +13,7 @@ class ApplicationDatabaseTest(unittest.TestCase):
     def test_new_databases_reuse_app_and_revoke_public_connect(self):
         init = (SCRIPTS / 'init-roles.sh').read_text()
         databases = set(re.findall(r"'([a-z_]+)'", re.search(r'ARRAY\[(.*?)\]', init).group(1)))
-        self.assertEqual(databases, {'registry', 'api_hub', 'hitomi', 'media', 'market'})
+        self.assertEqual(databases, {'registry', 'api_hub', 'hitomi', 'media', 'market', 'cooklog'})
         for option in ['NOSUPERUSER', 'NOCREATEDB', 'NOCREATEROLE', 'CONNECTION LIMIT 80']:
             self.assertIn(option, init)
         sql = (SCRIPTS / 'bootstrap.sql').read_text()
