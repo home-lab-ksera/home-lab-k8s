@@ -10,7 +10,7 @@
 | hitomi | hitomi | 定期的に収集し、新着を通知に回す | なし |
 | hitomi-pdf | hitomi-pdf-batch | メディア（PDF・動画）の取得とカタログ | `hitomi-upload-viewer` の `/media/` |
 | hitomi-upload-viewer | hitomi-pdf-batch | カタログの閲覧画面 | `hitomi-upload-viewer` |
-| home-camera | home-camera | カメラの録画と S3 への送信 | なし |
+| home-camera | home-camera | カメラの録画と S3 への送信、動きの解析と朝の通知 | なし |
 | market-collector | market-collector | S&P500・日経225 の全構成銘柄の終値と出来高、組み入れ・除外を DB に保存し、MVP 該当銘柄を通知 | なし |
 | nature-remo | nature-remo | 家電リモコン（Nature Remo の Local API） | `nature-remo` |
 | oci-always-free | （Git 管理外） | OCI Always Free 枠の確保を再試行 | なし |
@@ -89,6 +89,8 @@ StatefulSet 1 つに、recorder（`--record`）と uploader（`--upload`）の 2
 
 - recorder は RTSP を 1 時間ごとのファイルに分けて spool の PVC（NFS、100GiB）に書きます。録画する時間帯はアプリ側の設定です。
 - uploader は完成したファイルを api-hub 経由で S3 に送り、S3 側のサイズを確かめてから spool から消します。
+  送信後に spool 上で「動きがあった区間」を解析し、結果を録画の横に `.motion.json` として置きます（1時間の録画で数分）。
+- CronJob `home-camera-summary`（毎日 09:30 JST、`--summary`）が、前の晩の動きの区間を文字だけで Slack に送ります。画像は送りません。
 - spool の上限は 80GiB です。空きが足りなくなると、未送信のファイルは消さずに録画を止めます。
 - 録画中に Pod やホストが止まると、書きかけのファイル（moov atom なし）が残り、`CameraPartialSegment` が出ます。
   対処は上の docs/state.md の隔離手順に従います。壊れたファイルや manifest を推測で作り直しません。

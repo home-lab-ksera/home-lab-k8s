@@ -168,3 +168,68 @@ spec:
         persistentVolumeClaim:
           claimName: home-camera-spool
       terminationGracePeriodSeconds: 45
+---
+# 前の晩に動きがあった区間を、文字だけで Slack に送る（画像は送らない）。
+# 最後の録画（〜09:00）の解析が uploader で終わるのを待って 09:30 に動かす。
+# 同じ晩の通知は api-hub の通知キューで1件にまとまるので、手で再実行しても二重には送られない。
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: home-camera-summary
+  namespace: sandbox
+spec:
+  schedule: 30 9 * * *
+  timeZone: Asia/Tokyo
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      # 失敗した Job が古い image digest を持ったまま残ると、Image Updater が更新を繰り返し試みる。
+      # 1日で消す（ログは Loki に残る）。
+      ttlSecondsAfterFinished: 86400
+      activeDeadlineSeconds: 600
+      backoffLimit: 2
+      template:
+        metadata:
+          labels:
+            app: home-camera-summary
+        spec:
+          automountServiceAccountToken: false
+          restartPolicy: Never
+          imagePullSecrets:
+          - name: harbor-registry
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+          containers:
+          - name: summary
+            image: harbor.internal.qroksera.com/sandbox/home-camera:latest
+            imagePullPolicy: IfNotPresent
+            command:
+            - /usr/local/bin/home-camera
+            args:
+            - --summary
+            env:
+            - name: API_HUB_BASE_URL
+              value: http://api-hub.sandbox.svc:3000
+            - name: CAMERA_ID
+              value: camera
+            - name: SLACK_CHANNEL
+              value: C0840EGHDS9
+            resources:
+              requests:
+                cpu: 10m
+                memory: 16Mi
+              limits:
+                cpu: 200m
+                memory: 64Mi
+            securityContext:
+              allowPrivilegeEscalation: false
+              readOnlyRootFilesystem: true
+              capabilities:
+                drop:
+                - ALL
