@@ -1,7 +1,8 @@
 global:
   resolve_timeout: 5m
 route:
-  receiver: slack
+  # warning は Slack に送らない。必要なときに vmalert / Alertmanager の画面で見る。
+  receiver: discard
   group_by: [alertname, namespace]
   group_wait: 30s
   group_interval: 5m
@@ -13,7 +14,10 @@ route:
       group_wait: 0s
       group_interval: 1m
       repeat_interval: 1m
+    - receiver: slack
+      matchers: [severity="critical"]
 receivers:
+  - name: discard
   - name: heartbeat
     webhook_configs:
       - url_file: /etc/alertmanager/heartbeat/url
