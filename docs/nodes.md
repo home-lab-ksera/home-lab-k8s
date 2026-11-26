@@ -63,7 +63,6 @@ kubectl describe node | grep -A8 'Allocated resources'
 ```
 
 VM を縮めるときは、先に全ノードの memory requests の合計が縮小後の allocatable に収まることを確認します。
-測定値の記録は [tasks/improvement-progress.md](../tasks/improvement-progress.md) の「再測定」にあります。
 
 ## ノードに置いている設定
 
