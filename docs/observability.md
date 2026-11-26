@@ -112,7 +112,7 @@ Alloy が 1 分ごとに、クラスタ内から次を確認します（[config.
 
 ## 通知
 
-- **Slack**: Alertmanager が発火と復旧の両方を送ります。集約の待ちは 30 秒、未復旧の再通知は 4 時間ごとです
+- **Slack**: Alertmanager が `severity=critical` のアラートだけ、発火と復旧の両方を送ります。warning は送らないので、必要なときに vmalert / Alertmanager の画面（上記）で見ます。集約の待ちは 30 秒、未復旧の再通知は 4 時間ごとです
   （[alertmanager.yaml](../manifests/platform/observability/config/alertmanager.yaml)）。Webhook は Secret `alertmanager-slack` です。
 - **デッドマンスイッチ**: 常に発火している `Watchdog` を、Alertmanager が 1 分ごとに healthchecks.io へ送ります（Secret `alertmanager-heartbeat`）。
   クラスタ、ホスト、回線、vmalert、Alertmanager のどれが止まっても送信が途絶え、healthchecks.io がクラスタの外から通知します。
