@@ -7,4 +7,4 @@ images:
   - name: harbor.internal.qroksera.com/sandbox/cooklog
     newTag: latest
     newName: harbor.internal.qroksera.com/sandbox/cooklog
-    digest: sha256:0ed709269fadc2708201b16553b7739f7fdab2029c09ed7ed129185e0588c5c5
+    digest: sha256:bbbc49d47cd625b9524d11dac90628e2b73fe6b431300467b72afd5ff148212b
