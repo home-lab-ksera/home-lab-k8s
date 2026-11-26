@@ -63,7 +63,7 @@ kubectl -n <namespace> create job "<name>-manual-$(date +%s)" --from=cronjob/<cr
 | `ControlPlaneCertificateExpiring` | Kubernetes を upgrade するか、[証明書を更新する](nodes.md#control-plane-の証明書) |
 | `HostRebootRequired` | ホストを再起動する（下記） |
 | Renovate の PR | 確認してマージする（[更新](updates.md)） |
-| 2 週間ごと | [ホストの容量を測り直し](nodes.md#容量の考え方)、tasks/improvement-progress.md に記録する |
+| 2 週間ごと | [ホストの容量を測り直す](nodes.md#容量の考え方) |
 
 ## ホストを再起動したあと
 

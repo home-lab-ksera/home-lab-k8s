@@ -18,7 +18,7 @@ variable "control_plane_ip" {
   default     = "192.168.122.10"
 }
 
-# key はノード名。2VM 構成では k8s-worker2 だけを置く（tasks/capacity-optimization-plan.md 7）。
+# key はノード名。2VM 構成（control-plane と worker 1 台）では k8s-worker2 だけを置く。
 # 名前を詰めて k8s-worker1 にしないのは、local-path の PV が k8s-worker2 にノード固定されているため。
 variable "workers" {
   description = "Worker Node の定義（key: ノード名）"

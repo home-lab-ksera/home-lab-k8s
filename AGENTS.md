@@ -4,7 +4,7 @@
 - 応答・コードコメントは日本語を優先。
 - 実行フローの正は `Makefile` と `automation/scripts/run.sh`。`automation/*/README.md` には旧手順が残るため、挙動確認はスクリプトを優先する。
 - GitOps が正。Kubernetes リソース変更は原則 `manifests/`、`automation/` はローカル bootstrap / 運用スクリプト用。
-- `tasks/` 配下には構造改革の target-state 計画があり、未実装の path / owner 名が含まれる場合がある。実装や挙動確認では現行 repo の実体を優先し、改革タスク時のみ `tasks/` の target-state 文脈を使う。
+- `tasks/` には進行中の計画を置く（なければ空）。計画には未実装の path や名前が含まれる場合がある。実装や挙動確認では現行 repo の実体を優先し、その計画の作業をするときだけ計画の文脈を使う。終わった計画は消す（経緯は git の履歴に残る）。
 
 ## 重要パス
 - 現行 bootstrap 入口: `make bootstrap`（実体: `automation/scripts/run.sh bootstrap` -> `automation/platform/platform-deploy.sh`）。root `Application` は `manifests/bootstrap/app-of-apps.yaml`。
@@ -14,7 +14,7 @@
 - ArgoCD 設定: `manifests/platform/argocd-config/`
 - 現行ユーザーアプリ定義: `manifests/bootstrap/applications/user-apps/*.yaml`
 - 現行実アプリ: `manifests/apps/<app>/`
-- 改善計画: `tasks/`（target-state を含む。現行の実体は repo を優先）
+- 計画: `tasks/`（進行中のものだけ。現行の実体は repo を優先）
 
 ## マニフェスト規約
 - `bootstrap/` には Root/Application 定義のみを置き、`core/` に ArgoCD `Application` を置かない。
