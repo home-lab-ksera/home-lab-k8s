@@ -106,7 +106,7 @@ Alloy が 1 分ごとに、クラスタ内から次を確認します（[config.
 | データ | `PostgreSQLBackupStale` | dump が 26 時間成功していない |
 | | `RustFSScannerStalled`、`RustFSScannerMonitorMissing` | [scanner](storage.md#scanner) |
 | 監視自体 | `KubeStateMetricsUnavailable`、`KubeletVolumeScrapeUnavailable` | 収集の失敗 |
-| アプリ | `ApplicationQueue*`、`ApplicationUnreviewedFailure`、`Camera*` | 下記 |
+| アプリ | `ApplicationQueue*`、`Camera*` | 下記 |
 
 監視していないもの: RAID の中の 2 台それぞれの状態、LAN / tailnet からの到達、HTTPRoute ごとの状態、バックアップが実際に復元できるか。
 
@@ -155,7 +155,6 @@ sum by (queue, state) (max by (queue, state) (application_queue_jobs{namespace="
 | アラート | 条件 | 最初に見るところ |
 |---|---|---|
 | `ApplicationQueueFailed` | 通知に failed / uncertain がある | Slack に届いているか確認してから手で再試行する。一括で再送しない |
-| `ApplicationUnreviewedFailure` | 取得や収集に、未確認の失敗がある。`hitomi_sources` は次の収集でも失敗して 4 時間30分続いたときだけ | hitomi の管理 CLI、または dashboard の「失敗の管理」で原因を見て、確認済みにするか対象外にする |
 | `ApplicationQueueBacklog` | 通知と outbox は 15 分、media と収集は 2 時間たっても未完了 | worker のログ、DB、S3、取得元。減っているのか止まっているのかを見る |
 | `ApplicationQueueMetricsUnavailable` | metrics を取れない | Pod、NetworkPolicy、DB 接続。DB 障害のときに worker を再起動し続けない |
 | `CameraRecordingStalled`、`CameraNotRecording` | 録画する時間帯なのにファイルが確定しない | recorder のログ、カメラへの接続 |
@@ -163,7 +162,7 @@ sum by (queue, state) (max by (queue, state) (application_queue_jobs{namespace="
 | `CameraPartialSegment`、`CameraInvalidManifest` | 書きかけ、壊れたファイルがある | [home-camera](apps.md#home-camera) の隔離手順 |
 | `CameraSpoolStatisticsUnavailable` | spool の集計に失敗 | recorder のログ、NFS |
 
-キューが空の時間帯は、最後の成功が古くても通知しません。「確認済み」にした失敗は通知が止まりますが、自動の再試行は続きます。
+キューが空の時間帯は、最後の成功が古くても通知しません。取得や収集の個々の失敗（取得元の 403・5xx・通信切れなど）は通知しません。自動の再試行が続き、記録は hitomi の管理 CLI か dashboard の「失敗の管理」で見ます。確認済みや対象外にした失敗は、滞留の通知からも外れます。
 
 各 worker は、キューが空のときに確認の間隔を 1 秒から 30 秒まで延ばします。新しい仕事が処理され始めるまで、最大 30 秒ほど待つことがあります。
 
