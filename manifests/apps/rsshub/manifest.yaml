@@ -50,6 +50,10 @@ spec:
               value: redis
             - name: REDIS_URL
               value: redis://rsshub-redis:6379/
+            # コンテナは uid 1000 で動き、root 所有の logs/ に書けない。書けないファイル出力が
+            # winston の logger を詰まらせ、標準出力のログまで止まるため、ファイル出力を無効にする。
+            - name: NO_LOGFILES
+              value: "true"
           resources:
             requests:
               cpu: 100m
