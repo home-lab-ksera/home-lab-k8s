@@ -19,7 +19,7 @@ class ReportTests(unittest.TestCase):
         def broken(*_):
             raise RuntimeError('https://hooks.slack.com/services/SECRET')
         text, errors = module.report(broken, dt.datetime(2026, 10, 19, tzinfo=dt.timezone.utc))
-        self.assertEqual(len(errors), 11)
+        self.assertEqual(len(errors), 12)
         self.assertIn('不完全', text)
         self.assertNotIn('SECRET', text)
         self.assertIn('2026-10-19 09:00', text)
@@ -27,6 +27,8 @@ class ReportTests(unittest.TestCase):
     def test_no_restarts_and_positive_ranking(self):
         def fetch(expr, at=None):
             if expr == module.PVC_INFO or expr in module.PVC_STATS.values():
+                return []
+            if expr in (module.ALERTS, module.ALERTS_NOW):
                 return []
             if expr == module.RESTARTS:
                 return [{'metric': {'namespace': 'apps', 'pod': '<pod>', 'container': 'app'}, 'value': [0, '3.2']}]
@@ -73,6 +75,56 @@ class ReportTests(unittest.TestCase):
         self.assertIn('不完全', text)
         self.assertNotIn('SECRET', text)
 
+    def test_abnormal_targets_are_named(self):
+        rows = [{'metric': {'namespace': 'apps', 'pod': f'p{i}'}, 'value': [0, '1']} for i in range(7)]
+        rows.append({'metric': {'namespace': 'apps', 'pod': 'ok'}, 'value': [0, '0']})
+        text = module.summarize(rows, 'namespace,pod')
+        self.assertTrue(text.startswith('7 / 8 対象（apps/p0, apps/p1'))
+        self.assertIn('ほか 2 件', text)
+        self.assertNotIn('apps/ok', text)
+        self.assertEqual(module.summarize([{'metric': {}, 'value': [0, '0']}], 'namespace,pod'), '0 / 1 対象')
+
+    def test_alerts_are_grouped_with_duration_and_firing_state(self):
+        end = dt.datetime(2026, 10, 26, tzinfo=dt.timezone.utc)
+
+        def alert(name, severity, value, **labels):
+            return {'metric': {'alertname': name, 'severity': severity, 'alertgroup': 'g', **labels},
+                    'value': [0, str(value)]}
+
+        def fetch(expr, at=end):
+            if expr == module.ALERTS_NOW:
+                return [alert('Watchdog', 'none', 1),
+                        alert('CronFailed', 'warning', 1, namespace='apps', owner_name='job', job_name='job-2')]
+            if at == end:
+                return [alert('Watchdog', 'none', 1440),
+                        alert('CronFailed', 'warning', 48, namespace='apps', owner_name='job', job_name='job-1'),
+                        alert('CronFailed', 'warning', 12, namespace='apps', owner_name='job', job_name='job-2'),
+                        alert('Probe', 'critical', 2, target='<web>')]
+            return [alert('Watchdog', 'none', 1440)]
+
+        text = '\n'.join(module.alerts_report(fetch, end))
+        self.assertLess(text.index('Probe [critical]'), text.index('CronFailed [warning]'))
+        self.assertIn('apps/job（約 1.0 時間・発火中）', text)
+        self.assertIn('&lt;web&gt;（約 2 分）', text)
+        self.assertNotIn('Watchdog', text)
+        self.assertNotIn('job-1', text)
+
+    def test_alerts_without_watchdog_are_reported_as_missing(self):
+        text = '\n'.join(module.alerts_report(lambda *_: [], dt.datetime.now(dt.timezone.utc)))
+        self.assertIn('ALERTS）がありません', text)
+        quiet = [{'metric': {'alertname': 'Watchdog'}, 'value': [0, '1440']}]
+        self.assertIn('• なし', '\n'.join(module.alerts_report(lambda *_: quiet, dt.datetime.now(dt.timezone.utc))))
+
+    def test_local_path_is_one_line(self):
+        def fetch(expr):
+            if expr == module.PVC_INFO:
+                return [{'metric': {'namespace': 'db', 'persistentvolumeclaim': name, 'storageclass': 'local-path'},
+                         'value': [0, '1']} for name in ('b', 'a')]
+            return []
+        text = '\n'.join(module.pvc_report(fetch))
+        self.assertIn('local-path 2 PVC: ノードのディスクを使用（db/a, db/b）', text)
+        self.assertNotIn('容量取得不可', text)
+
     def test_pvc_capacity_and_missing(self):
         def row(name, value):
             return {'metric': {'namespace': 'apps', 'persistentvolumeclaim': name}, 'value': [0, str(value)]}
@@ -90,7 +142,8 @@ class ReportTests(unittest.TestCase):
     def test_shared_nfs_is_one_line_without_summing(self):
         def row(name, value):
             return {'metric': {'namespace': 'apps', 'persistentvolumeclaim': name,
-                               'storageclass': 'nfs-external'}, 'value': [0, str(value)]}
+                               'storageclass': 'nfs-postgresql' if name == 'missing' else 'nfs-external'},
+                    'value': [0, str(value)]}
         def fetch(expr):
             if expr == module.PVC_INFO:
                 return [row('a', 1), row('b', 1), row('missing', 1)]
@@ -99,7 +152,7 @@ class ReportTests(unittest.TestCase):
                     [('a', {'available': 40, 'capacity': 100, 'used': 50}),
                      ('b', {'available': 30, 'capacity': 100, 'used': 60})]]
         text = '\n'.join(module.pvc_report(fetch))
-        self.assertEqual(text.count('共有 NFS (nfs-external)'), 1)
+        self.assertEqual(text.count('共有 NFS'), 1)
         self.assertIn('空き 30.0 GiB', text)
         self.assertIn('総容量 100.0 GiB', text)
         self.assertIn('容量取得 2/3 PVC', text)

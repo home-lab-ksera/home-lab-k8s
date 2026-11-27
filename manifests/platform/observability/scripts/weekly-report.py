@@ -23,6 +23,17 @@ CHECKS = [
     ('Gateway Programmed 異常', 'namespace,gateway', 'kube_gateway_status_condition{type="Programmed"} == bool 0'),
     ('Certificate Ready 異常', 'namespace,certificate', 'kube_certificate_status_condition{type="Ready"} == bool 0'),
 ]
+# vmalert が書き込む ALERTS 系列。評価間隔（30 秒〜1 分）の短い発火も拾うため 1 分刻みで数える。
+# Watchdog は常時発火なので、系列が届いているかの確認だけに使う。
+ALERTS = 'sum_over_time((ALERTS{alertstate="firing"} > 0)[1d:1m])'
+ALERTS_NOW = 'ALERTS{alertstate="firing"}'
+# 対象の表示に使わないラベル。
+ALERT_NOISE_LABELS = {'__name__', 'alertname', 'alertstate', 'alertgroup', 'severity', 'cluster',
+                      'job', 'instance', 'reason', 'uid', 'container', 'endpoint', 'service'}
+SEVERITY_ORDER = {'critical': 0, 'warning': 1}
+MAX_NAMES = 5
+# 同じ NFS 共有上の StorageClass。
+SHARED_STORAGECLASSES = {'nfs-external', 'nfs-postgresql'}
 RESTARTS = 'topk(5, sum by(namespace,pod,container) (increase(kube_pod_container_status_restarts_total[7d])))'
 
 PVC_INFO = 'max by(namespace,persistentvolumeclaim,storageclass) (kube_persistentvolumeclaim_info)'
@@ -43,13 +54,18 @@ def pvc_report(fetch):
     shared = []
     shared_total = 0
     entries = []
+    local = []
     for row in info:
         labels = row['metric']
         key = (labels['namespace'], labels['persistentvolumeclaim'])
-        is_shared = labels.get('storageclass') == 'nfs-external'
+        is_shared = labels.get('storageclass') in SHARED_STORAGECLASSES
         if is_shared:
             shared_total += 1
         name = html.escape('/'.join(key))
+        if labels.get('storageclass') == 'local-path':
+            # kubelet は local-path の容量を報告しない。空きはノードのディスクと同じ。
+            local.append(name)
+            continue
         available = stats['available'].get(key)
         capacity = stats['capacity'].get(key)
         used = stats['used'].get(key)
@@ -72,11 +88,13 @@ def pvc_report(fetch):
             available, capacity, used = min(shared, key=lambda values: values[0])
             ratio = available / capacity
             badge = '🔴' if ratio < .1 else '⚠' if ratio < .2 else '•'
-            entries.append((ratio, f'{badge} 共有 NFS (nfs-external): 空き {available / 2**30:.1f} GiB ({ratio:.1%})'
+            entries.append((ratio, f'{badge} 共有 NFS: 空き {available / 2**30:.1f} GiB ({ratio:.1%})'
                             f' / 総容量 {capacity / 2**30:.1f} GiB / 使用 {used / 2**30:.1f} GiB ({used / capacity:.1%})'
-                            f' — 容量取得 {len(shared)}/{shared_total} PVC'))
+                            f' — 容量取得 {len(shared)}/{shared_total} PVC（Pod が使っていない PVC は取れない）'))
         else:
-            entries.append((2, f'• 共有 NFS (nfs-external): 容量取得不可 — 容量取得 0/{shared_total} PVC'))
+            entries.append((2, f'• 共有 NFS: 容量取得不可 — 容量取得 0/{shared_total} PVC'))
+    if local:
+        entries.append((3, f'• local-path {len(local)} PVC: ノードのディスクを使用（{", ".join(sorted(local))}）'))
     lines += [text for _, text in sorted(entries)] if entries else ['• PVC 一覧データなし']
     lines.append('NFS は共有ファイルシステムの容量です。PVC ごとの使用量・上限ではなく、合算できません。'
                  '予約領域等により使用量＋空き容量は総容量と一致しない場合があります。')
@@ -95,10 +113,68 @@ def query(base, expression, end, timeout=20):
     return rows
 
 
-def summarize(rows):
+def summarize(rows, labels=None):
     if not rows:
         return 'データなし'
-    return f'{sum(float(r["value"][1]) > 0 for r in rows)} / {len(rows)} 対象'
+    text = f'{sum(float(r["value"][1]) > 0 for r in rows)} / {len(rows)} 対象'
+    if labels:
+        names = sorted('/'.join(r['metric'].get(k, '?') for k in labels.split(','))
+                       for r in rows if float(r['value'][1]) > 0)
+        if names:
+            text += f'（{names_text(names)}）'
+    return text
+
+
+def names_text(names):
+    shown = ', '.join(html.escape(n) for n in names[:MAX_NAMES])
+    return shown + (f' ほか {len(names) - MAX_NAMES} 件' if len(names) > MAX_NAMES else '')
+
+
+def alert_target(labels):
+    labels = {k: v for k, v in labels.items() if k not in ALERT_NOISE_LABELS}
+    if 'owner_name' in labels:
+        # CronJob の Job 名は実行ごとに変わるので、CronJob 単位にまとめる。
+        labels.pop('job_name', None)
+    keys = (['namespace'] if 'namespace' in labels else []) + sorted(k for k in labels if k != 'namespace')
+    return '/'.join(labels[k] for k in keys) or '-'
+
+
+def duration_text(minutes):
+    return f'約 {minutes:.0f} 分' if minutes < 60 else f'約 {minutes / 60:.1f} 時間'
+
+
+def alerts_report(fetch, end):
+    # 日ごとに 1 分刻みで発火していた分数を数え、アラート名・対象ごとに合計する。
+    merged = {}
+    watchdog = False
+    for day in range(7):
+        for row in fetch(ALERTS, end - dt.timedelta(days=day)):
+            labels = row['metric']
+            if labels.get('alertname') == 'Watchdog':
+                watchdog = True
+                continue
+            key = (labels.get('alertname', '?'), labels.get('severity', ''), alert_target(labels))
+            merged[key] = merged.get(key, 0) + float(row['value'][1])
+    firing = {(r['metric'].get('alertname', '?'), alert_target(r['metric']))
+              for r in fetch(ALERTS_NOW, end)}
+    lines = ['*過去 7 日に発火したアラート（Slack に送らない warning を含む）*']
+    if not watchdog:
+        return lines + ['⚠ アラートの記録（ALERTS）がありません。vmalert の remote write を確認してください']
+    groups = {}
+    for (name, severity, target), minutes in merged.items():
+        groups.setdefault((name, severity), []).append((target, minutes))
+    if not groups:
+        return lines + ['• なし']
+
+    def order(item):
+        (name, severity), targets = item
+        return (SEVERITY_ORDER.get(severity, 2), -sum(m for _, m in targets), name)
+
+    for (name, severity), targets in sorted(groups.items(), key=order):
+        targets.sort(key=lambda item: (-item[1], item[0]))
+        names = [f'{t}（{duration_text(m)}{"・発火中" if (name, t) in firing else ""}）' for t, m in targets]
+        lines.append(f'• {html.escape(name)} [{html.escape(severity or "-")}]: {names_text(names)}')
+    return lines
 
 
 def historical_rows(fetch, labels, expression, end):
@@ -121,12 +197,18 @@ def report(fetch, end):
     start = end - dt.timedelta(days=7)
     lines = ['*Kubernetes 週次レポート / home-lab*',
              f'{start.astimezone(jst):%Y-%m-%d %H:%M} ～ {end.astimezone(jst):%Y-%m-%d %H:%M} JST',
-             '*過去 7 日に異常を観測した対象数 / 観測対象数*']
+             ]
     errors = []
+    try:
+        lines.extend(alerts_report(fetch, end))
+    except Exception:
+        errors.append('アラート履歴')
+        lines.append('⚠ アラート履歴: 取得失敗')
+    lines.append('*過去 7 日に異常を観測した対象数 / 観測対象数*')
     for title, labels, expr in CHECKS:
         try:
             rows = historical_rows(fetch, labels, expr, end)
-            lines.append(f'• {title}: {summarize(rows)}')
+            lines.append(f'• {title}: {summarize(rows, labels)}')
         except Exception:
             # URL や認証情報を含み得る例外本文はログ・Slack に出さない。
             errors.append(title)
@@ -150,7 +232,7 @@ def report(fetch, end):
     except Exception:
         errors.append('PVC 容量')
         lines.append('⚠ PVC 容量: 取得失敗')
-    lines.append('状態は 5 分間隔の観測です。短い異常・収集停止中の異常・欠損 condition は検出できません。'
+    lines.append('状態は 5 分間隔、アラートは 1 分間隔の観測です（継続時間は概算）。短い異常・収集停止中の異常・欠損 condition は検出できません。'
                  '対象数は期間中に観測できたリソース数で、同名 Pod の再作成はまとめます。')
     if errors:
         lines.append('⚠ 一部の取得に失敗したため、不完全なレポートです。')
