@@ -213,7 +213,7 @@ tests:
   - eval_time: 5m
     alertname: CameraRecordingStalled
     exp_alerts: []
-- name: 確認済みの失敗は継続警告と滞留警告から外す
+- name: 確認済みの失敗は失敗警告と滞留警告から外す
   interval: 1m
   input_series:
   - series: application_queue_jobs{namespace="sandbox",queue="media",state="failed"}
@@ -231,75 +231,8 @@ tests:
     alertname: ApplicationQueueFailed
     exp_alerts: []
   - eval_time: 20m
-    alertname: ApplicationUnreviewedFailure
-    exp_alerts: []
-  - eval_time: 20m
     alertname: ApplicationQueueBacklog
     exp_alerts: []
-- name: 新規失敗の確認で解除し再発で再通知する
-  interval: 1m
-  input_series:
-  - series: application_failure_records{namespace="sandbox",queue="hitomi_items",disposition="unreviewed",pod="old"}
-    values: 1+0x6 0+0x6 1+0x10
-  - series: application_failure_records{namespace="sandbox",queue="hitomi_items",disposition="unreviewed",pod="new"}
-    values: 1+0x6 0+0x6 1+0x10
-  alert_rule_test:
-  - eval_time: 4m
-    alertname: ApplicationUnreviewedFailure
-    exp_alerts: []
-  - eval_time: 5m
-    alertname: ApplicationUnreviewedFailure
-    exp_alerts:
-    - exp_labels:
-        queue: hitomi_items
-        severity: warning
-      exp_annotations:
-        summary: hitomi_items に未確認の取得失敗があります（新規または再発）
-  - eval_time: 9m
-    alertname: ApplicationUnreviewedFailure
-    exp_alerts: []
-  - eval_time: 19m
-    alertname: ApplicationUnreviewedFailure
-    exp_alerts:
-    - exp_labels:
-        queue: hitomi_items
-        severity: warning
-      exp_annotations:
-        summary: hitomi_items に未確認の取得失敗があります（新規または再発）
-- name: 取得元の一時的な失敗は次の収集で回復すれば通知しない
-  interval: 5m
-  input_series:
-  - series: application_failure_records{namespace="sandbox",queue="hitomi_sources",disposition="unreviewed"}
-    values: 0+0x2 1+0x48 0+0x20
-  alert_rule_test:
-  - eval_time: 10m
-    alertname: ApplicationUnreviewedFailure
-    exp_alerts: []
-  - eval_time: 4h5m
-    alertname: ApplicationUnreviewedFailure
-    exp_alerts: []
-  - eval_time: 5h
-    alertname: ApplicationUnreviewedFailure
-    exp_alerts: []
-- name: 取得元の失敗が次の収集でも続けば通知する
-  interval: 5m
-  input_series:
-  - series: application_failure_records{namespace="sandbox",queue="hitomi_sources",disposition="unreviewed",pod="old"}
-    values: 0+0x2 1+0x30
-  - series: application_failure_records{namespace="sandbox",queue="hitomi_sources",disposition="unreviewed",pod="new"}
-    values: _x32 1+0x40
-  alert_rule_test:
-  - eval_time: 4h35m
-    alertname: ApplicationUnreviewedFailure
-    exp_alerts: []
-  - eval_time: 4h55m
-    alertname: ApplicationUnreviewedFailure
-    exp_alerts:
-    - exp_labels:
-        queue: hitomi_sources
-        severity: warning
-      exp_annotations:
-        summary: hitomi_sources に未確認の取得失敗があります（新規または再発）
 - name: 未確認の滞留を検知する
   interval: 1m
   input_series:
