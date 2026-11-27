@@ -1,7 +1,7 @@
 global:
   resolve_timeout: 5m
 route:
-  # warning は Slack に送らない。必要なときに vmalert / Alertmanager の画面で見る。
+  # warning は Slack に送らない。週次レポートか vmalert / Alertmanager の画面で見る。
   receiver: discard
   group_by: [alertname, namespace]
   group_wait: 30s

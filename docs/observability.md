@@ -112,12 +112,14 @@ Alloy が 1 分ごとに、クラスタ内から次を確認します（[config.
 
 ## 通知
 
-- **Slack**: Alertmanager が `severity=critical` のアラートだけ、発火と復旧の両方を送ります。warning は送らないので、必要なときに vmalert / Alertmanager の画面（上記）で見ます。集約の待ちは 30 秒、未復旧の再通知は 4 時間ごとです
+- **Slack**: Alertmanager が `severity=critical` のアラートだけ、発火と復旧の両方を送ります。warning は送らず、週次レポートか、vmalert / Alertmanager の画面（上記）で見ます。集約の待ちは 30 秒、未復旧の再通知は 4 時間ごとです
   （[alertmanager.yaml](../manifests/platform/observability/config/alertmanager.yaml)）。Webhook は Secret `alertmanager-slack` です。
 - **デッドマンスイッチ**: 常に発火している `Watchdog` を、Alertmanager が 1 分ごとに healthchecks.io へ送ります（Secret `alertmanager-heartbeat`）。
   クラスタ、ホスト、回線、vmalert、Alertmanager のどれが止まっても送信が途絶え、healthchecks.io がクラスタの外から通知します。
   healthchecks.io 側の設定（Period 5 分 / Grace 5 分、通知先）は Git にありません。
 - **週次レポート**: CronJob [weekly-observability-report](../manifests/platform/observability/weekly-report.yaml) が月曜 09:00 JST に直近 7 日の状態を Slack へ送ります。
+  中身は、発火したアラート（Slack に送らない warning を含む。対象ごとのおおよその継続時間と、今も発火中か）、
+  Node・Pod・ArgoCD などの異常があった対象、コンテナの再起動回数、ストレージの空きです。
   送らずに本文を見るには次を実行します。CronJob から手で Job を作ると、実際に Slack へ送られます。
 
   ```bash
